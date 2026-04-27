@@ -23,8 +23,8 @@ Tests:
       primitives, and verify element-wise equivalence with the FR backend's
       output on a random vector.
 
-Note: We do NOT modify the FR backend. We rebuild the H_OC/H_CO contraction
-locally using both primitives and check they agree on the same inputs.
+Note: This test rebuilds the H_OC/H_CO contraction inside the test using both
+primitives and checks agreement on the same inputs.
 """
 
 from __future__ import annotations

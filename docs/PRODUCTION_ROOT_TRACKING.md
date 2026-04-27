@@ -2,7 +2,8 @@
 
 FCI references are used only for validation benchmarks, where the goal is to
 measure an absolute error against the exact active-space result. Production
-DMRG-SHARC calculations do not require an FCI reference.
+DMRG-SHARC calculations use previous-step wave-function overlap for root
+continuity.
 
 For a new large-active-space system, use continuity against the previous
 accepted wave function:
@@ -25,8 +26,8 @@ accepted wave function:
    sweeps, and number of solved roots; use finite-difference or neighboring
    geometry consistency checks when no FCI reference exists.
 
-The public BVOE benchmark uses FCI overlaps because it is a validation scan,
-not because the production algorithm depends on FCI.
+The public BVOE benchmark uses FCI overlaps as validation data; the production
+algorithm uses the previous accepted wave functions from the trajectory.
 
 Implementation notes:
 

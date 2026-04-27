@@ -1,0 +1,16 @@
+6
+Full DMRG-CASSCF ethylene SHARC regression for public methods benchmark
+C  0.000000  0.000000  0.669500
+C  0.000000  0.000000 -0.669500
+H  0.000000  0.928900  1.232100
+H  0.000000 -0.928900  1.232100
+H  0.000000  0.928900 -1.232100
+H  0.000000 -0.928900 -1.232100
+unit angstrom
+states 2
+init
+savedir SAVEDIR
+H
+DM
+GRAD all
+NACDR

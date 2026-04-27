@@ -30,10 +30,9 @@ Design summary
   using the FCI↔MPS converters for I/O. This path also generalises beyond
   CAS(2,2) and is what BVOE phase 2 / large-active-space production needs.
 
-- Lifecycle: scratch directories are managed via reference counting (only
-  the *creator* instance cleans up when `kernel_close()` is called). This
-  avoids the `__del__` segfault triggered by PySCF's `solver_obj.view(cls)`
-  pattern in `pyscf.grad.sacasscf.Gradients.make_fcasscf`.
+- Lifecycle: scratch directories are managed explicitly via `kernel_close()`
+  and ownership flags, keeping shared block2 scratch state tied to the owning
+  solver object.
 
 Validation
 ----------
@@ -467,8 +466,8 @@ class MPSAsFCISolver(lib.StreamObject):
 
     # We intentionally do NOT define __del__: PySCF's lagrange/grad pipeline
     # creates many short-lived view copies; relying on __del__ for scratch
-    # cleanup makes solver state lifetime brittle (segfaults at the end of
-    # NAC runs). Users should call `kernel_close()` explicitly if they want
+    # cleanup makes solver state lifetime brittle during PySCF derivative
+    # runs. Users should call `kernel_close()` explicitly if they want
     # eager cleanup; otherwise scratch dirs are reused across `kernel` calls.
 
     # ----- spin penalty -----------------------------------------------------
@@ -546,9 +545,9 @@ class MPSAsFCISolver(lib.StreamObject):
                 solver.nroots = n_solve_roots
             self._fci_solver = solver
             # PySCF FCI expects the initial-guess list length to match the
-            # number of solved roots.  When a root buffer is active, keep ci0
-            # for overlap tracking but do not pass a shorter target-state
-            # list as the eigensolver initial guess.
+            # number of solved roots.  When a root buffer is active, ci0 remains
+            # available for overlap tracking while the eigensolver starts from
+            # its default guesses for the larger candidate-root space.
             ci0_kernel = None if n_solve_roots > nroots else ci0
             e, c = solver.kernel(h1e, eri, norb, nelec_t, ci0=ci0_kernel,
                                  ecore=float(ecore),
@@ -601,8 +600,8 @@ class MPSAsFCISolver(lib.StreamObject):
         # for non-spin-adapted CAS should set ``mps_native_rdms=False``
         # and let the FCI fallback handle the small-CAS validation regime.
         # For large CAS where DMRG is mandatory, users should configure
-        # spin via the initial-guess MPS or a custom block2 H+λS² MPO
-        # constructor (TODO: hook into ``driver.get_mpo_any_fermionic``).
+        # spin via the initial-guess MPS or a custom block2 H+lambda*S^2 MPO
+        # constructor.
         self._mpo = mpo
 
         # We request more roots than nroots when targeting spin, then filter

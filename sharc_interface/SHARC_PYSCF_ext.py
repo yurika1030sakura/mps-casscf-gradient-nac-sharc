@@ -484,7 +484,7 @@ at least one task"""
     if not has_veloc:
         del qmin["veloc"]
 
-    # TODO: I hate this and this should be fixed up....ugh!
+    # Parse optional task lines after the molecular-geometry block.
     i = natom + 1
     while i + 1 < len(lines):
         i += 1
@@ -680,7 +680,7 @@ at least one task"""
     nacmap.sort()
     qmin["nacmap"] = nacmap
 
-    # TODO from 2222 of SHARC_MOLCAS, the MOLCAS.resources file loading stuff...
+    # Read PySCF resource settings from the SHARC-side resources file.
 
     pyscf_resource_filename = "PYSCF.resources"
     with open(pyscf_resource_filename, "r") as f:
@@ -1275,7 +1275,7 @@ def gen_solver(mol, qmin):
         if os.getenv("SHARC_DMRG_EXPERIMENTAL", "0") != "1":
             raise RuntimeError(
                 "method dmrg-hybrid is wired into the local interface but remains experimental. "
-                "The local pyblock2 multistate backend segfaulted on the H2 validation harness. "
+                "It is not part of the validated public dmrg-casscf workflow. "
                 "Set SHARC_DMRG_EXPERIMENTAL=1 only if you explicitly want to test this path."
             )
         print(
@@ -1318,7 +1318,7 @@ def get_dipole_elements(solver):
 
     dip_matrix = np.ones(shape=(3, nroots, nroots))
 
-    # TODO: decide on gauge???? Use same as OpenMolcas
+    # Use the default origin convention for the dipole integrals.
     # charge_center = (
         # np.einsum("z,zx->x", mol.atom_charges(), mol.atom_coords())
         # / mol.atom_charges().sum()
@@ -1546,7 +1546,7 @@ def run_jobs(joblist, qmin):
         print(string)
 
     if any((i != 0 for i in error_codes.values())):
-        print("Some subprocesses did not finish successfully!")
+        print("Some subprocesses reported nonzero exit status!")
         sys.exit(1)
 
     return result

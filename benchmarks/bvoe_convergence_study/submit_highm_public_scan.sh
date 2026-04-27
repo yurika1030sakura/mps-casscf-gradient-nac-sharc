@@ -1,6 +1,5 @@
 #!/bin/bash
 #SBATCH -J bvoe_highm
-#SBATCH -A woo_lab
 #SBATCH -p test
 #SBATCH -N 1
 #SBATCH --cpus-per-task=8

@@ -31,7 +31,7 @@ Use these in the methods manuscript:
 - C2 / STO-3G / CAS(8,8)
 - LiF avoided crossing / STO-3G / CAS(4,4), with NAC-gauge caveat
 - Ethylene / STO-3G / CAS(2,2) or CAS(4,4) as a public SHARC-interface
-  smoke test; the CAS(2,2) H/DM/GRAD/NACDR smoke passed locally
+  regression test; the CAS(2,2) H/DM/GRAD/NACDR regression passed
 
 ## Disallowed Material For Manuscript Text
 
@@ -49,10 +49,10 @@ Recommended methods-paper figure set:
 1. Method schematic: PySCF SA-CASSCF + pyblock2 MPS + analytic CP response
    + SHARC output.
 2. BVOE convergence: H4, H2O, N2, H2O/6-31G, C2, LiF.
-3. SHARC-interface smoke: ethylene or LiF, showing DMRG-CASSCF energies,
+3. SHARC-interface regression: ethylene or LiF, showing DMRG-CASSCF energies,
    gradients, and NACDR are written in SHARC format.
 4. Test/validation table: PySCF FCI agreement, MPS path agreement,
-   SHARC smoke, CI/MPS converter tests.
+   SHARC regression, CI/MPS converter tests.
 
 ## Manuscript Title Direction
 

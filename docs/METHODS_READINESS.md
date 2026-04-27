@@ -20,7 +20,7 @@ interface output on public benchmark systems.
   phase-1 SVD proxy.
 - Public BVOE benchmarks now include H4, H2O/STO-3G, N2, H2O/6-31G, C2, and
   LiF.
-- Public full DMRG-SHARC interface smoke is available with ethylene:
+- Public full DMRG-SHARC interface regression is available with ethylene:
   H, DM, gradients, and NACDR are written in SHARC format with error code 0.
 
 ## Claims To Avoid

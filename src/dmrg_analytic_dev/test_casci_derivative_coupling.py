@@ -13,7 +13,7 @@ Tests on HeH+ / sto-3g CAS(2,2) (avoids g/u and S=0/S=1 selection issues that
 make the H2 transitions trivially zero).
 
 Run with:
-    /n/holylabs/woo_lab/Lab/yulili_pyscf/env/bin/python3.11 test_casci_derivative_coupling.py
+    python test_casci_derivative_coupling.py
 """
 
 from __future__ import annotations

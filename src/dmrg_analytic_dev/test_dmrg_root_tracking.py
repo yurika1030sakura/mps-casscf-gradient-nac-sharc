@@ -1,10 +1,9 @@
 """Regression tests for DMRG root/phase tracking.
 
-These tests are intentionally small and do not run DMRG.  They validate the
-production bookkeeping used after each eigensolve: DMRG roots may be returned
-in a different order or with arbitrary signs, and the solver must map them
-onto the previous/root-reference gauge before PySCF gradient/NAC code sees
-the CI list.
+These compact tests validate the production bookkeeping used after each
+eigensolve: DMRG roots may be returned in a different order or with arbitrary
+signs, and the solver maps them onto the previous/root-reference gauge before
+PySCF gradient/NAC code sees the CI list.
 """
 
 import numpy as np

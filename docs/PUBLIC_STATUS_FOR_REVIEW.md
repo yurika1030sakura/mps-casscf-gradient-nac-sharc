@@ -24,7 +24,7 @@ Supported public claims:
 - Public BVOE systems:
   H4/STO-3G CAS(4,4), H2O/STO-3G CAS(4,4), N2/STO-3G CAS(6,6),
   H2O/6-31G CAS(6,6), C2/STO-3G CAS(8,8), and LiF/STO-3G CAS(4,4).
-- Public SHARC-interface smoke:
+- Public SHARC-interface regression:
   ethylene/STO-3G CAS(2,2) with H, DM, gradients, and NACDR written to
   SHARC format with master error code 0.
 
@@ -41,7 +41,7 @@ Do not overclaim LiF NAC convergence.
 
 ## SHARC Status
 
-The public ethylene smoke validates the interface plumbing:
+The public ethylene regression validates the interface plumbing:
 
 - `method dmrg-casscf`
 - SA(2)-DMRG-CASSCF(2,2)/STO-3G

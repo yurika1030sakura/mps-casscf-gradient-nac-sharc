@@ -12,13 +12,9 @@ Two implementations
    (CAS(2,2)/CAS(4,4) where DMRG = FCI). This is what the validation tests
    need to verify the rest of the Freitag-Reiher response solver.
 
-2. **`single_site_sigma_mps_native`** — TODO. Production-scale path that uses
-   pyblock2's MovingEnvironment + EffectiveHamiltonian internals to construct
-   H_loc directly without going through FCI. Initial attempt segfaulted at
-   the SimplifiedMPO/NoTransposeRule construction step; a proper fix requires
-   matching block2's internal symmetry-handling contract more carefully than
-   the high-level docs cover. Documented here as the natural extension once
-   the FCI-fallback validates the algorithm structure.
+2. **`single_site_sigma_mps_native`** — MPS-native path using pyblock2's
+   high-level MPO application/compression machinery to apply the active-space
+   Hamiltonian without forming the full FCI tensor.
 
 For the Freitag-Reiher algorithm itself, the validation regime where we need
 to compare against PySCF's FCI baseline IS the CAS(2,2)/(4,4) regime, so the
@@ -88,9 +84,8 @@ def single_site_sigma_mps_native(
 
     Implementation
     --------------
-    The cleanest production path bypasses the SimplifiedMPO/Rule plumbing that
-    crashed in the earlier attempt. Instead we use the high-level
-    ``DMRGDriver.multiply`` method, which fits
+    The implementation uses the high-level ``DMRGDriver.multiply`` method,
+    which fits
 
         |sigma⟩ ≈ MPO · |mps⟩
 

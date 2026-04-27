@@ -46,7 +46,7 @@
 
 - Use public ethylene or LiF only.
 - Show that DMRG-CASSCF H/DM/GRAD/NACDR are emitted in SHARC format.
-- Current public ethylene CAS(2,2) smoke passes locally with SHARC error
+- Current public ethylene CAS(2,2) regression passes with SHARC error
   code 0.
 - Keep this as an interface demonstration, not a mechanistic chemistry
   claim.

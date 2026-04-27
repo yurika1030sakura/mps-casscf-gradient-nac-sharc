@@ -16,7 +16,7 @@ Tests on HeH+/sto-3g CAS(2,2):
     quantify the orbital-response correction (the piece M3-CASCI is missing).
 
 Run with:
-    /n/holylabs/woo_lab/Lab/yulili_pyscf/env/bin/python3.11 fci_sacasscf_nac_baseline.py
+    python fci_sacasscf_nac_baseline.py
 """
 
 from __future__ import annotations

@@ -7,8 +7,8 @@ It contains only public benchmark systems and methods/software material.
 
 - `src/dmrg_analytic_dev/`: analytic SA-DMRG-CASSCF response code and tests.
 - `sharc_interface/`: SHARC-PySCF interface with `method dmrg-casscf`.
-- `sharc_interface/variants/full_dmrg_ethylene_smoke/`: public ethylene
-  SHARC-interface smoke test.
+- `sharc_interface/variants/full_dmrg_ethylene_regression/`: public ethylene
+  SHARC-interface regression test.
 - `benchmarks/bvoe_convergence_study/`: public BVOE convergence driver,
   summary, and figure.
 - `docs/`: manuscript scope, readiness notes, and LaTeX skeleton.
@@ -28,12 +28,12 @@ Compile the Python files:
 find src sharc_interface benchmarks -name '*.py' -print0 | xargs -0 python -m py_compile
 ```
 
-Run the public SHARC smoke after activating the correct PySCF/pyblock2
+Run the public SHARC regression after activating the correct PySCF/pyblock2
 environment:
 
 ```bash
-cd sharc_interface/variants/full_dmrg_ethylene_smoke
-PYSCF_PYTHON=python ./submit_smoke.sh
+cd sharc_interface/variants/full_dmrg_ethylene_regression
+PYSCF_PYTHON=python ./submit_regression.sh
 ```
 
 Plot the BVOE summary:

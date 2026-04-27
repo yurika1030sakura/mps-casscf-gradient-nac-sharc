@@ -12,7 +12,7 @@ existing CP-CASSCF response solver runs end-to-end with DMRG providing the
 underlying eigensolver and RDMs.
 
 Run with:
-    /n/holylabs/woo_lab/Lab/yulili_pyscf/env/bin/python3.11 test_dmrg_fcisolver.py
+    python test_dmrg_fcisolver.py
 """
 
 from __future__ import annotations

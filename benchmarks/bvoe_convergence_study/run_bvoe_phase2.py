@@ -73,54 +73,182 @@ from site_replacement_density import _pyscf_to_block2_sign  # noqa: E402
 # Test systems
 # ---------------------------------------------------------------------------
 
-def build_h2o():
+def build_h2o_basis(basis="sto-3g", active=(4, 4)):
     mol = gto.M(atom="""
         O   0.0000   0.0000   0.0000
         H   0.0000   0.7572   0.5868
         H   0.0000  -0.7572   0.5868
-    """, basis="sto-3g", spin=0, charge=0, verbose=0)
+    """, basis=basis, spin=0, charge=0, verbose=0)
+    return mol, int(active[0]), int(active[1])
+
+
+def build_h2o():
+    return build_h2o_basis("sto-3g", active=(4, 4))
+
+
+def build_h4_basis(basis="sto-3g"):
+    R_bohr = 1.5
+    R_ang = R_bohr * 0.529177210903
+    coords = "\n".join(f"H   {i * R_ang:.6f}  0.0  0.0" for i in range(4))
+    mol = gto.M(atom=coords, basis=basis, spin=0, charge=0,
+                unit="Angstrom", verbose=0)
     return mol, 4, 4
 
 
 def build_h4():
-    R_bohr = 1.5
-    R_ang = R_bohr * 0.529177210903
-    coords = "\n".join(f"H   {i * R_ang:.6f}  0.0  0.0" for i in range(4))
-    mol = gto.M(atom=coords, basis="sto-3g", spin=0, charge=0,
-                unit="Angstrom", verbose=0)
-    return mol, 4, 4
+    return build_h4_basis("sto-3g")
 
 
-def build_n2():
+def build_n2_basis(basis="sto-3g"):
     mol = gto.M(atom="N 0 0 0; N 0 0 1.4",
-                basis="sto-3g", spin=0, charge=0,
+                basis=basis, spin=0, charge=0,
                 unit="Angstrom", verbose=0)
     return mol, 6, 6
 
 
-def build_c2():
+def build_n2():
+    return build_n2_basis("sto-3g")
+
+
+def build_c2_basis(basis="sto-3g"):
     mol = gto.M(atom="C 0 0 0; C 0 0 1.25",
-                basis="sto-3g", spin=0, charge=0,
+                basis=basis, spin=0, charge=0,
                 unit="Angstrom", verbose=0)
     return mol, 8, 8
 
 
-def build_lif_avoided():
+def build_c2():
+    return build_c2_basis("sto-3g")
+
+
+def build_lif_basis(basis="sto-3g"):
     # Near the ionic/covalent avoided-crossing region; this gives a more
     # informative NAC benchmark than symmetry-suppressed equilibrium N2.
     mol = gto.M(atom="Li 0 0 0; F 0 0 6.5",
-                basis="sto-3g", spin=0, charge=0,
+                basis=basis, spin=0, charge=0,
                 unit="Bohr", verbose=0)
     return mol, 4, 4
 
 
+def build_lif_avoided():
+    return build_lif_basis("sto-3g")
+
+
 def build_h2o_631g_cas66():
+    return build_h2o_basis("6-31g", active=(6, 6))
+
+
+def build_ethylene_basis(basis="sto-3g"):
+    # Planar ethylene is a canonical two-state pi/pi* active-space benchmark.
     mol = gto.M(atom="""
-        O   0.0000   0.0000   0.0000
-        H   0.0000   0.7572   0.5868
-        H   0.0000  -0.7572   0.5868
-    """, basis="6-31g", spin=0, charge=0, verbose=0)
+        C   0.000000   0.000000   0.669500
+        C   0.000000   0.000000  -0.669500
+        H   0.000000   0.928900   1.232100
+        H   0.000000  -0.928900   1.232100
+        H   0.000000   0.928900  -1.232100
+        H   0.000000  -0.928900  -1.232100
+    """, basis=basis, spin=0, charge=0, unit="Angstrom",
+        symmetry=False, verbose=0)
+    return mol, 2, 2
+
+
+def build_butadiene_basis(basis="sto-3g"):
+    # Approximate trans-1,3-butadiene; CAS(4,4) targets the pi manifold.
+    mol = gto.M(atom="""
+        C  -2.0580   0.0000   0.0000
+        C  -0.7110   0.0000   0.0000
+        C   0.7110   0.0000   0.0000
+        C   2.0580   0.0000   0.0000
+        H  -2.6400   0.9300   0.0000
+        H  -2.6400  -0.9300   0.0000
+        H  -0.1690   0.9450   0.0000
+        H   0.1690  -0.9450   0.0000
+        H   2.6400   0.9300   0.0000
+        H   2.6400  -0.9300   0.0000
+    """, basis=basis, spin=0, charge=0, unit="Angstrom",
+        symmetry=False, verbose=0)
+    return mol, 4, 4
+
+
+def build_formaldehyde_basis(basis="sto-3g"):
+    # Standard carbonyl n/pi* photochemistry test case.  The compact CAS(4,4)
+    # active space keeps the benchmark in an FCI-reference regime.
+    mol = gto.M(atom="""
+        C   0.0000   0.0000   0.0000
+        O   0.0000   0.0000   1.2080
+        H   0.0000   0.9360  -0.5870
+        H   0.0000  -0.9360  -0.5870
+    """, basis=basis, spin=0, charge=0, unit="Angstrom",
+        symmetry=False, verbose=0)
+    return mol, 4, 4
+
+
+def build_benzene_basis(basis="sto-3g"):
+    # Regular hexagon benzene; CAS(6,6) is the classic pi-space benchmark.
+    r_c = 1.397
+    r_h = 2.479
+    lines = []
+    for i in range(6):
+        theta = 2.0 * np.pi * i / 6.0
+        lines.append(f"C  {r_c*np.cos(theta): .8f}  {r_c*np.sin(theta): .8f}  0.0")
+    for i in range(6):
+        theta = 2.0 * np.pi * i / 6.0
+        lines.append(f"H  {r_h*np.cos(theta): .8f}  {r_h*np.sin(theta): .8f}  0.0")
+    mol = gto.M(atom="\n".join(lines), basis=basis, spin=0, charge=0,
+                unit="Angstrom", symmetry=False, verbose=0)
     return mol, 6, 6
+
+
+def _basis_builder(kind, basis):
+    if kind == "h4":
+        return lambda basis=basis: build_h4_basis(basis)
+    if kind == "h2o":
+        active = (4, 4) if basis == "sto-3g" else (6, 6)
+        return lambda basis=basis, active=active: build_h2o_basis(
+            basis, active=active
+        )
+    if kind == "n2":
+        return lambda basis=basis: build_n2_basis(basis)
+    if kind == "c2":
+        return lambda basis=basis: build_c2_basis(basis)
+    if kind == "lif":
+        return lambda basis=basis: build_lif_basis(basis)
+    if kind == "ethylene":
+        return lambda basis=basis: build_ethylene_basis(basis)
+    if kind == "butadiene":
+        return lambda basis=basis: build_butadiene_basis(basis)
+    if kind == "formaldehyde":
+        return lambda basis=basis: build_formaldehyde_basis(basis)
+    if kind == "benzene":
+        return lambda basis=basis: build_benzene_basis(basis)
+    raise KeyError(kind)
+
+
+def _basis_key(kind, basis):
+    suffix = {
+        "sto-3g": "",
+        "3-21g": "_321g",
+        "6-31g": "_631g",
+    }[basis]
+    return f"{kind}{suffix}"
+
+
+def _basis_label(kind, basis):
+    labels = {
+        "h4": f"H4 chain / {basis} / CAS(4,4) SA(2), R=1.5 Bohr",
+        "h2o": (
+            f"H2O / {basis} / "
+            f"{'CAS(4,4)' if basis == 'sto-3g' else 'CAS(6,6)'} SA(2)"
+        ),
+        "n2": f"N2 / {basis} / CAS(6,6) SA(2), R=1.4 Ang",
+        "c2": f"C2 / {basis} / CAS(8,8) SA(2), R=1.25 Ang",
+        "lif": f"LiF / {basis} / CAS(4,4) SA(2), R=6.5 Bohr",
+        "ethylene": f"ethylene / {basis} / CAS(2,2) SA(2)",
+        "butadiene": f"trans-butadiene / {basis} / CAS(4,4) SA(2)",
+        "formaldehyde": f"formaldehyde / {basis} / CAS(4,4) SA(2)",
+        "benzene": f"benzene / {basis} / CAS(6,6) SA(2)",
+    }
+    return labels[kind]
 
 
 # (builder, label, M scan, full bipartite rank).
@@ -130,37 +258,66 @@ def build_h2o_631g_cas66():
 # That is a *correct* numerical signal that M=1 is in the singular regime,
 # but it produces minute-to-hour stalls and floods the log. The M=2..rank
 # range gives the full convergence picture for the figure.
-SYSTEMS = {
-    "h4":  (
-        build_h4, "H4 chain / sto-3g / CAS(4,4) SA(2), R=1.5 Bohr",
-        [2, 3, 4, 5, 6, 8, 12, 200], 200,
-    ),
-    "h2o": (
-        build_h2o, "H2O / sto-3g / CAS(4,4) SA(2)",
-        [2, 3, 4, 5, 6, 8, 12, 200], 200,
-    ),
-    "n2":  (
-        build_n2, "N2 / sto-3g / CAS(6,6) SA(2), R=1.4 Ang",
-        [2, 4, 8, 12, 16, 20, 30, 200], 200,
-    ),
-    "c2":  (
-        build_c2, "C2 / sto-3g / CAS(8,8) SA(2), R=1.25 Ang",
-        [4, 8, 16, 32, 64, 70, 120, 200], 200,
-    ),
-    "lif": (
-        build_lif_avoided, "LiF / sto-3g / CAS(4,4) SA(2), R=6.5 Bohr",
-        [2, 3, 4, 5, 6, 8, 12, 200], 200,
-    ),
-    "h2o_631g": (
-        build_h2o_631g_cas66, "H2O / 6-31G / CAS(6,6) SA(2)",
-        [2, 4, 8, 12, 16, 20, 30, 200], 200,
-    ),
+BASIS_SET_MATRIX = ("sto-3g", "3-21g", "6-31g")
+M_SCANS = {
+    "h4": [2, 3, 4, 5, 6, 8, 12, 200],
+    "h2o": [2, 3, 4, 5, 6, 8, 12, 20, 30, 200],
+    "n2": [2, 4, 8, 12, 16, 20, 30, 200],
+    "c2": [4, 8, 16, 32, 64, 70, 120, 200],
+    "lif": [2, 3, 4, 5, 6, 8, 12, 20, 30, 200],
+    "ethylene": [2, 3, 4, 6, 8, 12, 200],
+    "butadiene": [2, 3, 4, 5, 6, 8, 12, 20, 200],
+    "formaldehyde": [2, 3, 4, 5, 6, 8, 12, 20, 200],
+    "benzene": [4, 8, 12, 16, 24, 32, 64, 120, 200],
 }
+
+
+def _build_systems():
+    systems = {}
+    for kind in (
+        "h4", "h2o", "n2", "c2", "lif",
+        "ethylene", "butadiene", "formaldehyde", "benzene",
+    ):
+        for basis in BASIS_SET_MATRIX:
+            key = _basis_key(kind, basis)
+            systems[key] = (
+                _basis_builder(kind, basis),
+                _basis_label(kind, basis),
+                M_SCANS[kind],
+                200,
+            )
+    return systems
+
+
+SYSTEMS = _build_systems()
 
 # General root-buffer setting, matching the production SHARC interface.
 # Benchmarks use FCI overlaps only to score the result; production runs use
 # the same extra-root idea with previous-step overlaps instead of FCI.
 ROOT_BUFFER = int(os.environ.get("BVOE_ROOT_BUFFER", "4"))
+
+
+def _singlet_csf_dim(norb, nelec):
+    """Spin-adapted singlet CSF count for closed-shell CAS(n_e, n_orb)."""
+    if isinstance(nelec, (tuple, list, np.ndarray)):
+        neleca, nelecb = int(nelec[0]), int(nelec[1])
+        nelec_tot = neleca + nelecb
+        if neleca != nelecb:
+            return int(cistring.num_strings(norb, neleca)
+                       * cistring.num_strings(norb, nelecb))
+    else:
+        nelec_tot = int(nelec)
+    if nelec_tot % 2:
+        return int(cistring.num_strings(norb, nelec_tot // 2 + 1)
+                   * cistring.num_strings(norb, nelec_tot // 2))
+    half = nelec_tot // 2
+    if half < 0 or half > norb:
+        return 0
+    dim = int(cistring.num_strings(norb, half) ** 2)
+    if 0 <= half - 1 and half + 1 <= norb:
+        dim -= int(cistring.num_strings(norb, half - 1)
+                   * cistring.num_strings(norb, half + 1))
+    return max(1, dim)
 
 
 # ---------------------------------------------------------------------------
@@ -276,9 +433,8 @@ def _match_and_align_roots(ci_roots, fci_refs):
 
 def _redirect_block2_logs(scratch):
     """Block2 sometimes writes ATTENTION: xsyev info messages to stderr;
-    when the SA-CASSCF preconditioner has a near-singular block we get a
-    flood. We can't fully suppress them but at least ensure they aren't
-    lost into our redirected log via stderr-mixing (handled by the caller).
+    when the SA-CASSCF preconditioner has a near-singular block those messages
+    can be verbose. The caller keeps them in the redirected benchmark log.
     """
     return None
 
@@ -310,11 +466,9 @@ def _reference_has_wavefunction(ref):
 def setup_sacasscf_from_reference(system_key, ref):
     """Build an SA-CASSCF object at the cached FCI orbital/CI gauge.
 
-    Phase-2 derivative comparisons must use one fixed FCI-stationary orbital
-    basis.  Re-running CASSCF independently for every M can converge to a
-    symmetry-equivalent active-orbital gauge, especially under threaded BLAS,
-    which makes derivative comparisons look like root/gauge failures even
-    when the DMRG state is correct.
+    Phase-2 derivative comparisons use one fixed FCI-stationary orbital basis.
+    This keeps symmetry-equivalent active-orbital gauges aligned across the
+    bond-dimension scan, especially under threaded BLAS.
     """
     builder = SYSTEMS[system_key][0]
     mol, ncas, nelec_act = builder()
@@ -420,6 +574,8 @@ def run_dmrg_at_fci_orbitals(system_key, bond_dim, *, fci_ref_payload=None,
                                  np.asarray(eri_act),
                                  ecore=float(ecore), iprint=0)
         n_solve_roots = 2 + max(0, int(ROOT_BUFFER))
+        n_solve_roots = min(n_solve_roots,
+                            max(2, _singlet_csf_dim(ncas, mc.nelecas)))
         ket = driver.get_random_mps(tag=f"K_{bond_dim}", bond_dim=int(bond_dim),
                                     nroots=n_solve_roots)
         ns = max(int(n_sweeps), 30)

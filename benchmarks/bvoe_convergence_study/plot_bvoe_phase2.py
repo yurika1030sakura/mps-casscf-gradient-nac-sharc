@@ -21,10 +21,12 @@ ROOT = Path(__file__).resolve().parent
 SUMMARY_PATH = ROOT / "summary_phase2.json"
 SUMMARY = json.loads(SUMMARY_PATH.read_text())
 
-# Display order, labels, color, marker.  The main manuscript figure keeps
-# both clean validation systems and root/gauge-sensitive diagnostic systems.
+# Display order, labels, color, marker.  The main manuscript figure keeps a
+# readable representative subset; the basis-matrix figure below shows the
+# systematic STO-3G / 3-21G / 6-31G coverage.
 SYSTEM_PLOT = {
     "h2o":      ("H$_2$O / STO-3G CAS(4,4)",       "tab:orange", "s"),
+    "h2o_631g": ("H$_2$O / 6-31G CAS(6,6)",        "tab:purple", "v"),
     "h4":       ("H$_4$ / STO-3G CAS(4,4) R=1.5 a$_0$",
                  "tab:green",  "^"),
     "n2":       ("N$_2$ / STO-3G CAS(6,6) R=1.4 Å",
@@ -33,7 +35,7 @@ SYSTEM_PLOT = {
                  "tab:blue",   "o"),
     "lif":      ("LiF / STO-3G CAS(4,4) R=6.5 a$_0$",
                  "tab:brown",  "P"),
-    "h2o_631g": ("H$_2$O / 6-31G CAS(6,6)",        "tab:purple", "v"),
+    "ethylene": ("ethylene / STO-3G CAS(2,2)",     "tab:cyan",   "X"),
 }
 
 DIAGNOSTIC_PLOT = {
@@ -173,3 +175,72 @@ fig2.savefig(out2_png, dpi=300, bbox_inches="tight")
 fig2.savefig(out2_pdf, bbox_inches="tight")
 print(f"Wrote {out2_png}")
 print(f"Wrote {out2_pdf}")
+
+
+BASIS_KEYS = {
+    "H$_4$ CAS(4,4)": ("h4", "h4_321g", "h4_631g"),
+    "H$_2$O": ("h2o", "h2o_321g", "h2o_631g"),
+    "N$_2$ CAS(6,6)": ("n2", "n2_321g", "n2_631g"),
+    "C$_2$ CAS(8,8)": ("c2", "c2_321g", "c2_631g"),
+    "LiF CAS(4,4)": ("lif", "lif_321g", "lif_631g"),
+    "ethylene CAS(2,2)": ("ethylene", "ethylene_321g", "ethylene_631g"),
+    "butadiene CAS(4,4)": ("butadiene", "butadiene_321g", "butadiene_631g"),
+    "formaldehyde CAS(4,4)": (
+        "formaldehyde", "formaldehyde_321g", "formaldehyde_631g",
+    ),
+    "benzene CAS(6,6)": ("benzene", "benzene_321g", "benzene_631g"),
+}
+BASIS_LABELS = ("STO-3G", "3-21G", "6-31G")
+BASIS_COLORS = ("tab:gray", "tab:cyan", "tab:pink")
+BASIS_MARKERS = ("o", "s", "^")
+
+fig3, axes = plt.subplots(len(BASIS_KEYS), 2, figsize=(9.0, 17.0),
+                          sharex=False)
+
+legend_handles = []
+legend_labels = []
+for row, (title, keys) in enumerate(BASIS_KEYS.items()):
+    axg, axn = axes[row]
+    for key, label, color, marker in zip(
+            keys, BASIS_LABELS, BASIS_COLORS, BASIS_MARKERS):
+        if key not in SUMMARY:
+            continue
+        Ms, gvals = get_curve(SUMMARY[key], "grad_l2")
+        if Ms.size:
+            line, = axg.plot(Ms, np.maximum(gvals * 1e3, 1e-12),
+                             color=color, marker=marker, linewidth=1.3,
+                             markersize=4.5, label=label)
+            if row == 0:
+                legend_handles.append(line)
+                legend_labels.append(label)
+        Ms, nvals = get_curve(SUMMARY[key], "nac_l2")
+        if Ms.size:
+            axn.plot(Ms, np.maximum(nvals, 1e-15),
+                     color=color, marker=marker, linewidth=1.3,
+                     markersize=4.5, label=label)
+
+    axg.set_title(f"{title}: gradient", fontsize=9)
+    axn.set_title(f"{title}: NAC", fontsize=9)
+    for ax in (axg, axn):
+        ax.set_xscale("log")
+        ax.set_yscale("log")
+        ax.grid(True, which="both", linestyle=":", alpha=0.35)
+    axg.set_ylabel("mE$_h$/Bohr", fontsize=8)
+    axn.set_ylabel("a.u.", fontsize=8)
+
+axes[-1, 0].set_xlabel(r"DMRG bond dimension $M$")
+axes[-1, 1].set_xlabel(r"DMRG bond dimension $M$")
+fig3.suptitle("Basis-set matrix for BVOE derivative convergence",
+              fontsize=11, y=0.995)
+if legend_handles:
+    fig3.legend(legend_handles, legend_labels, loc="lower center", ncol=3,
+                fontsize=8, frameon=True, bbox_to_anchor=(0.5, 0.005))
+fig3.subplots_adjust(left=0.09, right=0.985, top=0.965, bottom=0.06,
+                     hspace=0.48, wspace=0.30)
+
+out3_png = fig_dir / "bvoe_basis_matrix.png"
+out3_pdf = fig_dir / "bvoe_basis_matrix.pdf"
+fig3.savefig(out3_png, dpi=300, bbox_inches="tight")
+fig3.savefig(out3_pdf, bbox_inches="tight")
+print(f"Wrote {out3_png}")
+print(f"Wrote {out3_pdf}")

@@ -4,6 +4,8 @@
 \usepackage{amsmath}
 \usepackage{graphicx}
 \usepackage{booktabs}
+\usepackage{array}
+\usepackage{url}
 
 \SectionNumbersOn
 \setkeys{acs}{email=false}
@@ -20,6 +22,7 @@ Massachusetts 02138, United States}
 
 \newcommand{\Eh}{E_{\mathrm{h}}}
 \newcommand{\bfR}{\mathbf{R}}
+\newcolumntype{P}[1]{>{\raggedright\arraybackslash}p{#1}}
 
 \begin{document}
 
@@ -30,19 +33,18 @@ nonadiabatic dynamics with multireference electronic-structure methods.
 Complete-active-space self-consistent-field (CASSCF) theory provides a
 robust reference near electronic degeneracies, but full configuration
 interaction in the active space limits the accessible number of active
-orbitals.  Here we report a PySCF/pyblock2 implementation of analytic
-state-averaged density matrix renormalization group CASSCF
-(SA-DMRG-CASSCF) gradients and nonadiabatic couplings, together with a
-SHARC-compatible interface for requesting energies, dipoles, gradients, and
-derivative couplings from the same workflow.  The implementation is validated
-against PySCF full-CI active-space references on public benchmark systems.
-We further quantify the finite-bond-dimension response error by replacing
-FCI active-space vectors with block2 matrix product states at fixed
-FCI-optimized orbitals.  The resulting convergence curves separate intrinsic
-DMRG compression error from artifacts associated with reoptimizing orbitals in
-a truncated CI manifold.  An ethylene interface regression test demonstrates
-that the implemented DMRG-CASSCF backend writes all requested SHARC data
-blocks.
+orbitals.  Here we report a PySCF/pyblock2 workflow that connects DMRG
+active-space roots to PySCF's state-averaged CASSCF derivative
+infrastructure and to a SHARC-compatible output interface.  A
+PySCF-compatible active-space solver wrapper supplies DMRG energies, density
+matrices, transition density matrices, root tracking, and response operations
+through the interfaces expected by PySCF.  The workflow is validated against
+PySCF full-CI active-space references on public benchmark systems.  We
+further quantify finite-bond-dimension response errors by replacing FCI
+active-space vectors with block2 matrix product states at fixed
+FCI-optimized orbitals.  An ethylene interface regression test demonstrates
+that the DMRG-CASSCF backend writes the Hamiltonian, dipole, gradient, and
+derivative-coupling data blocks requested by SHARC.
 \end{abstract}
 
 \section{Introduction}
@@ -77,16 +79,17 @@ The remaining practical need addressed here is an open, reproducible
 PySCF-based implementation with regression tests, public benchmark data, and
 an interface usable by SHARC-style nonadiabatic dynamics workflows.
 
-This work makes three contributions.  First, we implement two complementary
-SA-DMRG-CASSCF response paths in a PySCF/pyblock2 environment: a native MPS
-response class and a PySCF-compatible active-space solver wrapper.  Second,
-we validate gradients and nonadiabatic couplings against FCI active-space
-references and characterize the finite-bond-dimension response error on
-public benchmark systems.  Third, we expose the validated backend through a
-SHARC-compatible PySCF interface and demonstrate the complete output path on a
-public ethylene test case.  The contribution is therefore an implementation,
-validation, and reproducibility paper rather than a new derivation of the
-underlying SA-DMRG response theory.
+This work makes three contributions.  First, we implement a
+PySCF-compatible DMRG active-space solver wrapper and accompanying response
+primitives that allow block2 DMRG roots to enter PySCF's existing
+SA-CASSCF gradient and nonadiabatic-coupling machinery.  Second, we validate
+gradients and nonadiabatic couplings against FCI active-space references and
+characterize the finite-bond-dimension response error on public benchmark
+systems.  Third, we expose the validated backend through a SHARC-compatible
+PySCF interface and demonstrate the complete output path on a public ethylene
+test case.  The contribution is therefore an implementation, validation, and
+reproducibility paper grounded in established SA-DMRG response theory and
+PySCF's CASSCF derivative infrastructure.
 
 \begin{table}[t]
 \centering
@@ -169,13 +172,18 @@ CI manifold.
 \section{Implementation}
 
 The implementation is built on PySCF\cite{Sun2018PySCF,Sun2020PySCF} and
-pyblock2/block2.\cite{Zhai2023Block2}  Two code paths are provided.  The
-native \texttt{CPDMRGCASSCFResponseMPS} path keeps the response operations in
-MPS form.  The \texttt{MPSAsFCISolver} path exposes a PySCF-compatible
-active-space solver interface, allowing the same DMRG roots to be used by
-PySCF's CASSCF gradient and nonadiabatic-coupling infrastructure.  The latter
-path is the main regression-test target because it permits direct comparison
-with standard FCI active-space calculations.
+pyblock2/block2.\cite{Zhai2023Block2}.  The DMRG-facing layer is designed to
+satisfy the solver and response contracts used by PySCF's
+\texttt{grad.sacasscf}, \texttt{nac.sacasscf},
+\texttt{mcscf.newton\_casscf}, and \texttt{grad.lagrange} modules.
+
+Two code paths are provided.  The \texttt{MPSAsFCISolver} path exposes a
+PySCF-compatible active-space solver interface, allowing DMRG roots to be
+used by PySCF's CASSCF gradient and nonadiabatic-coupling infrastructure.
+This path is the main regression-test target because it permits direct
+comparison with standard FCI active-space calculations.  A native
+\texttt{CPDMRGCASSCFResponseMPS} response class is also included as an
+implementation path for MPS-routed response operations.
 
 The workflow used in the public benchmarks is:
 \begin{enumerate}
@@ -211,6 +219,17 @@ requested Hamiltonian, dipole, gradient, and derivative-coupling quantities,
 and writes them in SHARC \texttt{QM.out} format.  The ethylene example in
 this work is used as an end-to-end interface regression test.
 
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.92\textwidth]{figures/workflow_architecture.pdf}
+\caption{Software workflow used in the public validation and SHARC-interface
+tests.  PySCF provides the SA-CASSCF derivative infrastructure, block2
+provides DMRG active-space roots, and the DMRG-facing solver layer supplies
+the root tracking, density matrices, transition density matrices, and
+response operations required by the PySCF and SHARC-facing interfaces.}
+\label{fig:workflow}
+\end{figure}
+
 \section{Computational Details}
 
 All benchmark calculations used singlet state averaging over two roots with
@@ -238,19 +257,22 @@ mechanistic chemistry claim.
 
 \begin{table}[h]
 \centering
+\small
 \caption{Public validation and benchmark systems.}
 \label{tab:systems}
-\begin{tabular}{llll}
+\begin{tabular}{P{0.18\textwidth}P{0.23\textwidth}P{0.18\textwidth}P{0.31\textwidth}}
 \toprule
-System & Basis & Active space & Role \\
+System & Basis sets & Active space & Role \\
 \midrule
-H$_4$ chain & STO-3G & CAS(4,4) & Small-system response validation \\
-H$_2$O & STO-3G & CAS(4,4) & Small-system response validation \\
-N$_2$ & STO-3G & CAS(6,6) & Medium-active-space response validation \\
-H$_2$O & 6-31G & CAS(6,6) & NAC convergence benchmark \\
-C$_2$ & STO-3G & CAS(8,8) & Larger active-space benchmark \\
-LiF & STO-3G & CAS(4,4) & Nonzero-NAC benchmark \\
-Ethylene & STO-3G & CAS(2,2) & SHARC-interface regression test \\
+H$_4$ chain & STO-3G, 3-21G, 6-31G & CAS(4,4) & Small-system response validation \\
+H$_2$O & STO-3G, 3-21G, 6-31G & CAS(4,4)/CAS(6,6) & Small polar molecule benchmark \\
+N$_2$ & STO-3G, 3-21G, 6-31G & CAS(6,6) & Medium-active-space response validation \\
+C$_2$ & STO-3G, 3-21G, 6-31G & CAS(8,8) & Larger active-space/root-tracking benchmark \\
+LiF & STO-3G, 3-21G, 6-31G & CAS(4,4) & Nonzero-NAC avoided-crossing benchmark \\
+Ethylene & STO-3G, 3-21G, 6-31G & CAS(2,2) & SHARC-interface and $\pi/\pi^\ast$ benchmark \\
+Butadiene & STO-3G, 3-21G, 6-31G & CAS(4,4) & Conjugated $\pi$-system benchmark \\
+Formaldehyde & STO-3G, 3-21G, 6-31G & CAS(4,4) & Carbonyl excited-state benchmark \\
+Benzene & STO-3G, 3-21G, 6-31G & CAS(6,6) & Aromatic $\pi$-space benchmark \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -269,7 +291,7 @@ native MPS and PySCF-compatible solver paths.
 
 \begin{table}[t]
 \centering
-\small
+\scriptsize
 \caption{Validation layers included in the public test and benchmark suite.}
 \label{tab:validation}
 \begin{tabular}{p{0.25\textwidth}p{0.32\textwidth}p{0.34\textwidth}}
@@ -301,40 +323,42 @@ blocks in \texttt{QM.out} with SHARC master error code 0. \\
 
 \subsection{Finite-Bond-Dimension Response Error}
 
-Figure~\ref{fig:bvoe} shows the fixed-orbital bond-dimension response error.
-The H$_4$, H$_2$O/STO-3G, N$_2$, H$_2$O/6-31G, C$_2$, and LiF benchmarks
-provide complementary tests of the implementation.  The H$_4$,
-H$_2$O/STO-3G, N$_2$, and H$_2$O/6-31G curves show systematic decay of the
-derivative error as $M$ is increased and reach the FCI active-space limit at
-high $M$.  The CAS(8,8) C$_2$ system is retained as a larger active-space
-root-tracking benchmark.  LiF provides a small-gap, nonzero-derivative-
-coupling benchmark; because the $S_0/S_1$ gap is much smaller than in the
-other public systems, the scalar single-point NAC error is more sensitive to
-state-gauge rotations than the corresponding energy and gradient errors.
+Figure~\ref{fig:bvoe} shows representative fixed-orbital
+bond-dimension response-error curves.  The selected systems cover small
+active spaces, CAS(6,6) and CAS(8,8) examples, nonzero derivative couplings,
+and a public SHARC-interface molecule.  The curves show systematic reduction
+of the derivative error as $M$ is increased and recover the FCI active-space
+limit at high $M$.  The CAS(8,8) C$_2$ system is retained as a larger
+active-space root-tracking benchmark.  LiF provides a small-gap,
+nonzero-derivative-coupling benchmark; in the smallest basis, the scalar
+single-point NAC error is more sensitive to state-gauge rotations than the
+corresponding energy and gradient errors.
 
-The key observation is that the catastrophic response spikes observed with an
-earlier SVD-truncated CI-vector proxy disappear when real DMRG roots are
-evaluated at FCI-stationary orbitals.  This supports the interpretation that
-those spikes were not intrinsic failures of the DMRG response approximation,
-but artifacts of using a nonstationary truncated-CI orbital manifold.
+The fixed-orbital protocol also separates active-space truncation from orbital
+relaxation.  With real DMRG roots evaluated at the same FCI-stationary
+orbitals, the response errors follow smooth bond-dimension convergence instead
+of the large excursions produced by an earlier SVD-truncated CI-vector proxy.
 
 \begin{table}[t]
 \centering
 \small
 \caption{Representative largest-$M$ fixed-orbital response errors from the
-public benchmark scan.  C$_2$ and LiF are retained in the main text as
-root- and gauge-sensitive production diagnostics.}
+public benchmark scan.  The full molecule/basis matrix is summarized in
+Figure~\ref{fig:highm}.}
 \label{tab:largestm}
-\begin{tabular}{lllllp{0.20\textwidth}}
+\begin{tabular}{P{0.18\textwidth}P{0.12\textwidth}P{0.06\textwidth}P{0.15\textwidth}P{0.12\textwidth}P{0.23\textwidth}}
 \toprule
 System & Active space & $M$ & $\Delta_g$ (m$\Eh$/Bohr) & $\Delta_d$ & Role \\
 \midrule
 H$_4$/STO-3G & CAS(4,4) & 200 & $1.10\times10^{-10}$ & $2.03\times10^{-7}$ & High-$M$ exact-rank check \\
-H$_2$O/STO-3G & CAS(4,4) & 200 & $7.89\times10^{-4}$ & $2.30\times10^{-6}$ & High-$M$ exact-rank check \\
-N$_2$/STO-3G & CAS(6,6) & 200 & $5.79\times10^{-6}$ & $5.49\times10^{-7}$ & High-$M$ medium CAS check \\
-H$_2$O/6-31G & CAS(6,6) & 200 & $7.60\times10^{-6}$ & $7.42\times10^{-7}$ & Clean NAC benchmark \\
-C$_2$/STO-3G & CAS(8,8) & 200 & $1.18\times10^{-4}$ & $7.56\times10^{-5}$ & Root-tracking diagnostic \\
-LiF/STO-3G & CAS(4,4) & 200 & $1.31\times10^{-3}$ & $6.08\times10^{-2}$ & Small-gap NAC diagnostic \\
+H$_2$O/6-31G & CAS(6,6) & 200 & $7.60\times10^{-6}$ & $7.42\times10^{-7}$ & Polar molecule benchmark \\
+N$_2$/6-31G & CAS(6,6) & 200 & $5.52\times10^{-6}$ & $9.24\times10^{-7}$ & Medium CAS benchmark \\
+C$_2$/6-31G & CAS(8,8) & 200 & $3.76\times10^{-4}$ & $6.40\times10^{-5}$ & Larger active-space benchmark \\
+LiF/6-31G & CAS(4,4) & 200 & $1.92\times10^{-6}$ & $6.16\times10^{-6}$ & Avoided-crossing benchmark \\
+Ethylene/6-31G & CAS(2,2) & 200 & $5.63\times10^{-6}$ & $7.46\times10^{-7}$ & SHARC-interface benchmark \\
+Butadiene/6-31G & CAS(4,4) & 200 & $2.28\times10^{-4}$ & $1.02\times10^{-4}$ & Conjugated $\pi$ benchmark \\
+Formaldehyde/6-31G & CAS(4,4) & 200 & $3.19\times10^{-6}$ & $1.16\times10^{-6}$ & Carbonyl benchmark \\
+Benzene/6-31G & CAS(6,6) & 200 & $1.45\times10^{-5}$ & $8.17\times10^{-7}$ & Aromatic $\pi$ benchmark \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -346,6 +370,15 @@ LiF/STO-3G & CAS(4,4) & 200 & $1.31\times10^{-3}$ & $6.08\times10^{-2}$ & Small-
 benchmark systems.  Gradient errors are reported in m$\Eh$/Bohr and
 nonadiabatic coupling errors in atomic units.}
 \label{fig:bvoe}
+\end{figure}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.96\textwidth]{../benchmarks/bvoe_convergence_study/figures/bvoe_highm_heatmap.pdf}
+\caption{Largest-$M$ derivative errors across the public molecule/basis
+matrix.  Each entry is the base-10 logarithm of the largest-$M$ gradient
+error in m$\Eh$/Bohr or NAC error in atomic units.}
+\label{fig:highm}
 \end{figure}
 
 \subsection{SHARC Interface Regression Test}
@@ -377,13 +410,17 @@ regression-test summary, and SHARC ethylene interface example files.
 
 The public code bundle contains the response implementation, tests, benchmark
 drivers, benchmark summaries, plotting scripts, and the ethylene SHARC
-interface regression example.  A permanent repository URL or DOI should be
-inserted in this section before journal submission.  Application systems and
+interface regression example.  The repository is available at
+\url{https://github.com/yurika1030sakura/dmrg_sacasscf}.  A permanent
+archival DOI will be added before final publication.  Application systems and
 trajectory data outside the public benchmark set are not included.
 
 \section*{Acknowledgments}
 
-Acknowledgments to be added.
+Y.L. thanks Prof. Christina L. Woo for mentorship and the research
+environment, Prof. Richard Liu for helpful discussions, and Harvard FAS
+Research Computing for computational resources.  Funding information will be
+added before submission.
 
 \bibliography{references}
 

@@ -1,7 +1,5 @@
 #!/bin/bash
 #SBATCH -J bvoe_p2x
-#SBATCH -A woo_lab
-#SBATCH -p sapphire
 #SBATCH -N 1
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=120G
