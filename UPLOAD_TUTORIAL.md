@@ -3,7 +3,7 @@
 This directory is the upload target:
 
 ```bash
-cd /n/home04/yulili/daisuan/jctc_dmrg_sacasscf_public
+cd /n/home04/yulili/daisuan/dmrg_sacasscf_response_public
 ```
 
 Do not upload `/n/home04/yulili/daisuan` or the full project directory.
@@ -53,13 +53,13 @@ git commit -m "Initial public analytic SA-DMRG-CASSCF response code"
 ## 3. Create The Remote Repository
 
 Recommended first remote: a private GitHub repository named something like
-`jctc-dmrg-sacasscf`.
+`dmrg-sacasscf-response`.
 
 After creating the empty remote repo, push with SSH:
 
 ```bash
 git branch -M main
-git remote add origin git@github.com:YOUR_USER_OR_ORG/jctc-dmrg-sacasscf.git
+git remote add origin git@github.com:YOUR_USER_OR_ORG/dmrg-sacasscf-response.git
 git push -u origin main
 ```
 
@@ -67,7 +67,7 @@ Or push with HTTPS:
 
 ```bash
 git branch -M main
-git remote add origin https://github.com/YOUR_USER_OR_ORG/jctc-dmrg-sacasscf.git
+git remote add origin https://github.com/YOUR_USER_OR_ORG/dmrg-sacasscf-response.git
 git push -u origin main
 ```
 

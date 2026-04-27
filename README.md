@@ -1,6 +1,6 @@
 # Analytic SA-DMRG-CASSCF Response Code
 
-This is the sanitized public code bundle for the JCTC methods manuscript.
+This is the sanitized public code bundle for the methods manuscript.
 It contains only public benchmark systems and methods/software material.
 
 ## Contents

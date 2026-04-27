@@ -1,15 +1,15 @@
-# JCTC Manuscript Scope - Public Benchmarks Only
+# Methods Manuscript Scope - Public Benchmarks Only
 
 Generated 2026-04-27.
 
 ## Hard Scope Boundary
 
-The JCTC manuscript is a methods/software paper. It must use only public,
+The methods manuscript is a methods/software paper. It must use only public,
 non-confidential benchmark systems and must not mention, cite, copy, or
 summarize any molecule, mechanism, geometry, trajectory, or product-path
 evidence from the separate private JACS chemistry project.
 
-## JCTC Story
+## Manuscript Story
 
 Suggested framing:
 
@@ -22,7 +22,7 @@ characterization, not a private mechanistic chemistry application.
 
 ## Allowed Systems
 
-Use these in the JCTC manuscript:
+Use these in the methods manuscript:
 
 - H4 chain / STO-3G / CAS(4,4)
 - H2O / STO-3G / CAS(4,4)
@@ -37,14 +37,14 @@ Use these in the JCTC manuscript:
 
 Do not use any private chemistry-project files, private trajectory files,
 private MECI searches, or private enlarged-active-space application runs for
-the JCTC manuscript.
+the methods manuscript.
 
 These can stay in the workspace for the separate chemistry project, but they
-are not part of the JCTC paper.
+are not part of the methods paper.
 
 ## Figures
 
-Recommended JCTC figure set:
+Recommended methods-paper figure set:
 
 1. Method schematic: PySCF SA-CASSCF + pyblock2 MPS + analytic CP response
    + SHARC output.

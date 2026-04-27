@@ -1,4 +1,4 @@
-# Public, non-confidential full DMRG-CASSCF SHARC smoke for the JCTC paper.
+# Public, non-confidential full DMRG-CASSCF SHARC smoke for the methods paper.
 
 basis sto-3g
 charge 0

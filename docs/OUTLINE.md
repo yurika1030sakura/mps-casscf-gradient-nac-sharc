@@ -1,4 +1,4 @@
-# JCTC Manuscript Outline
+# Methods Manuscript Outline
 
 ## 1. Introduction
 

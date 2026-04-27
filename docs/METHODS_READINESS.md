@@ -1,10 +1,10 @@
-# JCTC Readiness Assessment
+# Methods Paper Readiness Assessment
 
 Generated 2026-04-27.
 
 ## Short Answer
 
-The paper is valid as a JCTC methods/software manuscript, and writing can
+The paper is valid as a methods/software manuscript, and writing can
 start now.
 
 Do not frame it as a finished large-active-space production dynamics paper.

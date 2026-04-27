@@ -1,10 +1,10 @@
-# Public JCTC Status For Review
+# Public Methods Status For Review
 
 Generated 2026-04-27.
 
 ## Manuscript Scope
 
-This is a JCTC methods/software manuscript about analytic
+This is a methods/software manuscript about analytic
 SA-DMRG-CASSCF gradients and nonadiabatic couplings in PySCF/pyblock2, with
 SHARC-format output.
 
@@ -60,6 +60,6 @@ trajectories require an MPS-Krylov response backend.
 
 1. Draft the manuscript from `OUTLINE.md`.
 2. Use `PUBLIC_BENCHMARK_SCOPE.md` as the scope boundary.
-3. Use `JCTC_READINESS.md` for supported claims and caveats.
+3. Use `METHODS_READINESS.md` for supported claims and caveats.
 4. Put C2 and LiF caveats in the figure caption or SI.
 5. Add code availability, test reproducibility, and version details.

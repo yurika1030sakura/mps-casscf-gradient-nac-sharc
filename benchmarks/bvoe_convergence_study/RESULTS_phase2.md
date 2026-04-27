@@ -199,7 +199,7 @@ M ≈ 0.4-0.8 × full rank, consistent with the polynomial-in-M decay.
   should not be overclaimed; LiF has a useful nonzero NAC but shows a NAC
   gauge caveat even when energy/gradient are essentially exact. H₂O M=4
   and H₂O/6-31G M=4 outliers deserve caption notes.
-* For the JCTC methods paper, the BVOE figure is now strong enough to
+* For the methods paper, the BVOE figure is now strong enough to
   start writing. Before submission, decide whether LiF belongs in the main
   figure or SI and phrase C₂ as a stress test rather than a chemical-
   accuracy endpoint.

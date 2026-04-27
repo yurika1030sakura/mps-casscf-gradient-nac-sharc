@@ -1,8 +1,8 @@
 # Full DMRG-CASSCF Ethylene SHARC Smoke
 
-Public, non-confidential SHARC-interface smoke for the JCTC methods paper.
+Public, non-confidential SHARC-interface smoke for the methods paper.
 
-This replaces any private chemistry application/demo in the JCTC manuscript.
+This replaces any private chemistry application/demo in the methods manuscript.
 It uses `method dmrg-casscf` to request H, DM, gradients, and S0/S1 NACDR
 for ethylene at SA(2)-DMRG-CASSCF(2,2)/STO-3G.
 
