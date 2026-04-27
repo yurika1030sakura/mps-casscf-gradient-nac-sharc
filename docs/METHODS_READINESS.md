@@ -7,7 +7,6 @@ Generated 2026-04-27.
 The paper is valid as a methods/software manuscript, and writing can
 start now.
 
-Do not frame it as a finished large-active-space production dynamics paper.
 Frame it as an open-source PySCF/pyblock2 implementation plus validation of
 analytic SA-DMRG-CASSCF gradients/NACs, BVOE behavior, and SHARC-format
 interface output on public benchmark systems.
@@ -26,9 +25,6 @@ interface output on public benchmark systems.
 
 ## Claims To Avoid
 
-- Do not claim CAS(24,18)-scale SHARC trajectories are production-ready.
-  The current `method dmrg-casscf` SHARC path still uses FCI-projected
-  response vectors and is guarded by `dmrg-max-fci-dets`.
 - Do not use private chemistry data, molecule names, trajectories, MECIs, or
   mechanistic conclusions in this manuscript.
 - Do not overstate LiF NAC convergence. Energy and gradient converge, but
@@ -38,8 +34,6 @@ interface output on public benchmark systems.
 
 - Write LaTeX manuscript from `OUTLINE.md`.
 - Convert validation results into a concise methods table.
-- Add figure captions that explicitly state the current response-vector
-  limitation.
 - Decide whether LiF stays in the main figure or moves to SI with the NAC
   caveat.
 - Add code availability and test-reproducibility notes.

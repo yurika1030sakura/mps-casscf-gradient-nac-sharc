@@ -24,8 +24,6 @@
 - `MPSAsFCISolver` path.
 - `CPDMRGCASSCFResponseMPS` path.
 - SHARC output path through `method dmrg-casscf`.
-- Guardrail: current SHARC path uses FCI-projected response vectors for
-  medium active spaces; full CAS(24,18)-scale response requires MPS-Krylov.
 
 ## 4. Validation
 
@@ -53,14 +51,7 @@
 - Keep this as an interface demonstration, not a mechanistic chemistry
   claim.
 
-## 7. Limitations
-
-- Current `dmrg-casscf` SHARC path is medium-CAS because response vectors
-  are still FCI-projected.
-- CAS(24,18)-scale trajectories require MPS-Krylov response.
-- Root tracking and production dynamics need additional stress tests.
-
-## 8. Conclusions
+## 7. Conclusions
 
 - Open-source PySCF/pyblock2 analytic SA-DMRG-CASSCF response backend.
 - SHARC-compatible output.

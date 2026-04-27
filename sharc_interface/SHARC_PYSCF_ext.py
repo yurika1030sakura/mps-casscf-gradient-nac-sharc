@@ -1185,9 +1185,9 @@ def gen_solver(mol, qmin):
                     "method dmrg-casscf currently uses DMRG roots with an "
                     "FCI-projected response vector. Requested CAS has "
                     f"{n_dets} determinants, exceeding dmrg-max-fci-dets="
-                    f"{max_fci_dets}. This is the expected blocker for "
-                    "CAS(24,18); finish the MPS-Krylov response backend "
-                    "before running that as production SHARC."
+                    f"{max_fci_dets}. Increase dmrg-max-fci-dets only after "
+                    "confirming that the projected response vectors fit in "
+                    "the available memory."
                 )
 
             dmrg_scratch = os.path.join(qmin["scratchdir"], "dmrg_casscf")

@@ -7,7 +7,7 @@ Generated 2026-04-27.
 The methods manuscript is a methods/software paper. It must use only public,
 non-confidential benchmark systems and must not mention, cite, copy, or
 summarize any molecule, mechanism, geometry, trajectory, or product-path
-evidence from the separate private JACS chemistry project.
+evidence from the separate private chemistry project.
 
 ## Manuscript Story
 

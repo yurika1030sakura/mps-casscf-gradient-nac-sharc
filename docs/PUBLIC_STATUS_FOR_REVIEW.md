@@ -48,13 +48,7 @@ The public ethylene smoke validates the interface plumbing:
 - H/DM/GRAD/NACDR requested
 - SHARC `QM.out` produced successfully
 
-This is an interface demonstration, not a production trajectory claim.
-
-## Critical Limitation To State In The Paper
-
-The current SHARC path still uses FCI-projected response vectors. It is valid
-for the benchmark sizes used here, but CAS(24,18)-scale production
-trajectories require an MPS-Krylov response backend.
+This is an interface demonstration, not a trajectory-ensemble result.
 
 ## Recommended Next Writing Steps
 

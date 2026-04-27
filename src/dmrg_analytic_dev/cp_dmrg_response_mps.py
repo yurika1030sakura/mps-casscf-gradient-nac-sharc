@@ -9,9 +9,9 @@ transition densities through the MPS primitives in
 Architectural decisions
 -----------------------
 1. **State storage = MPS.** Each ``mps_states[i]`` is a block2 MPS in *SU2
-   mode* (the convention used everywhere else in this codebase). For
-   CAS(24,18) and beyond, the FCI ndarray for each state would not fit in
-   memory; the MPS is the only viable storage.
+   mode* (the convention used everywhere else in this codebase). For large
+   active spaces, the FCI ndarray for each state would not fit in memory;
+   the MPS is the only viable storage.
 
 2. **Trial CI vectors are still FCI ndarrays in the GMRES Krylov space.**
    Converting trial vectors to MPSes on-the-fly (and back) for every Krylov
@@ -24,12 +24,10 @@ Architectural decisions
        * **GMRES vector storage**: still FCI sized.
 
    For ``CAS(n,m)`` with ``n_alpha = n_beta``, the FCI dimension is
-   ``C(m, n_alpha)^2``. CAS(24,18) gives ~ ``C(18,9)^2 ≈ 2.4e9`` entries —
-   the GMRES Krylov vectors *do* become the bottleneck at that scale, and
-   the next iteration of this code (Step 6.4) should replace the Krylov
-   space with MPS objects (an MPS-Krylov GMRES). For now CAS(20,20) and
-   below comfortably fits in 32 GB of RAM with this layout, which is the
-   immediate JACS dynamics demonstration regime.
+   ``C(m, n_alpha)^2``. The GMRES Krylov vectors therefore become the
+   bottleneck when the determinant space is too large to store explicitly.
+   The current implementation keeps this tradeoff explicit and uses the
+   native MPS state storage for the converged roots.
 
 3. **Two block2 drivers.** SU2 mode for energy / RDM evaluations on the
    eigenstates (the existing ``MPSAsFCISolver._driver``); SZ mode for the
