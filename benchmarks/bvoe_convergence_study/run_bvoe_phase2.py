@@ -483,6 +483,7 @@ def setup_sacasscf_from_reference(system_key, ref):
     mc.mo_coeff = np.asarray(ref["mo_coeff"])
     mc.ci = [np.asarray(c) for c in ref["ci"]]
     _set_state_energies(mc, ref["e_states"])
+    mc.converged = True
     return mc
 
 
@@ -507,9 +508,41 @@ def _set_state_energies(mc, e_states):
         pass
 
 
-def compute_grad_and_nac(mc):
-    g = sacasscf_grad.Gradients(mc).kernel(state=0)
-    n = nac_sacasscf.NonAdiabaticCouplings(mc).kernel(state=(0, 1))
+def _configure_lagrange_solver(obj):
+    """Use a stricter Lagrange solve for root/gauge-sensitive NAC benchmarks."""
+    obj.max_cycle = int(os.environ.get("BVOE_LAGRANGE_MAX_CYCLE", "500"))
+    obj.conv_atol = float(os.environ.get("BVOE_LAGRANGE_CONV_ATOL", "1e-12"))
+    obj.conv_rtol = float(os.environ.get("BVOE_LAGRANGE_CONV_RTOL", "1e-7"))
+    return obj
+
+
+def _lagrange_diag(obj):
+    return {
+        "converged": bool(getattr(obj, "converged", False)),
+        "internal_converged": bool(getattr(obj, "_conv", False)),
+        "max_cycle": int(getattr(obj, "max_cycle", -1)),
+        "conv_atol": float(getattr(obj, "conv_atol", np.nan)),
+        "conv_rtol": float(getattr(obj, "conv_rtol", np.nan)),
+    }
+
+
+def compute_grad_and_nac(mc, *, with_diagnostics=False):
+    mc.converged = True
+    grad_obj = _configure_lagrange_solver(sacasscf_grad.Gradients(mc))
+    g = grad_obj.kernel(state=0)
+    nac_obj = _configure_lagrange_solver(
+        nac_sacasscf.NonAdiabaticCouplings(mc)
+    )
+    n = nac_obj.kernel(state=(0, 1))
+    if with_diagnostics:
+        return (
+            np.asarray(g),
+            np.asarray(n),
+            {
+                "gradient_lagrange": _lagrange_diag(grad_obj),
+                "nac_lagrange": _lagrange_diag(nac_obj),
+            },
+        )
     return np.asarray(g), np.asarray(n)
 
 
@@ -519,11 +552,12 @@ def run_fci_reference(system_key):
     t0 = time.time()
     mc = setup_sacasscf_fci(mol, ncas, nelec_act)
     e_states = list(map(float, mc.e_states))
-    g, n = compute_grad_and_nac(mc)
+    g, n, derivative_diag = compute_grad_and_nac(mc, with_diagnostics=True)
     return {
         "system": system_key, "label": label, "bond_dim": "FCI",
         "e_states": e_states,
         "grad": g.tolist(), "nac": n.tolist(),
+        "derivative_diagnostics": derivative_diag,
         "mo_coeff": np.asarray(mc.mo_coeff).tolist(),
         "ci": [np.asarray(ci).tolist() for ci in mc.ci],
         "ci_norms": [float(np.linalg.norm(ci)) for ci in mc.ci],
@@ -634,7 +668,8 @@ def run_dmrg_at_fci_orbitals(system_key, bond_dim, *, fci_ref_payload=None,
     # Install DMRG-truncated CI into mc, recompute grad and NAC
     mc.ci = ci_dmrg
     _set_state_energies(mc, e_dmrg_check)
-    g, n = compute_grad_and_nac(mc)
+    mc.converged = True
+    g, n, derivative_diag = compute_grad_and_nac(mc, with_diagnostics=True)
     return {
         "system": system_key, "label": label, "bond_dim": int(bond_dim),
         "e_states_fci": fci_e_states,
@@ -645,6 +680,7 @@ def run_dmrg_at_fci_orbitals(system_key, bond_dim, *, fci_ref_payload=None,
         "root_overlap_matrix": overlap_matrix,
         "root_assigned_abs_overlaps": assigned_overlaps,
         "grad": g.tolist(), "nac": n.tolist(),
+        "derivative_diagnostics": derivative_diag,
         "ci_overlap_with_fci": [
             float(np.vdot(ci_dmrg[i].ravel(), fci_ci[i].ravel()))
             for i in range(2)
@@ -766,6 +802,16 @@ def main(only=None):
                     "e0_diff": e0_d, "e1_diff": e1_d,
                     "ci0_overlap": res["ci_overlap_with_fci"][0],
                     "ci1_overlap": res["ci_overlap_with_fci"][1],
+                    "grad_lagrange_converged": bool(
+                        res.get("derivative_diagnostics", {})
+                        .get("gradient_lagrange", {})
+                        .get("converged", False)
+                    ),
+                    "nac_lagrange_converged": bool(
+                        res.get("derivative_diagnostics", {})
+                        .get("nac_lagrange", {})
+                        .get("converged", False)
+                    ),
                     "runtime_s": res["runtime_s"],
                 }
                 print(f"[{sys_key}] M={M:4d}  "
