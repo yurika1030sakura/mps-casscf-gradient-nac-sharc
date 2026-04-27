@@ -28,26 +28,29 @@ bash scripts/check_sensitive_terms.sh .private_terms
 If it prints matches, fix them before upload. Keep `.private_terms` local;
 `.gitignore` excludes it.
 
-## 2. Initialize Git
+## 2. Local Git Status
+
+This bundle is already initialized as a local git repository on branch
+`main`. Check it before pushing:
 
 ```bash
-git init
 git status --short
+git log --oneline --decorate -2
 ```
 
-Review every file before staging:
+Review tracked files:
 
 ```bash
-find . -maxdepth 3 -type f | sort
+git ls-files | sort
 ```
 
-Stage and commit:
+If you make more edits before upload:
 
 ```bash
-git add README.md UPLOAD_TUTORIAL.md requirements.txt .gitignore
-git add src sharc_interface benchmarks docs scripts
+git diff
+git add PATHS_YOU_CHANGED
 git status --short
-git commit -m "Initial public analytic SA-DMRG-CASSCF response code"
+git commit -m "Describe the public change"
 ```
 
 ## 3. Create The Remote Repository
