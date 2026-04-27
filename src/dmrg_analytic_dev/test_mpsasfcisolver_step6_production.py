@@ -8,9 +8,9 @@ P2: H4/sto-3g (CAS(4,4)) SA(2) gradient via
     pyscf.grad.sacasscf — DMRG fcisolver matches FCI fcisolver to 1e-7.
 P3: H4/sto-3g (CAS(4,4)) SA(2) NAC via pyscf.nac.sacasscf — DMRG matches
     FCI baseline to 1e-7 (allowing for global sign).
-P4: Integration with `cp_casscf_response.CPCASSCFResponseFCI` — solve(state=0)
-    and solve_nac((0,1)) using `mc.fcisolver = MPSAsFCISolver(M=full_rank)`
-    match the FCI baseline at chemical accuracy.
+P4: Integration with `cp_casscf_response.CPCASSCFResponseFCI` — the CP
+    response RHS and Hessian-vector product using
+    `mc.fcisolver = MPSAsFCISolver(M=full_rank)` match the FCI baseline.
 
 Run with:
     /n/home04/yulili/.conda/envs/pyscf_dmrg/bin/python \
@@ -61,6 +61,16 @@ def _phase_diff(a: np.ndarray, b: np.ndarray) -> float:
     d_pos = float(np.linalg.norm(a - b))
     d_neg = float(np.linalg.norm(a + b))
     return min(d_pos, d_neg)
+
+
+def _align_ci_to_reference(ci_list, ref_list):
+    """Return CI roots phase-aligned to an external reference calculation."""
+    out = [np.asarray(c).copy() for c in ci_list]
+    for i, (ci, ref) in enumerate(zip(out, ref_list)):
+        ovlp = float(np.vdot(np.asarray(ref).ravel(), ci.ravel()))
+        if ovlp < 0:
+            out[i] *= -1
+    return out
 
 
 # ---------------------------------------------------------------------------
@@ -162,20 +172,15 @@ def test_p3_h4_nac():
 
 def test_p4_cp_response_integration():
     """`CPCASSCFResponseFCI(mc, backend='newton_casscf')` works with
-    DMRG-backed `mc.fcisolver`. Solve state=0 (gradient) and (0,1) (NAC)
-    Lvec; compare against the FCI baseline.
+    DMRG-backed `mc.fcisolver`.
 
     Use H4 stretched CAS(4,4) where the CP-CASSCF response RHS is
     nontrivial (compact H4 sits at an SA stationary point and the CP
     solution is identically zero on both sides — uninteresting).
 
-    The FCI vs DMRG comparison is structural (do both solvers run end-to-end
-    and produce comparable answers) rather than bitwise: GMRES on the
-    CP-CASSCF block can be ill-conditioned for these tiny systems and
-    Krylov iterates differ between solvers due to SA-CASSCF spin-penalty
-    convergence at slightly different ε. The headline checks for analytic
-    correctness are P1-P3 (PySCF-native gradient/NAC pipeline), which
-    pass at 1e-7.
+    The validation target is deterministic: compare the CP response RHS and
+    Hessian-vector product directly. This avoids making a small, nearly
+    singular SA-CASSCF GMRES solve the pass/fail criterion.
     """
     mol = make_h4(spacing=1.5)
     mf_fci = scf.RHF(mol).run(conv_tol=1e-12)
@@ -185,12 +190,6 @@ def test_p4_cp_response_integration():
     mc_fci = mc_fci.state_average_([0.5, 0.5])
     mc_fci.kernel()
     cp_fci = CPCASSCFResponseFCI(mc_fci, backend="newton_casscf")
-    kappa_fci_0, vlist_fci_0, info_fci_0 = cp_fci.solve(state=0,
-                                                         tol=1e-9,
-                                                         max_iter=500)
-    kappa_fci_n, vlist_fci_n, info_fci_n = cp_fci.solve_nac((0, 1),
-                                                              tol=1e-9,
-                                                              max_iter=500)
 
     mf_dmrg = scf.RHF(mol).run(conv_tol=1e-12)
     mc_dmrg = mcscf.CASSCF(mf_dmrg, 4, 4)
@@ -198,70 +197,56 @@ def test_p4_cp_response_integration():
     mc_dmrg.fcisolver.nroots = 2
     mc_dmrg = mc_dmrg.state_average_([0.5, 0.5])
     mc_dmrg.kernel()
+
+    # External FCI-vs-DMRG comparisons need a common arbitrary CI phase.
+    # Production trajectory continuity is handled inside MPSAsFCISolver.
+    mc_dmrg.ci = _align_ci_to_reference(mc_dmrg.ci, mc_fci.ci)
+
     cp_dmrg = CPCASSCFResponseFCI(mc_dmrg, backend="newton_casscf")
-    kappa_dmrg_0, vlist_dmrg_0, info_dmrg_0 = cp_dmrg.solve(state=0,
-                                                             tol=1e-9,
-                                                             max_iter=500)
-    kappa_dmrg_n, vlist_dmrg_n, info_dmrg_n = cp_dmrg.solve_nac((0, 1),
-                                                                  tol=1e-9,
-                                                                  max_iter=500)
+
+    rhs_fci_0 = cp_fci.build_rhs(state=0)
+    rhs_dmrg_0 = cp_dmrg.build_rhs(state=0)
+    rhs_fci_n = cp_fci.build_rhs_nac((0, 1))
+    rhs_dmrg_n = cp_dmrg.build_rhs_nac((0, 1))
+
+    rhs_state_orb_diff = float(np.linalg.norm(rhs_fci_0[0] - rhs_dmrg_0[0]))
+    rhs_state_ci_diff = max(float(np.linalg.norm(a - b))
+                            for a, b in zip(rhs_fci_0[1], rhs_dmrg_0[1]))
+    rhs_nac_orb_diff = float(np.linalg.norm(rhs_fci_n[0] - rhs_dmrg_n[0]))
+    rhs_nac_ci_diff = max(float(np.linalg.norm(a - b))
+                          for a, b in zip(rhs_fci_n[1], rhs_dmrg_n[1]))
+
+    rng = np.random.default_rng(20260427)
+    n = cp_fci.get_linear_operator().shape[0]
+    trial = rng.standard_normal(n)
+    ax_fci = cp_fci._matvec(trial)
+    ax_dmrg = cp_dmrg._matvec(trial)
+    matvec_diff = float(np.linalg.norm(ax_fci - ax_dmrg))
+    matvec_rel = matvec_diff / max(1e-30, float(np.linalg.norm(ax_fci)))
     mc_dmrg.fcisolver.kernel_close()
 
-    L_fci_0 = np.concatenate(
-        [np.asarray(kappa_fci_0).ravel()]
-        + [np.asarray(v).ravel() for v in vlist_fci_0])
-    L_dmrg_0 = np.concatenate(
-        [np.asarray(kappa_dmrg_0).ravel()]
-        + [np.asarray(v).ravel() for v in vlist_dmrg_0])
-    L_fci_n = np.concatenate(
-        [np.asarray(kappa_fci_n).ravel()]
-        + [np.asarray(v).ravel() for v in vlist_fci_n])
-    L_dmrg_n = np.concatenate(
-        [np.asarray(kappa_dmrg_n).ravel()]
-        + [np.asarray(v).ravel() for v in vlist_dmrg_n])
-
-    d0 = _phase_diff(L_fci_0, L_dmrg_0)
-    dn = _phase_diff(L_fci_n, L_dmrg_n)
-    # GMRES on the CP-CASSCF gradient block can be ill-conditioned for the
-    # all-equal SA(2) case (we observe both FCI and DMRG GMRES hit the
-    # 500-iter cap on the state-0 block). What we are checking here is
-    # that DMRG-backed and FCI-backed CP solvers produce identical
-    # iterates — which they will iff the underlying fcisolver primitives
-    # match. Pass criterion: the relative difference is < 1e-3, OR the
-    # NAC block matches at 1e-5 (more discerning).
-    # Sanity: both solvers ran end-to-end and produced comparable output
-    # magnitudes. The GMRES inner residuals fluctuate Krylov-style between
-    # solvers; what we are validating here is that DMRG-backed CP solver
-    # IS a viable drop-in replacement (no exceptions, output magnitudes
-    # match within 10x, NAC block consistent).
-    n0_fci = float(np.linalg.norm(L_fci_0))
-    n0_dmrg = float(np.linalg.norm(L_dmrg_0))
-    nn_fci = float(np.linalg.norm(L_fci_n))
-    nn_dmrg = float(np.linalg.norm(L_dmrg_n))
-
-    def _ratio(a, b):
-        if max(a, b) < 1e-10:
-            return 1.0
-        return min(a, b) / max(a, b)
-
-    ratio_0 = _ratio(n0_fci, n0_dmrg)
-    ratio_n = _ratio(nn_fci, nn_dmrg)
+    tol_abs = 5e-6
+    tol_rel = 1e-6
+    ok = (
+        rhs_state_orb_diff < tol_abs
+        and rhs_state_ci_diff < tol_abs
+        and rhs_nac_orb_diff < tol_abs
+        and rhs_nac_ci_diff < tol_abs
+        and matvec_diff < tol_abs
+        and matvec_rel < tol_rel
+    )
 
     return {
         "name": "P4_cp_response_integration",
-        "Lvec_state0_diff_after_phase": d0,
-        "Lvec_nac_diff_after_phase": dn,
-        "L_state0_norm_fci": n0_fci,
-        "L_state0_norm_dmrg": n0_dmrg,
-        "L_nac_norm_fci": nn_fci,
-        "L_nac_norm_dmrg": nn_dmrg,
-        "ratio_state0": ratio_0,
-        "ratio_nac": ratio_n,
-        "info_state0_fci": int(info_fci_0),
-        "info_state0_dmrg": int(info_dmrg_0),
-        "info_nac_fci": int(info_fci_n),
-        "info_nac_dmrg": int(info_dmrg_n),
-        "status": "pass" if (ratio_0 > 0.1 and ratio_n > 0.1) else "fail",
+        "rhs_state_orb_diff": rhs_state_orb_diff,
+        "rhs_state_ci_diff": rhs_state_ci_diff,
+        "rhs_nac_orb_diff": rhs_nac_orb_diff,
+        "rhs_nac_ci_diff": rhs_nac_ci_diff,
+        "matvec_diff": matvec_diff,
+        "matvec_rel": matvec_rel,
+        "tol_abs": tol_abs,
+        "tol_rel": tol_rel,
+        "status": "pass" if ok else "fail",
     }
 
 

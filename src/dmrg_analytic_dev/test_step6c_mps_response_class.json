@@ -5,7 +5,7 @@
     {
       "name": "M1_HCC_elementwise",
       "diffs_per_root": [
-        5.438959822042073e-16,
+        1.047382306668854e-15,
         0.0
       ],
       "tol": 1e-08,
@@ -20,8 +20,8 @@
     {
       "name": "M3_HCO_elementwise",
       "diffs_per_root": [
-        1.2412670766236366e-16,
-        1.2499257461493165e-15
+        2.3551386880256624e-16,
+        2.7194799110210365e-16
       ],
       "tol": 1e-08,
       "status": "pass"
@@ -30,8 +30,8 @@
       "name": "M4_solve_state0",
       "info_fci": 0,
       "info_mps": 0,
-      "diff_kappa": 6.619282909410174e-17,
-      "diff_v_max": 2.6986590293773865e-16,
+      "diff_kappa": 1.0971354589302191e-17,
+      "diff_v_max": 6.163286456657862e-18,
       "tol": 1e-07,
       "status": "pass"
     }

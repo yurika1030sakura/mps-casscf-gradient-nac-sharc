@@ -781,7 +781,7 @@ at least one task"""
         template = f.readlines()
 
     template_dict = {}
-    INTEGERS_KEYS = ["ncas", "nelecas", "roots", "grids-level", "verbose", "max-cycle-macro", "max-cycle-micro", "ah-max-cycle", "ah-start-cycle", "grad-max-cycle", "charge", "dmrg-ncas", "dmrg-nelecas", "dmrg-startm", "dmrg-maxm", "dmrg-memory-mb", "dmrg-nsteps", "dmrg-max-fci-dets"]
+    INTEGERS_KEYS = ["ncas", "nelecas", "roots", "grids-level", "verbose", "max-cycle-macro", "max-cycle-micro", "ah-max-cycle", "ah-start-cycle", "grad-max-cycle", "charge", "dmrg-ncas", "dmrg-nelecas", "dmrg-startm", "dmrg-maxm", "dmrg-memory-mb", "dmrg-nsteps", "dmrg-max-fci-dets", "dmrg-root-buffer"]
     STRING_KEYS = ["basis", "method", "pdft-functional"]
     RAW_STRING_KEYS = ["dmrg-avas-labels", "dmrg-cas-list", "dmrg-grad-mode"]
     FLOAT_KEYS = ["conv-tol", "conv-tol-grad", "max-stepsize", "ah-start-tol", "ah-level-shift", "ah-conv-tol", "ah-lindep", "fix-spin-shift", "dmrg-sweep-tol", "dmrg-avas-threshold", "dmrg-fd-step"]
@@ -828,6 +828,10 @@ at least one task"""
     # ndarrays for the response equations. Refuse larger Hilbert spaces
     # explicitly rather than letting a trajectory die by memory exhaustion.
     template_dict["dmrg-max-fci-dets"] = 20_000_000
+    # Solve extra candidate roots and select the propagated state set by
+    # overlap with the previous accepted CI vectors.  This is system-agnostic
+    # root following; it is not tied to FCI references or benchmark labels.
+    template_dict["dmrg-root-buffer"] = 4
 
     for line in template:
         orig = re.sub("#.*$", "", line).split(None, 1)
@@ -1200,6 +1204,7 @@ def gen_solver(mol, qmin):
                 scratch_root=dmrg_scratch,
                 force_dmrg=True,
                 max_fci_dets=max_fci_dets,
+                root_buffer=int(qmin["template"].get("dmrg-root-buffer", 4)),
             )
             solver.fcisolver.fix_spin_(
                 ss=0.0,
@@ -1209,6 +1214,7 @@ def gen_solver(mol, qmin):
                 "[SHARC_PYSCF_ext] method dmrg-casscf: using "
                 f"MPSAsFCISolver(M={solver.fcisolver.bond_dim}, "
                 f"n_sweeps={solver.fcisolver.n_sweeps}, "
+                f"root_buffer={solver.fcisolver.root_buffer}, "
                 f"n_dets={n_dets}) with FCI-projected analytic response.",
                 flush=True,
             )
@@ -1251,6 +1257,16 @@ def gen_solver(mol, qmin):
     if os.path.isfile(old_chk):
         print(f"Updating solver from chk: {old_chk}", flush=True)
         solver.update(old_chk)
+        previous_ci = getattr(solver, "ci", None)
+        if qmin["method"] == 5 and previous_ci is not None \
+                and hasattr(solver, "fcisolver") \
+                and hasattr(solver.fcisolver, "_last_ci"):
+            if isinstance(previous_ci, (list, tuple)):
+                solver.fcisolver._last_ci = [
+                    np.asarray(ci).copy() for ci in previous_ci
+                ]
+            else:
+                solver.fcisolver._last_ci = [np.asarray(previous_ci).copy()]
         # This doesn't work with fix_spin so I remove the old CI vector...
         solver.ci = None
         solver.mo_coeff = mcscf.project_init_guess(solver, solver.mo_coeff)
@@ -1270,6 +1286,10 @@ def gen_solver(mol, qmin):
         solver = HybridDMRGSharcSolver(solver, qmin)
 
     solver.kernel(solver.mo_coeff)#, solver.ci)
+    fcisolver = getattr(solver, "fcisolver", None)
+    root_warnings = getattr(fcisolver, "_root_tracking_warnings", [])
+    for warning in root_warnings:
+        print(f"[SHARC_PYSCF_ext] DMRG root tracking: {warning}", flush=True)
     return solver
 
 

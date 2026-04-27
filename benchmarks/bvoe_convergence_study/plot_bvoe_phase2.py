@@ -21,7 +21,8 @@ ROOT = Path(__file__).resolve().parent
 SUMMARY_PATH = ROOT / "summary_phase2.json"
 SUMMARY = json.loads(SUMMARY_PATH.read_text())
 
-# Display order, labels, color, marker
+# Display order, labels, color, marker.  The main manuscript figure keeps
+# both clean validation systems and root/gauge-sensitive diagnostic systems.
 SYSTEM_PLOT = {
     "h2o":      ("H$_2$O / STO-3G CAS(4,4)",       "tab:orange", "s"),
     "h4":       ("H$_4$ / STO-3G CAS(4,4) R=1.5 a$_0$",
@@ -33,6 +34,13 @@ SYSTEM_PLOT = {
     "lif":      ("LiF / STO-3G CAS(4,4) R=6.5 a$_0$",
                  "tab:brown",  "P"),
     "h2o_631g": ("H$_2$O / 6-31G CAS(6,6)",        "tab:purple", "v"),
+}
+
+DIAGNOSTIC_PLOT = {
+    "c2":       ("C$_2$ / STO-3G CAS(8,8) R=1.25 Å",
+                 "tab:blue",   "o"),
+    "lif":      ("LiF / STO-3G CAS(4,4) R=6.5 a$_0$",
+                 "tab:brown",  "P"),
 }
 
 
@@ -117,3 +125,51 @@ fig.savefig(out_png, dpi=300, bbox_inches="tight")
 fig.savefig(out_pdf, bbox_inches="tight")
 print(f"Wrote {out_png}")
 print(f"Wrote {out_pdf}")
+
+
+fig2, (ax2_g, ax2_n) = plt.subplots(1, 2, figsize=(8.5, 4.0))
+legend_handles = []
+legend_labels = []
+
+for sys_key, (label, color, marker) in DIAGNOSTIC_PLOT.items():
+    if sys_key not in SUMMARY:
+        continue
+    d = SUMMARY[sys_key]
+    Ms, gvals = get_curve(d, "grad_l2")
+    if Ms.size:
+        line, = ax2_g.plot(Ms, np.maximum(gvals * 1e3, 1e-12),
+                           color=color, marker=marker, label=label,
+                           linewidth=1.7, markersize=6)
+        legend_handles.append(line)
+        legend_labels.append(label)
+    Ms, nvals = get_curve(d, "nac_l2")
+    if Ms.size:
+        ax2_n.plot(Ms, np.maximum(nvals, 1e-15), color=color,
+                   marker=marker, label=label, linewidth=1.7, markersize=6)
+
+for ax, title, ylabel in [
+    (ax2_g, "(a) Gradient diagnostic",
+     r"$\|\nabla E_0(M) - \nabla E_0^{\rm FCI}\|_2$  (mE$_h$/Bohr)"),
+    (ax2_n, "(b) NAC diagnostic",
+     r"$\|\mathbf{d}_{01}(M) - \mathbf{d}_{01}^{\rm FCI}\|_2$  (a.u.)"),
+]:
+    ax.set_xscale("log")
+    ax.set_yscale("log")
+    ax.set_xlabel(r"DMRG bond dimension $M$")
+    ax.set_ylabel(ylabel)
+    ax.set_title(title, fontsize=10)
+    ax.grid(True, which="both", linestyle=":", alpha=0.4)
+
+fig2.suptitle("Diagnostic bond-dimension scans: root/gauge-sensitive cases",
+              fontsize=10, y=0.96)
+fig2.legend(legend_handles, legend_labels, loc="lower center", ncol=2,
+            fontsize=7.5, frameon=True, bbox_to_anchor=(0.5, 0.01))
+fig2.subplots_adjust(left=0.10, right=0.98, top=0.82, bottom=0.27,
+                     wspace=0.33)
+
+out2_png = fig_dir / "bvoe_phase2_diagnostics.png"
+out2_pdf = fig_dir / "bvoe_phase2_diagnostics.pdf"
+fig2.savefig(out2_png, dpi=300, bbox_inches="tight")
+fig2.savefig(out2_pdf, bbox_inches="tight")
+print(f"Wrote {out2_png}")
+print(f"Wrote {out2_pdf}")

@@ -47,6 +47,7 @@ Validation
 
 from __future__ import annotations
 
+import itertools
 from pathlib import Path
 import shutil
 import tempfile
@@ -59,6 +60,8 @@ import sys as _sys
 _HERE = Path(__file__).resolve().parent
 if str(_HERE) not in _sys.path:
     _sys.path.insert(0, str(_HERE))
+
+_PYSCF_DEFAULT_SPIN_PENALTY = 0.2
 
 
 # ---------------------------------------------------------------------------
@@ -89,6 +92,79 @@ def _csf_to_fci22_singlet(csfs: np.ndarray, coefs: np.ndarray) -> np.ndarray:
             ci[0, 1] += c * inv_sqrt2
             ci[1, 0] += c * inv_sqrt2
     return ci
+
+
+def _as_ci_list(ci, nroots):
+    """Normalize PySCF CI storage to a list of arrays, or return None."""
+    if ci is None:
+        return None
+    if isinstance(ci, (list, tuple)):
+        if len(ci) < nroots:
+            return None
+        out = [np.asarray(c) for c in ci[:nroots]]
+    else:
+        if nroots != 1:
+            return None
+        out = [np.asarray(ci)]
+    if any(c.size == 0 for c in out):
+        return None
+    return out
+
+
+def _match_ci_roots(ci_roots, ref_roots):
+    """Select, reorder, and phase-align CI roots by overlap.
+
+    ``ci_roots`` may contain more candidate roots than ``ref_roots``.  This
+    is the production path used with a root buffer: solve extra roots, then
+    choose the subset that is continuous with the previously accepted state
+    set (or the caller-provided ``ci0`` reference).
+    """
+    nraw = len(ci_roots)
+    ntarget = len(ref_roots)
+    if nraw < ntarget or ntarget == 0:
+        return ci_roots[:ntarget], list(range(min(nraw, ntarget))), None
+
+    for ci in ci_roots:
+        for ref in ref_roots:
+            if np.asarray(ci).shape != np.asarray(ref).shape:
+                return ci_roots[:ntarget], list(range(ntarget)), None
+
+    overlap = np.empty((nraw, ntarget))
+    for i, ci in enumerate(ci_roots):
+        ci_vec = np.asarray(ci).ravel()
+        for j, ref in enumerate(ref_roots):
+            overlap[i, j] = float(np.vdot(np.asarray(ref).ravel(), ci_vec))
+
+    overlap_abs = np.abs(overlap)
+    try:
+        from scipy.optimize import linear_sum_assignment
+
+        rows, cols = linear_sum_assignment(-overlap_abs)
+        assignment = [None] * ntarget
+        for i, j in zip(rows, cols):
+            assignment[int(j)] = int(i)
+        if any(i is None for i in assignment):
+            raise ValueError("incomplete root assignment")
+        best_perm = tuple(assignment)
+    except Exception:
+        best_perm = None
+        best_score = -1.0
+        for perm in itertools.permutations(range(nraw), ntarget):
+            score = sum(overlap_abs[perm[j], j] for j in range(ntarget))
+            if score > best_score:
+                best_perm = perm
+                best_score = score
+
+    aligned = []
+    for j, i in enumerate(best_perm):
+        ci = np.asarray(ci_roots[i]).copy()
+        if overlap[i, j] < 0:
+            ci *= -1
+        norm = np.linalg.norm(ci)
+        if norm > 1e-30:
+            ci /= norm
+        aligned.append(ci)
+    return aligned, list(best_perm), overlap
 
 
 def _fci22_singlet_to_csf(ci: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
@@ -194,7 +270,10 @@ class MPSAsFCISolver(lib.StreamObject):
                  sweep_tol: float = 1.0e-12, scratch_root: str | None = None,
                  mps_native_rdms: bool = False,
                  force_dmrg: bool = False, max_fci_dets: int = 1_000_000,
-                 spin_penalty: float = 0.0):
+                 spin_penalty: float = 0.0, track_roots: bool = True,
+                 root_buffer: int = 0,
+                 root_overlap_warn: float = 0.70,
+                 gap_warn: float = 1.0e-3):
         self.mol = mol
         # PySCF FCISolver attributes that downstream wrappers expect.
         self.nroots = 1
@@ -225,6 +304,10 @@ class MPSAsFCISolver(lib.StreamObject):
         self.force_dmrg = bool(force_dmrg)
         self.max_fci_dets = int(max_fci_dets)
         self.spin_penalty = float(spin_penalty)
+        self.track_roots = bool(track_roots)
+        self.root_buffer = max(0, int(root_buffer))
+        self.root_overlap_warn = float(root_overlap_warn)
+        self.gap_warn = float(gap_warn)
         # Target S(S+1). When ``None`` and a closed-shell (na == nb) CAS is
         # passed to ``kernel``, defaults to the singlet (S² = 0). Set via
         # ``fix_spin_(ss=...)`` to match the PySCF FCI solver convention.
@@ -237,6 +320,15 @@ class MPSAsFCISolver(lib.StreamObject):
         self._is_owner = True    # set False on view copies (see __copy__)
         self._used_dmrg = False  # tracks whether last kernel call ran DMRG
         self._fci_solver = None  # cached pyscf FCI fallback solver
+        self._last_ci = None     # previous roots for phase/root continuity
+        self._root_assignment = None
+        self._root_overlap_matrix = None
+        self._root_assigned_abs_overlaps = None
+        self._root_min_overlap = None
+        self._root_candidate_energies = None
+        self._root_selected_energies = None
+        self._root_min_energy_gap = None
+        self._root_tracking_warnings = []
 
     # ----- introspection / boilerplate -------------------------------------
     def dump_flags(self, verbose=None):
@@ -279,6 +371,100 @@ class MPSAsFCISolver(lib.StreamObject):
         self._kets = None
         self._mpo = None
 
+    def _solve_root_count(self, nroots: int) -> int:
+        """Number of eigenstates to request before root-continuity selection."""
+        return max(int(nroots), int(nroots) + int(self.root_buffer))
+
+    @staticmethod
+    def _energy_list(energies):
+        if np.isscalar(energies):
+            return [float(energies)]
+        return [float(e) for e in list(energies)]
+
+    def _record_energy_diagnostics(self, candidate_energies, selected_indices):
+        self._root_candidate_energies = [float(e) for e in candidate_energies]
+        self._root_selected_energies = [
+            float(candidate_energies[i]) for i in selected_indices
+            if i < len(candidate_energies)
+        ]
+        self._root_min_energy_gap = None
+        if len(candidate_energies) > 1:
+            sorted_e = np.sort(np.asarray(candidate_energies, dtype=float))
+            gaps = np.diff(sorted_e)
+            if gaps.size:
+                self._root_min_energy_gap = float(np.min(np.abs(gaps)))
+                if self._root_min_energy_gap < self.gap_warn:
+                    self._root_tracking_warnings.append(
+                        "small candidate-root energy gap "
+                        f"({self._root_min_energy_gap:.3e} Eh); "
+                        "treat NAC/root labels as subspace-sensitive and "
+                        "check continuity with a larger root buffer"
+                    )
+
+    def _select_by_assignment(self, values, nroots):
+        indices = self._root_assignment
+        if indices is None or len(indices) < nroots:
+            indices = list(range(nroots))
+        return [values[i] for i in indices[:nroots]]
+
+    def _track_and_store_ci(self, ci_list, ci0=None, target_nroots=None):
+        """Apply root/phase continuity and cache selected roots.
+
+        ``ci_list`` may include extra candidate roots.  Only ``target_nroots``
+        roots are returned and cached.  If a previous CI set is available,
+        candidates are assigned by maximum overlap; otherwise the first
+        energy-ordered candidates are used for the initial step.
+        """
+        nraw = len(ci_list)
+        nroots = int(target_nroots) if target_nroots is not None else nraw
+        nroots = min(nroots, nraw)
+        tracked = [np.asarray(c).copy() for c in ci_list]
+        self._root_assignment = list(range(nroots))
+        self._root_overlap_matrix = None
+        self._root_assigned_abs_overlaps = None
+        self._root_min_overlap = None
+        self._root_tracking_warnings = []
+
+        if self.track_roots:
+            refs = _as_ci_list(ci0, nroots)
+            if refs is None:
+                refs = _as_ci_list(self._last_ci, nroots)
+            if refs is not None:
+                tracked, assignment, overlap = _match_ci_roots(tracked, refs)
+                self._root_assignment = assignment
+                self._root_overlap_matrix = (
+                    None if overlap is None else overlap.tolist()
+                )
+                if overlap is not None:
+                    assigned = [
+                        float(abs(overlap[i, j]))
+                        for j, i in enumerate(assignment)
+                    ]
+                    self._root_assigned_abs_overlaps = assigned
+                    self._root_min_overlap = min(assigned) if assigned else None
+                    if (self._root_min_overlap is not None
+                            and self._root_min_overlap < self.root_overlap_warn):
+                        self._root_tracking_warnings.append(
+                            "low root-continuity overlap "
+                            f"({self._root_min_overlap:.3f}); solve more "
+                            "candidate roots or inspect state characters"
+                        )
+                else:
+                    tracked = tracked[:nroots]
+            else:
+                tracked = tracked[:nroots]
+                if nraw > nroots:
+                    self._root_tracking_warnings.append(
+                        "no previous CI reference available; using the first "
+                        f"{nroots} energy-ordered roots and enabling overlap "
+                        "tracking on the next step"
+                    )
+        else:
+            tracked = tracked[:nroots]
+
+        self._last_ci = [np.asarray(c).copy() for c in tracked]
+        return tracked
+
     # We intentionally do NOT define __del__: PySCF's lagrange/grad pipeline
     # creates many short-lived view copies; relying on __del__ for scratch
     # cleanup makes solver state lifetime brittle (segfaults at the end of
@@ -286,7 +472,8 @@ class MPSAsFCISolver(lib.StreamObject):
     # eager cleanup; otherwise scratch dirs are reused across `kernel` calls.
 
     # ----- spin penalty -----------------------------------------------------
-    def fix_spin_(self, shift: float = 0.5, ss: float = None):
+    def fix_spin_(self, shift: float = _PYSCF_DEFAULT_SPIN_PENALTY,
+                  ss: float = None):
         """Mirror of `pyscf.fci.addons.fix_spin_` semantics.
 
         Stores the target S(S+1) on this solver. The FCI delegation path
@@ -314,6 +501,7 @@ class MPSAsFCISolver(lib.StreamObject):
 
         # Number of roots requested (PySCF / SA wrapper sets `self.nroots`).
         nroots = max(1, int(getattr(self, "nroots", 1)))
+        n_solve_roots = self._solve_root_count(nroots)
 
         # Routing logic:
         #   - For CAS(2,2) singlet, run SU2 DMRG and convert via the legacy
@@ -324,13 +512,14 @@ class MPSAsFCISolver(lib.StreamObject):
         #     exceeds ``max_fci_dets``; otherwise delegate to PySCF FCI.
         if norb == 2 and (na, nb) == (1, 1):
             return self._kernel_su2(h1e, eri, norb, nelec_t,
-                                    nroots=nroots, ecore=ecore)
+                                    nroots=nroots, ecore=ecore, ci0=ci0)
 
         # Decide whether to actually run DMRG or fall back to PySCF FCI.
         from pyscf.fci import cistring
         n_a = cistring.num_strings(norb, na)
         n_b = cistring.num_strings(norb, nb)
         n_dets = int(n_a) * int(n_b)
+        n_solve_roots = min(n_solve_roots, max(nroots, n_dets))
         use_dmrg = self.force_dmrg or n_dets > self.max_fci_dets
 
         if not use_dmrg:
@@ -338,7 +527,7 @@ class MPSAsFCISolver(lib.StreamObject):
             self._cleanup()
             self._used_dmrg = False
             solver = fci.direct_spin1.FCI()
-            solver.nroots = nroots
+            solver.nroots = n_solve_roots
             solver.spin = self.spin
             solver.conv_tol = self.conv_tol
             solver.max_cycle = self.max_cycle
@@ -350,20 +539,40 @@ class MPSAsFCISolver(lib.StreamObject):
             # SA(2)+ requests.
             target_ss = self._target_ss
             if target_ss is not None:
-                solver = fci.addons.fix_spin(solver, shift=0.5, ss=target_ss)
-                solver.nroots = nroots
+                shift = (self.spin_penalty if self.spin_penalty > 0
+                         else _PYSCF_DEFAULT_SPIN_PENALTY)
+                solver = fci.addons.fix_spin(solver, shift=shift,
+                                             ss=target_ss)
+                solver.nroots = n_solve_roots
             self._fci_solver = solver
-            e, c = solver.kernel(h1e, eri, norb, nelec_t, ci0=ci0,
+            # PySCF FCI expects the initial-guess list length to match the
+            # number of solved roots.  When a root buffer is active, keep ci0
+            # for overlap tracking but do not pass a shorter target-state
+            # list as the eigensolver initial guess.
+            ci0_kernel = None if n_solve_roots > nroots else ci0
+            e, c = solver.kernel(h1e, eri, norb, nelec_t, ci0=ci0_kernel,
                                  ecore=float(ecore),
                                  **{k: v for k, v in kwargs.items()
                                     if k in ("orbsym", "wfnsym", "verbose")})
+            e_all = self._energy_list(e)
             if nroots == 1:
-                self.e_states = [float(e)]
-                self.e_tot = float(e)
+                c_all = [c] if n_solve_roots == 1 else list(c)
+                c = self._track_and_store_ci(
+                    c_all, ci0=ci0, target_nroots=nroots
+                )[0]
+                e_sel = self._select_by_assignment(e_all, nroots)
+                self._record_energy_diagnostics(e_all, self._root_assignment)
+                self.e_states = e_sel
+                self.e_tot = e_sel[0]
                 return self.e_tot, c
-            self.e_states = list(e)
-            self.e_tot = list(e)
-            return self.e_tot, list(c)
+            c = self._track_and_store_ci(
+                list(c), ci0=ci0, target_nroots=nroots
+            )
+            e_sel = self._select_by_assignment(e_all, nroots)
+            self._record_energy_diagnostics(e_all, self._root_assignment)
+            self.e_states = e_sel
+            self.e_tot = e_sel
+            return self.e_tot, c
 
         # ---- SZ-mode DMRG path (large CAS / production) -----------------
         self._cleanup()
@@ -401,7 +610,6 @@ class MPSAsFCISolver(lib.StreamObject):
         # path: trust that SZ + initial-guess heuristics yield the requested
         # nroots states. Users requiring strict spin selection should set
         # ``spin_penalty`` > 0.
-        n_solve_roots = nroots
         ket = driver.get_random_mps(tag="KET", bond_dim=self.bond_dim,
                                     nroots=n_solve_roots)
         ns = max(self.n_sweeps, 30)
@@ -425,22 +633,28 @@ class MPSAsFCISolver(lib.StreamObject):
                           for i in range(n_solve_roots)]
 
         self._driver = driver
-        if hasattr(energies, "__iter__"):
-            self.e_states = list(energies)
-        else:
-            self.e_states = [float(energies)]
-        self.e_tot = self.e_states if nroots > 1 else self.e_states[0]
+        e_all = self._energy_list(energies)
 
         # Convert each SZ MPS to a PySCF FCI ndarray for compatibility.
         from site_replacement_density import mps_to_fci_generic
         ci_list = []
-        for i, k in enumerate(self._kets[:nroots]):
+        for i, k in enumerate(self._kets[:n_solve_roots]):
             ci_list.append(mps_to_fci_generic(driver, k, norb, nelec_t))
+        ci_list = self._track_and_store_ci(
+            ci_list, ci0=ci0, target_nroots=nroots
+        )
+        selected_indices = self._root_assignment[:nroots]
+        self._kets = [self._kets[i] for i in selected_indices]
+        e_sel = self._select_by_assignment(e_all, nroots)
+        self._record_energy_diagnostics(e_all, selected_indices)
+        self.e_states = e_sel
+        self.e_tot = self.e_states if nroots > 1 else self.e_states[0]
         if nroots == 1:
             return self.e_tot, ci_list[0]
         return self.e_tot, ci_list
 
-    def _kernel_su2(self, h1e, eri, norb, nelec_t, *, nroots, ecore):
+    def _kernel_su2(self, h1e, eri, norb, nelec_t, *, nroots, ecore,
+                    ci0=None):
         """SU2-mode DMRG path for CAS(2,2) singlet (legacy validated path).
 
         Populates ``self._driver`` and ``self._kets`` (SU2 MPSes) for use by
@@ -464,8 +678,11 @@ class MPSAsFCISolver(lib.StreamObject):
         )
         mpo = driver.get_qc_mpo(np.asarray(h1e), eri_full,
                                 ecore=float(ecore), iprint=0)
+        # CAS(2,2) singlet has three singlet CSFs; requesting more roots can
+        # exceed the spin-adapted Hilbert space in block2.
+        n_solve_roots = min(self._solve_root_count(nroots), max(nroots, 3))
         ket = driver.get_random_mps(tag="KET", bond_dim=self.bond_dim,
-                                    nroots=nroots)
+                                    nroots=n_solve_roots)
         ns = max(self.n_sweeps, 30)
         bd = [self.bond_dim] * ns
         noises = ([1e-3] * 5 + [1e-4] * 5 + [1e-5] * 5
@@ -480,21 +697,29 @@ class MPSAsFCISolver(lib.StreamObject):
             tol=float(self.sweep_tol),
             iprint=0,
         )
-        if nroots == 1:
+        if n_solve_roots == 1:
             self._kets = [ket]
         else:
             self._kets = [driver.split_mps(ket, i, f"KET-{i}")
-                          for i in range(nroots)]
+                          for i in range(n_solve_roots)]
         self._driver = driver
         self._mpo = mpo
-        self.e_states = list(energies)
-        self.e_tot = self.e_states if nroots > 1 else self.e_states[0]
+        e_all = self._energy_list(energies)
 
         # Extract FCI ndarrays via the legacy CAS(2,2) singlet CSF helper.
         ci_list = []
         for k in self._kets:
             csfs, coefs = driver.get_csf_coefficients(k, cutoff=0.0, iprint=0)
             ci_list.append(_csf_to_fci22_singlet(csfs, coefs))
+        ci_list = self._track_and_store_ci(
+            ci_list, ci0=ci0, target_nroots=nroots
+        )
+        selected_indices = self._root_assignment[:nroots]
+        self._kets = [self._kets[i] for i in selected_indices]
+        e_sel = self._select_by_assignment(e_all, nroots)
+        self._record_energy_diagnostics(e_all, selected_indices)
+        self.e_states = e_sel
+        self.e_tot = self.e_states if nroots > 1 else self.e_states[0]
         if nroots == 1:
             return self.e_tot, ci_list[0]
         return self.e_tot, ci_list
@@ -561,11 +786,20 @@ class MPSAsFCISolver(lib.StreamObject):
     # ----- response-equation kernels --------------------------------------
     def absorb_h1e(self, h1, h2, norb, nelec, factor):
         nelec_t = self._unpack_nelec(nelec)
+        solver = getattr(self, "_fci_solver", None)
+        if solver is not None and not self.mps_native_rdms:
+            return solver.absorb_h1e(h1, h2, norb, nelec_t, factor)
         return fci.direct_spin1.absorb_h1e(h1, h2, norb, nelec_t, factor)
 
     def contract_2e(self, op, ci, norb, nelec, link_index=None, **kwargs):
         nelec_t = self._unpack_nelec(nelec)
         if not self.mps_native_rdms or self._driver is None:
+            solver = getattr(self, "_fci_solver", None)
+            if solver is not None:
+                return solver.contract_2e(
+                    op, np.asarray(ci), norb, nelec_t,
+                    link_index=link_index,
+                )
             return fci.direct_spin1.contract_2e(op, ci, norb, nelec_t,
                                                 link_index=link_index)
         from single_site_sigma import single_site_sigma_mps_native
@@ -584,6 +818,9 @@ class MPSAsFCISolver(lib.StreamObject):
 
     def make_hdiag(self, h1, h2, norb, nelec, **kwargs):
         nelec_t = self._unpack_nelec(nelec)
+        solver = getattr(self, "_fci_solver", None)
+        if solver is not None and not self.mps_native_rdms:
+            return solver.make_hdiag(h1, h2, norb, nelec_t)
         return fci.direct_spin1.make_hdiag(h1, h2, norb, nelec_t)
 
     def contract_ss(self, fcivec, norb, nelec):

@@ -3,11 +3,11 @@
 This directory is the upload target:
 
 ```bash
-cd /n/home04/yulili/daisuan/dmrg_sacasscf_response_public
+cd dmrg_sacasscf_response_public
 ```
 
-Do not upload `/n/home04/yulili/daisuan` or the full project directory.
-Those contain unrelated application work and cluster output.
+Do not upload the parent project directory. It contains unrelated application
+work and cluster output.
 
 ## 1. Check The Bundle
 

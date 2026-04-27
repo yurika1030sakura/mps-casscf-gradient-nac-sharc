@@ -1,9 +1,10 @@
 """BVOE convergence study — Phase 2 (REAL DMRG).
 
 Phase 1 used CI-vector SVD truncation as a proxy for DMRG. Phase 2 uses
-**actual block2 DMRG**: SU2-mode driver with ``nroots=2`` (state-averaged
-singlet pair) at the converged FCI orbitals, then converts each MPS to a
-PySCF FCI ndarray via ``mps_change_to_sz`` + ``get_csf_coefficients``.
+**actual block2 DMRG**: SU2-mode driver with a target SA(2) singlet pair
+plus a configurable root buffer at the converged FCI orbitals, then converts
+each candidate MPS to a PySCF FCI ndarray via ``mps_change_to_sz`` +
+``get_csf_coefficients``.
 
 Pipeline at each (system, M):
 
@@ -11,11 +12,13 @@ Pipeline at each (system, M):
      orbitals (mc.mo_coeff) and CI vectors.
   2. At the converged orbitals, build the SU2-mode DMRG MPO from the
      active-space integrals.
-  3. Run SU2 DMRG with ``nroots=2``, ``bond_dim = M``, getting two MPSes.
-  4. Convert each MPS to a PySCF FCI ndarray via the SZ-mode CSF route
+  3. Run SU2 DMRG with ``nroots=2+BVOE_ROOT_BUFFER``, ``bond_dim = M``.
+  4. Convert each candidate MPS to a PySCF FCI ndarray via the SZ-mode CSF route
      (``mps_change_to_sz`` then ``get_csf_coefficients``, then PySCF
      ordering-sign correction).
-  5. Install the bond-dim-M CI vectors back into ``mc`` (replacing
+  5. Select and phase-align the two target roots by overlap with the FCI
+     validation reference.
+  6. Install the bond-dim-M CI vectors back into ``mc`` (replacing
      ``mc.ci``), and recompute the analytic gradient (state 0) and NAC
      (states (0,1)) with PySCF's standard ``pyscf.grad.sacasscf`` /
      ``pyscf.nac.sacasscf`` machinery.
@@ -44,6 +47,7 @@ Output:
 from __future__ import annotations
 
 import json
+import itertools
 import os
 import shutil
 import sys
@@ -129,29 +133,34 @@ def build_h2o_631g_cas66():
 SYSTEMS = {
     "h4":  (
         build_h4, "H4 chain / sto-3g / CAS(4,4) SA(2), R=1.5 Bohr",
-        [2, 3, 4, 5, 6, 8, 12], 6,
+        [2, 3, 4, 5, 6, 8, 12, 200], 200,
     ),
     "h2o": (
         build_h2o, "H2O / sto-3g / CAS(4,4) SA(2)",
-        [2, 3, 4, 5, 6, 8, 12], 6,
+        [2, 3, 4, 5, 6, 8, 12, 200], 200,
     ),
     "n2":  (
         build_n2, "N2 / sto-3g / CAS(6,6) SA(2), R=1.4 Ang",
-        [2, 4, 8, 12, 16, 20, 30], 20,
+        [2, 4, 8, 12, 16, 20, 30, 200], 200,
     ),
     "c2":  (
         build_c2, "C2 / sto-3g / CAS(8,8) SA(2), R=1.25 Ang",
-        [4, 8, 16, 32, 64, 70], 70,
+        [4, 8, 16, 32, 64, 70, 120, 200], 200,
     ),
     "lif": (
         build_lif_avoided, "LiF / sto-3g / CAS(4,4) SA(2), R=6.5 Bohr",
-        [2, 3, 4, 5, 6, 8, 12], 6,
+        [2, 3, 4, 5, 6, 8, 12, 200], 200,
     ),
     "h2o_631g": (
         build_h2o_631g_cas66, "H2O / 6-31G / CAS(6,6) SA(2)",
-        [2, 4, 8, 12, 16, 20, 30], 20,
+        [2, 4, 8, 12, 16, 20, 30, 200], 200,
     ),
 }
+
+# General root-buffer setting, matching the production SHARC interface.
+# Benchmarks use FCI overlaps only to score the result; production runs use
+# the same extra-root idea with previous-step overlaps instead of FCI.
+ROOT_BUFFER = int(os.environ.get("BVOE_ROOT_BUFFER", "4"))
 
 
 # ---------------------------------------------------------------------------
@@ -219,6 +228,48 @@ def _align_global_phase(ci, ci_ref):
     return ci if ovlp >= 0 else -ci
 
 
+def _match_and_align_roots(ci_roots, fci_refs):
+    """Assign DMRG roots to FCI roots by maximum CI overlap.
+
+    The SU2 DMRG solver returns roots ordered by its internal optimization.
+    Near avoided crossings or compact symmetry benchmarks, that order can
+    differ from the PySCF FCI root order.  Derivative comparisons must first
+    solve this small assignment problem; otherwise a root flip looks like a
+    large response error.
+    """
+    ntarget = len(fci_refs)
+    nraw = len(ci_roots)
+    if nraw < ntarget:
+        raise ValueError(
+            f"Need at least {ntarget} DMRG roots, got {nraw}"
+        )
+    overlap = np.empty((nraw, ntarget))
+    for i, ci in enumerate(ci_roots):
+        ci_vec = np.asarray(ci).ravel()
+        for j, ref in enumerate(fci_refs):
+            overlap[i, j] = float(np.vdot(np.asarray(ref).ravel(), ci_vec))
+
+    best_perm = None
+    best_score = -1.0
+    for perm in itertools.permutations(range(nraw), ntarget):
+        score = sum(abs(overlap[perm[j], j]) for j in range(ntarget))
+        if score > best_score:
+            best_score = score
+            best_perm = perm
+
+    aligned = []
+    assigned_overlaps = []
+    for j, i in enumerate(best_perm):
+        ci = _align_global_phase(ci_roots[i], fci_refs[j])
+        norm = np.linalg.norm(ci)
+        if norm > 1e-30:
+            ci = ci / norm
+        aligned.append(ci)
+        assigned_overlaps.append(float(abs(overlap[i, j])))
+
+    return aligned, list(best_perm), overlap.tolist(), assigned_overlaps
+
+
 # ---------------------------------------------------------------------------
 # Run a single (system, M) DMRG → grad + NAC
 # ---------------------------------------------------------------------------
@@ -246,6 +297,62 @@ def setup_sacasscf_fci(mol, ncas, nelec_act):
     return mc
 
 
+def _reference_has_wavefunction(ref):
+    """Return True if a cached FCI reference contains the fixed gauge data."""
+    return (
+        isinstance(ref, dict)
+        and "mo_coeff" in ref
+        and "ci" in ref
+        and len(ref.get("ci", [])) == 2
+    )
+
+
+def setup_sacasscf_from_reference(system_key, ref):
+    """Build an SA-CASSCF object at the cached FCI orbital/CI gauge.
+
+    Phase-2 derivative comparisons must use one fixed FCI-stationary orbital
+    basis.  Re-running CASSCF independently for every M can converge to a
+    symmetry-equivalent active-orbital gauge, especially under threaded BLAS,
+    which makes derivative comparisons look like root/gauge failures even
+    when the DMRG state is correct.
+    """
+    builder = SYSTEMS[system_key][0]
+    mol, ncas, nelec_act = builder()
+    mf = scf.RHF(mol).run(conv_tol=1e-12)
+    mc = mcscf.CASSCF(mf, ncas, nelec_act)
+    mc.fix_spin_(ss=0)
+    mc.fcisolver.nroots = 2
+    mc.conv_tol = 1e-10
+    mc.conv_tol_grad = 1e-7
+    mc.max_cycle_macro = 200
+    mc = mc.state_average_([0.5, 0.5])
+    mc.mo_coeff = np.asarray(ref["mo_coeff"])
+    mc.ci = [np.asarray(c) for c in ref["ci"]]
+    _set_state_energies(mc, ref["e_states"])
+    return mc
+
+
+def _set_state_energies(mc, e_states):
+    """Populate PySCF state-average energy attributes used by NAC code."""
+    e_states = [float(e) for e in e_states]
+    try:
+        mc.fcisolver.e_states = e_states
+    except Exception:
+        pass
+    try:
+        mc.e_states = e_states
+    except Exception:
+        pass
+    try:
+        weights = np.asarray(getattr(mc, "weights", [0.5, 0.5]), dtype=float)
+        if len(weights) == len(e_states):
+            mc.e_tot = float(np.dot(weights, e_states))
+        else:
+            mc.e_tot = float(np.mean(e_states))
+    except Exception:
+        pass
+
+
 def compute_grad_and_nac(mc):
     g = sacasscf_grad.Gradients(mc).kernel(state=0)
     n = nac_sacasscf.NonAdiabaticCouplings(mc).kernel(state=(0, 1))
@@ -263,10 +370,14 @@ def run_fci_reference(system_key):
         "system": system_key, "label": label, "bond_dim": "FCI",
         "e_states": e_states,
         "grad": g.tolist(), "nac": n.tolist(),
+        "mo_coeff": np.asarray(mc.mo_coeff).tolist(),
+        "ci": [np.asarray(ci).tolist() for ci in mc.ci],
         "ci_norms": [float(np.linalg.norm(ci)) for ci in mc.ci],
         "ci_shape": list(mc.ci[0].shape),
         "ncas": int(mc.ncas), "ncore": int(mc.ncore),
+        "nelecas": [int(x) for x in mc.nelecas],
         "nelec_act": int(sum(mc.nelecas)),
+        "schema_version": 2,
         "runtime_s": time.time() - t0,
     }
 
@@ -276,17 +387,24 @@ def run_dmrg_at_fci_orbitals(system_key, bond_dim, *, fci_ref_payload=None,
     """Build mc with PySCF FCI, converge, then swap CI to DMRG-truncated
     CI at the same orbitals; recompute grad + NAC."""
     builder, label = SYSTEMS[system_key][0], SYSTEMS[system_key][1]
-    mol, ncas, nelec_act = builder()
     t0 = time.time()
-    mc = setup_sacasscf_fci(mol, ncas, nelec_act)
-    fci_ci = [np.asarray(c).copy() for c in mc.ci]
-    fci_e_states = list(map(float, mc.e_states))
+    if _reference_has_wavefunction(fci_ref_payload):
+        mc = setup_sacasscf_from_reference(system_key, fci_ref_payload)
+        fci_ci = [np.asarray(c).copy() for c in fci_ref_payload["ci"]]
+        fci_e_states = list(map(float, fci_ref_payload["e_states"]))
+    else:
+        mol, ncas, nelec_act = builder()
+        mc = setup_sacasscf_fci(mol, ncas, nelec_act)
+        fci_ci = [np.asarray(c).copy() for c in mc.ci]
+        fci_e_states = list(map(float, mc.e_states))
+    ncas = mc.ncas
+    nelec_act = int(sum(mc.nelecas))
 
     # Active-space integrals at converged orbitals
     h1_act, ecore = mc.get_h1eff(mc.mo_coeff)
     eri_act = ao2mo.restore(1, np.asarray(mc.get_h2eff(mc.mo_coeff)), ncas)
 
-    # Run SU2 DMRG with nroots=2 at bond_dim = M
+    # Run SU2 DMRG with a generic root buffer at bond_dim = M.
     scratch = tempfile.mkdtemp(prefix="bvoe_p2_", dir="/tmp")
     try:
         driver = DMRGDriver(
@@ -301,8 +419,9 @@ def run_dmrg_at_fci_orbitals(system_key, bond_dim, *, fci_ref_payload=None,
         mpo = driver.get_qc_mpo(np.asarray(h1_act),
                                  np.asarray(eri_act),
                                  ecore=float(ecore), iprint=0)
+        n_solve_roots = 2 + max(0, int(ROOT_BUFFER))
         ket = driver.get_random_mps(tag=f"K_{bond_dim}", bond_dim=int(bond_dim),
-                                    nroots=2)
+                                    nroots=n_solve_roots)
         ns = max(int(n_sweeps), 30)
         bd = [int(bond_dim)] * ns
         # Aggressive noise schedule lets random-init MPS find singlet sector
@@ -315,7 +434,7 @@ def run_dmrg_at_fci_orbitals(system_key, bond_dim, *, fci_ref_payload=None,
             noises=noises[:ns], tol=float(sweep_tol), iprint=0,
         )
         kets = [driver.split_mps(ket, i, f"KS_{bond_dim}_{i}")
-                for i in range(2)]
+                for i in range(n_solve_roots)]
 
         # Build SZ driver for get_csf_coefficients route
         sz_driver = DMRGDriver(
@@ -326,22 +445,24 @@ def run_dmrg_at_fci_orbitals(system_key, bond_dim, *, fci_ref_payload=None,
             n_sites=ncas, n_elec=nelec_tot, spin=spin, orb_sym=[0] * ncas,
         )
 
-        # Convert each MPS to a PySCF FCI ndarray
-        ci_dmrg = []
+        # Convert each MPS to a PySCF FCI ndarray.  Keep the raw DMRG root
+        # order first, then assign to FCI roots by maximum overlap below.
+        ci_dmrg_raw = []
         for i, k in enumerate(kets):
             ci_i = _su2_mps_to_fci(
                 driver, k, ncas, mc.nelecas,
                 sz_driver=sz_driver,
                 sz_tag=f"SZ_{bond_dim}_{i}",
             )
-            # Phase-align to FCI reference of state i
-            ci_i = _align_global_phase(ci_i, fci_ci[i])
-            # Re-normalize (sign correction via overlap can leave small
-            # numerical drift especially at low M)
             n_i = np.linalg.norm(ci_i)
             if n_i > 1e-30:
                 ci_i = ci_i / n_i
-            ci_dmrg.append(ci_i)
+            ci_dmrg_raw.append(ci_i)
+
+        ci_dmrg, root_assignment, overlap_matrix, assigned_overlaps = (
+            _match_and_align_roots(ci_dmrg_raw, fci_ci)
+        )
+
         # Energy expectation under FCI Hamiltonian (sanity check)
         e_dmrg_check = []
         for i, ci_i in enumerate(ci_dmrg):
@@ -356,15 +477,17 @@ def run_dmrg_at_fci_orbitals(system_key, bond_dim, *, fci_ref_payload=None,
 
     # Install DMRG-truncated CI into mc, recompute grad and NAC
     mc.ci = ci_dmrg
-    # Note: mc.e_states is a derived property in StateAverageCASSCF; don't
-    # set it here. The grad/NAC pipeline uses mc.ci and mc.mo_coeff.
+    _set_state_energies(mc, e_dmrg_check)
     g, n = compute_grad_and_nac(mc)
     return {
         "system": system_key, "label": label, "bond_dim": int(bond_dim),
         "e_states_fci": fci_e_states,
         "e_states_dmrg": e_dmrg_check,
-        "e_dmrg_su2": (list(e_dmrg) if hasattr(e_dmrg, "__iter__")
-                       else [float(e_dmrg)]),
+        "e_dmrg_su2": (list(map(float, e_dmrg))
+                       if hasattr(e_dmrg, "__iter__") else [float(e_dmrg)]),
+        "root_assignment_dmrg_to_fci": root_assignment,
+        "root_overlap_matrix": overlap_matrix,
+        "root_assigned_abs_overlaps": assigned_overlaps,
         "grad": g.tolist(), "nac": n.tolist(),
         "ci_overlap_with_fci": [
             float(np.vdot(ci_dmrg[i].ravel(), fci_ci[i].ravel()))
@@ -428,15 +551,25 @@ def main(only=None):
         summary.setdefault(sys_key, {})
         ref_path = data_dir / f"{sys_key}_FCI.json"
         ref = None
+        force = os.environ.get("BVOE_FORCE_RECOMPUTE", "0") == "1"
         if ref_path.exists():
             try:
                 ref = json.loads(ref_path.read_text())
                 print(f"[{sys_key}] FCI ref: cached "
                       f"e0={ref['e_states'][0]:.8f}", flush=True)
+                if force or not _reference_has_wavefunction(ref):
+                    if force:
+                        print(f"[{sys_key}] refreshing reference "
+                              f"(BVOE_FORCE_RECOMPUTE=1)", flush=True)
+                    else:
+                        print(f"[{sys_key}] refreshing legacy reference "
+                              f"(missing fixed orbital/CI gauge)", flush=True)
+                    ref = None
             except Exception:
                 ref = None
         if ref is None:
             try:
+                _invalidate_system_cache(data_dir, sys_key, summary)
                 ref = run_fci_reference(sys_key)
                 ref_path.write_text(json.dumps(ref, indent=2))
                 print(f"[{sys_key}] FCI ref: e0={ref['e_states'][0]:.8f}  "
@@ -460,6 +593,7 @@ def main(only=None):
             try:
                 res = run_dmrg_at_fci_orbitals(
                     sys_key, M,
+                    fci_ref_payload=ref,
                     n_sweeps=int(os.environ.get("BVOE_SWEEPS", "30")),
                     n_threads=int(os.environ.get("BVOE_THREADS", "1")),
                 )
@@ -492,6 +626,16 @@ def main(only=None):
 
     _write_summary(summary_path, summary)
     print(f"\nWrote {summary_path}", flush=True)
+
+
+def _invalidate_system_cache(data_dir, sys_key, summary):
+    """Remove M-point data tied to an older reference gauge."""
+    for path in data_dir.glob(f"{sys_key}_M*.json"):
+        try:
+            path.unlink()
+        except FileNotFoundError:
+            pass
+    summary[sys_key] = {}
 
 
 def _write_summary(path, summary):
