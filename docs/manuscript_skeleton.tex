@@ -328,11 +328,11 @@ bond-dimension response-error curves.  The selected systems cover small
 active spaces, CAS(6,6) and CAS(8,8) examples, nonzero derivative couplings,
 and a public SHARC-interface molecule.  The curves show systematic reduction
 of the derivative error as $M$ is increased and recover the FCI active-space
-limit at high $M$.  The CAS(8,8) C$_2$ system is retained as a larger
-active-space root-tracking benchmark.  LiF provides a small-gap,
-nonzero-derivative-coupling benchmark; in the smallest basis, the scalar
-single-point NAC error is more sensitive to state-gauge rotations than the
-corresponding energy and gradient errors.
+limit at high $M$.  The high-$M$ gradient errors in Table~\ref{tab:largestm}
+are reported in m$\Eh$/Bohr; values near $10^{-4}$ in this column correspond
+to $10^{-7}$ $\Eh$/Bohr and are well below the $0.1$ m$\Eh$/Bohr reference
+line in Figure~\ref{fig:bvoe}.  The NAC column is an absolute vector error and
+is interpreted together with the benchmark matrix in Figure~\ref{fig:highm}.
 
 The fixed-orbital protocol also separates active-space truncation from orbital
 relaxation.  With real DMRG roots evaluated at the same FCI-stationary
@@ -376,8 +376,9 @@ nonadiabatic coupling errors in atomic units.}
 \centering
 \includegraphics[width=0.96\textwidth]{../benchmarks/bvoe_convergence_study/figures/bvoe_highm_heatmap.pdf}
 \caption{Largest-$M$ derivative errors across the public molecule/basis
-matrix.  Each entry is the base-10 logarithm of the largest-$M$ gradient
-error in m$\Eh$/Bohr or NAC error in atomic units.}
+matrix.  Color encodes the base-10 logarithm of the error, while each cell
+reports the corresponding gradient error in m$\Eh$/Bohr or NAC error in
+atomic units.}
 \label{fig:highm}
 \end{figure}
 

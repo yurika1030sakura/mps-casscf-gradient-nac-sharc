@@ -1,10 +1,9 @@
-"""Plot BVOE convergence — Phase 2 (REAL DMRG).
+"""Publication-style plots for the fixed-orbital DMRG response benchmarks.
 
-Two-panel publication figure:
-  Left:  ||grad(M) − grad_FCI||_2 vs M
-  Right: ||NAC(M)  − NAC_FCI ||_2 vs M  (phase-aware diff)
-
-Reads `summary_phase2.json`. Produces `figures/bvoe_phase2.png` and `.pdf`.
+The script reads ``summary_phase2.json`` and writes vector PDFs plus high-DPI
+PNGs under ``figures/``.  The layout is tuned for ACS two-column figures:
+compact lettering, embedded TrueType fonts, colorblind-safe colors, and
+minimal decoration.
 """
 
 from __future__ import annotations
@@ -13,234 +12,407 @@ import json
 from pathlib import Path
 
 import matplotlib
+
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+from matplotlib import colors
 import numpy as np
+
 
 ROOT = Path(__file__).resolve().parent
 SUMMARY_PATH = ROOT / "summary_phase2.json"
 SUMMARY = json.loads(SUMMARY_PATH.read_text())
-
-# Display order, labels, color, marker.  The main manuscript figure keeps a
-# readable representative subset; the basis-matrix figure below shows the
-# systematic STO-3G / 3-21G / 6-31G coverage.
-SYSTEM_PLOT = {
-    "h2o":      ("H$_2$O / STO-3G CAS(4,4)",       "tab:orange", "s"),
-    "h2o_631g": ("H$_2$O / 6-31G CAS(6,6)",        "tab:purple", "v"),
-    "h4":       ("H$_4$ / STO-3G CAS(4,4) R=1.5 a$_0$",
-                 "tab:green",  "^"),
-    "n2":       ("N$_2$ / STO-3G CAS(6,6) R=1.4 Å",
-                 "tab:red",    "D"),
-    "c2":       ("C$_2$ / STO-3G CAS(8,8) R=1.25 Å",
-                 "tab:blue",   "o"),
-    "lif":      ("LiF / STO-3G CAS(4,4) R=6.5 a$_0$",
-                 "tab:brown",  "P"),
-    "ethylene": ("ethylene / STO-3G CAS(2,2)",     "tab:cyan",   "X"),
-}
-
-DIAGNOSTIC_PLOT = {
-    "c2":       ("C$_2$ / STO-3G CAS(8,8) R=1.25 Å",
-                 "tab:blue",   "o"),
-    "lif":      ("LiF / STO-3G CAS(4,4) R=6.5 a$_0$",
-                 "tab:brown",  "P"),
-}
+FIG_DIR = ROOT / "figures"
+FIG_DIR.mkdir(exist_ok=True)
 
 
-def get_curve(d, key):
-    Ms, vals = [], []
-    for k, v in d.items():
-        if not k.isdigit() or "error" in v:
-            continue
-        Ms.append(int(k))
-        vals.append(v[key])
-    if not Ms:
-        return np.array([]), np.array([])
-    order = np.argsort(Ms)
-    return np.array(Ms)[order], np.array(vals)[order]
-
-
-fig, (ax_g, ax_n) = plt.subplots(1, 2, figsize=(10.5, 4.8))
-
-CHEM_ACC_THR = 0.1  # mE_h/Bohr  (≈1.6e-4 a.u.)
-legend_handles = []
-legend_labels = []
-
-for sys_key, (label, color, marker) in SYSTEM_PLOT.items():
-    if sys_key not in SUMMARY:
-        continue
-    d = SUMMARY[sys_key]
-    if not any(k.isdigit() for k in d):
-        continue
-
-    Ms, gvals = get_curve(d, "grad_l2")
-    if Ms.size:
-        gvals_mEh = np.maximum(gvals * 1e3, 1e-12)
-        line, = ax_g.plot(Ms, gvals_mEh, color=color, marker=marker,
-                          label=label, linewidth=1.7, markersize=6)
-        legend_handles.append(line)
-        legend_labels.append(label)
-
-    Ms, nvals = get_curve(d, "nac_l2")
-    if Ms.size:
-        ax_n.plot(Ms, np.maximum(nvals, 1e-15), color=color, marker=marker,
-                  label=label, linewidth=1.7, markersize=6)
-
-for ax, title, ylabel in [
-    (ax_g, "(a) Analytic gradient error",
-     r"$\|\nabla E_0(M) - \nabla E_0^{\rm FCI}\|_2$  (mE$_h$/Bohr)"),
-    (ax_n, r"(b) Analytic NAC error  (states 0,1)",
-     r"$\|\mathbf{d}_{01}(M) - \mathbf{d}_{01}^{\rm FCI}\|_2$  (a.u.)"),
-]:
-    ax.set_xscale("log")
-    ax.set_yscale("log")
-    ax.set_xlabel(r"DMRG bond dimension $M$")
-    ax.set_ylabel(ylabel)
-    ax.set_title(title, fontsize=11)
-    ax.grid(True, which="both", linestyle=":", alpha=0.4)
-
-# Chemical accuracy reference
-ax_g.axhline(CHEM_ACC_THR, color="gray", linestyle="--", linewidth=0.8,
-             alpha=0.7)
-xmin, xmax = ax_g.get_xlim()
-ax_g.text(xmax * 0.95, CHEM_ACC_THR * 1.2,
-          "0.1 mE$_h$/Bohr (chem. accuracy)",
-          fontsize=7, color="gray", ha="right", va="bottom")
-
-fig.suptitle(
-    r"BVOE phase 2: real DMRG (block2 SU2) at FCI-converged orbitals",
-    fontsize=11, y=0.96,
+plt.rcParams.update(
+    {
+        "font.family": "sans-serif",
+        "font.sans-serif": ["Arial", "Helvetica", "DejaVu Sans"],
+        "font.size": 7.0,
+        "axes.labelsize": 7.5,
+        "axes.titlesize": 7.5,
+        "legend.fontsize": 6.6,
+        "xtick.labelsize": 6.6,
+        "ytick.labelsize": 6.6,
+        "axes.linewidth": 0.55,
+        "xtick.major.width": 0.55,
+        "ytick.major.width": 0.55,
+        "xtick.minor.width": 0.45,
+        "ytick.minor.width": 0.45,
+        "xtick.major.size": 2.4,
+        "ytick.major.size": 2.4,
+        "xtick.minor.size": 1.5,
+        "ytick.minor.size": 1.5,
+        "pdf.fonttype": 42,
+        "ps.fonttype": 42,
+        "savefig.dpi": 600,
+    }
 )
 
-fig.legend(
-    legend_handles, legend_labels,
-    loc="lower center", ncol=3, fontsize=7.5, frameon=True,
-    bbox_to_anchor=(0.5, 0.02),
-)
-fig.subplots_adjust(left=0.08, right=0.98, top=0.84, bottom=0.28,
-                    wspace=0.30)
 
-fig_dir = ROOT / "figures"
-fig_dir.mkdir(exist_ok=True)
-out_png = fig_dir / "bvoe_phase2.png"
-out_pdf = fig_dir / "bvoe_phase2.pdf"
-fig.savefig(out_png, dpi=300, bbox_inches="tight")
-fig.savefig(out_pdf, bbox_inches="tight")
-print(f"Wrote {out_png}")
-print(f"Wrote {out_pdf}")
-
-
-fig2, (ax2_g, ax2_n) = plt.subplots(1, 2, figsize=(8.5, 4.0))
-legend_handles = []
-legend_labels = []
-
-for sys_key, (label, color, marker) in DIAGNOSTIC_PLOT.items():
-    if sys_key not in SUMMARY:
-        continue
-    d = SUMMARY[sys_key]
-    Ms, gvals = get_curve(d, "grad_l2")
-    if Ms.size:
-        line, = ax2_g.plot(Ms, np.maximum(gvals * 1e3, 1e-12),
-                           color=color, marker=marker, label=label,
-                           linewidth=1.7, markersize=6)
-        legend_handles.append(line)
-        legend_labels.append(label)
-    Ms, nvals = get_curve(d, "nac_l2")
-    if Ms.size:
-        ax2_n.plot(Ms, np.maximum(nvals, 1e-15), color=color,
-                   marker=marker, label=label, linewidth=1.7, markersize=6)
-
-for ax, title, ylabel in [
-    (ax2_g, "(a) Gradient diagnostic",
-     r"$\|\nabla E_0(M) - \nabla E_0^{\rm FCI}\|_2$  (mE$_h$/Bohr)"),
-    (ax2_n, "(b) NAC diagnostic",
-     r"$\|\mathbf{d}_{01}(M) - \mathbf{d}_{01}^{\rm FCI}\|_2$  (a.u.)"),
-]:
-    ax.set_xscale("log")
-    ax.set_yscale("log")
-    ax.set_xlabel(r"DMRG bond dimension $M$")
-    ax.set_ylabel(ylabel)
-    ax.set_title(title, fontsize=10)
-    ax.grid(True, which="both", linestyle=":", alpha=0.4)
-
-fig2.suptitle("Diagnostic bond-dimension scans: root/gauge-sensitive cases",
-              fontsize=10, y=0.96)
-fig2.legend(legend_handles, legend_labels, loc="lower center", ncol=2,
-            fontsize=7.5, frameon=True, bbox_to_anchor=(0.5, 0.01))
-fig2.subplots_adjust(left=0.10, right=0.98, top=0.82, bottom=0.27,
-                     wspace=0.33)
-
-out2_png = fig_dir / "bvoe_phase2_diagnostics.png"
-out2_pdf = fig_dir / "bvoe_phase2_diagnostics.pdf"
-fig2.savefig(out2_png, dpi=300, bbox_inches="tight")
-fig2.savefig(out2_pdf, bbox_inches="tight")
-print(f"Wrote {out2_png}")
-print(f"Wrote {out2_pdf}")
-
-
-BASIS_KEYS = {
-    "H$_4$ CAS(4,4)": ("h4", "h4_321g", "h4_631g"),
-    "H$_2$O": ("h2o", "h2o_321g", "h2o_631g"),
-    "N$_2$ CAS(6,6)": ("n2", "n2_321g", "n2_631g"),
-    "C$_2$ CAS(8,8)": ("c2", "c2_321g", "c2_631g"),
-    "LiF CAS(4,4)": ("lif", "lif_321g", "lif_631g"),
-    "ethylene CAS(2,2)": ("ethylene", "ethylene_321g", "ethylene_631g"),
-    "butadiene CAS(4,4)": ("butadiene", "butadiene_321g", "butadiene_631g"),
-    "formaldehyde CAS(4,4)": (
-        "formaldehyde", "formaldehyde_321g", "formaldehyde_631g",
-    ),
-    "benzene CAS(6,6)": ("benzene", "benzene_321g", "benzene_631g"),
+# Okabe-Ito palette with one neutral gray.
+PALETTE = {
+    "blue": "#0072B2",
+    "orange": "#E69F00",
+    "green": "#009E73",
+    "vermillion": "#D55E00",
+    "purple": "#CC79A7",
+    "sky": "#56B4E9",
+    "black": "#000000",
+    "gray": "#6E6E6E",
 }
+
+CHEM_ACC_MEH = 0.1
 BASIS_LABELS = ("STO-3G", "3-21G", "6-31G")
-BASIS_COLORS = ("tab:gray", "tab:cyan", "tab:pink")
-BASIS_MARKERS = ("o", "s", "^")
+BASIS_KEYS = {
+    "H$_4$": ("h4", "h4_321g", "h4_631g"),
+    "H$_2$O": ("h2o", "h2o_321g", "h2o_631g"),
+    "N$_2$": ("n2", "n2_321g", "n2_631g"),
+    "C$_2$": ("c2", "c2_321g", "c2_631g"),
+    "LiF": ("lif", "lif_321g", "lif_631g"),
+    "ethylene": ("ethylene", "ethylene_321g", "ethylene_631g"),
+    "butadiene": ("butadiene", "butadiene_321g", "butadiene_631g"),
+    "formaldehyde": ("formaldehyde", "formaldehyde_321g", "formaldehyde_631g"),
+    "benzene": ("benzene", "benzene_321g", "benzene_631g"),
+}
 
-fig3, axes = plt.subplots(len(BASIS_KEYS), 2, figsize=(9.0, 17.0),
-                          sharex=False)
 
-legend_handles = []
-legend_labels = []
-for row, (title, keys) in enumerate(BASIS_KEYS.items()):
-    axg, axn = axes[row]
-    for key, label, color, marker in zip(
-            keys, BASIS_LABELS, BASIS_COLORS, BASIS_MARKERS):
-        if key not in SUMMARY:
+def get_curve(system: str, field: str) -> tuple[np.ndarray, np.ndarray]:
+    """Return sorted M values and the requested field for one system."""
+    points = []
+    for key, value in SUMMARY[system].items():
+        if key.isdigit() and isinstance(value, dict) and field in value:
+            points.append((int(key), float(value[field])))
+    if not points:
+        return np.array([]), np.array([])
+    points.sort(key=lambda item: item[0])
+    return np.array([p[0] for p in points]), np.array([p[1] for p in points])
+
+
+def largest_m_record(system: str) -> tuple[int, dict]:
+    """Return the largest-M record for a system."""
+    points = [
+        (int(key), value)
+        for key, value in SUMMARY[system].items()
+        if key.isdigit() and isinstance(value, dict) and "grad_l2" in value
+    ]
+    if not points:
+        raise KeyError(system)
+    return max(points, key=lambda item: item[0])
+
+
+def save_figure(fig: plt.Figure, stem: str) -> None:
+    for suffix, kwargs in {
+        ".pdf": {},
+        ".png": {"dpi": 600},
+    }.items():
+        path = FIG_DIR / f"{stem}{suffix}"
+        fig.savefig(path, bbox_inches="tight", pad_inches=0.02, **kwargs)
+        print(f"Wrote {path}")
+    plt.close(fig)
+
+
+def panel_label(ax: plt.Axes, label: str) -> None:
+    ax.text(
+        -0.16,
+        1.05,
+        label,
+        transform=ax.transAxes,
+        ha="left",
+        va="bottom",
+        fontsize=8.0,
+        weight="bold",
+    )
+
+
+def style_log_axis(ax: plt.Axes) -> None:
+    ax.set_xscale("log")
+    ax.set_yscale("log")
+    ax.grid(True, which="major", color="#D8D8D8", linewidth=0.45)
+    ax.grid(True, which="minor", color="#EFEFEF", linewidth=0.28)
+    ax.set_axisbelow(True)
+    for spine in ("top", "right"):
+        ax.spines[spine].set_visible(False)
+
+
+def plot_convergence() -> None:
+    systems = [
+        ("h4", "H$_4$ / STO-3G", PALETTE["black"], "o"),
+        ("h2o_631g", "H$_2$O / 6-31G", PALETTE["blue"], "s"),
+        ("n2_631g", "N$_2$ / 6-31G", PALETTE["green"], "^"),
+        ("c2_631g", "C$_2$ / 6-31G", PALETTE["vermillion"], "D"),
+        ("lif_631g", "LiF / 6-31G", PALETTE["purple"], "P"),
+        ("benzene_631g", "benzene / 6-31G", PALETTE["orange"], "X"),
+    ]
+
+    fig, axes = plt.subplots(1, 2, figsize=(7.0, 3.15), constrained_layout=True)
+    ax_g, ax_n = axes
+    handles = []
+    labels = []
+
+    for system, label, color, marker in systems:
+        if system not in SUMMARY:
             continue
-        Ms, gvals = get_curve(SUMMARY[key], "grad_l2")
-        if Ms.size:
-            line, = axg.plot(Ms, np.maximum(gvals * 1e3, 1e-12),
-                             color=color, marker=marker, linewidth=1.3,
-                             markersize=4.5, label=label)
-            if row == 0:
-                legend_handles.append(line)
-                legend_labels.append(label)
-        Ms, nvals = get_curve(SUMMARY[key], "nac_l2")
-        if Ms.size:
-            axn.plot(Ms, np.maximum(nvals, 1e-15),
-                     color=color, marker=marker, linewidth=1.3,
-                     markersize=4.5, label=label)
+        ms, grad = get_curve(system, "grad_l2")
+        if ms.size:
+            line = ax_g.plot(
+                ms,
+                np.maximum(grad * 1e3, 1e-13),
+                color=color,
+                marker=marker,
+                markersize=4.0,
+                linewidth=1.15,
+                markeredgewidth=0.35,
+                markeredgecolor="white",
+                label=label,
+            )[0]
+            handles.append(line)
+            labels.append(label)
+        ms, nac = get_curve(system, "nac_l2")
+        if ms.size:
+            ax_n.plot(
+                ms,
+                np.maximum(nac, 1e-15),
+                color=color,
+                marker=marker,
+                markersize=4.0,
+                linewidth=1.15,
+                markeredgewidth=0.35,
+                markeredgecolor="white",
+            )
 
-    axg.set_title(f"{title}: gradient", fontsize=9)
-    axn.set_title(f"{title}: NAC", fontsize=9)
-    for ax in (axg, axn):
-        ax.set_xscale("log")
+    for ax in axes:
+        style_log_axis(ax)
+        ax.set_xlabel(r"DMRG bond dimension $M$")
+
+    ax_g.set_ylabel(r"$||\nabla E_0(M)-\nabla E_0^{\rm FCI}||_2$ (mE$_h$/Bohr)")
+    ax_n.set_ylabel(r"$||\mathbf{d}_{01}(M)-\mathbf{d}_{01}^{\rm FCI}||_2$ (a.u.)")
+    ax_g.set_title("Gradient")
+    ax_n.set_title("Derivative coupling")
+    panel_label(ax_g, "A")
+    panel_label(ax_n, "B")
+
+    ax_g.axhspan(1e-13, CHEM_ACC_MEH, color="#D9EAD3", alpha=0.42, zorder=0)
+    ax_g.axhline(CHEM_ACC_MEH, color="#4D7F3A", linewidth=0.75, linestyle=(0, (4, 2)))
+    ax_g.text(
+        0.98,
+        0.10,
+        r"$0.1$ mE$_h$/Bohr",
+        transform=ax_g.transAxes,
+        ha="right",
+        va="bottom",
+        fontsize=6.4,
+        color="#3B642C",
+    )
+    ax_g.set_ylim(bottom=8e-13)
+    ax_n.set_ylim(bottom=3e-8)
+
+    fig.legend(
+        handles,
+        labels,
+        loc="lower center",
+        bbox_to_anchor=(0.51, -0.06),
+        ncol=3,
+        frameon=False,
+        handlelength=1.6,
+        columnspacing=1.1,
+    )
+    save_figure(fig, "bvoe_phase2")
+
+
+def plot_root_sensitive_diagnostics() -> None:
+    systems = [
+        ("c2", "C$_2$ / STO-3G", PALETTE["black"], "o"),
+        ("c2_321g", "C$_2$ / 3-21G", PALETTE["blue"], "s"),
+        ("c2_631g", "C$_2$ / 6-31G", PALETTE["sky"], "^"),
+        ("lif", "LiF / STO-3G", PALETTE["vermillion"], "D"),
+        ("lif_321g", "LiF / 3-21G", PALETTE["purple"], "P"),
+        ("lif_631g", "LiF / 6-31G", PALETTE["orange"], "X"),
+    ]
+    fig, axes = plt.subplots(1, 2, figsize=(7.0, 3.05), constrained_layout=True)
+    ax_g, ax_n = axes
+    handles = []
+    labels = []
+
+    for system, label, color, marker in systems:
+        if system not in SUMMARY:
+            continue
+        ms, grad = get_curve(system, "grad_l2")
+        if ms.size:
+            line = ax_g.plot(
+                ms,
+                np.maximum(grad * 1e3, 1e-13),
+                color=color,
+                marker=marker,
+                markersize=3.8,
+                linewidth=1.05,
+                markeredgewidth=0.35,
+                markeredgecolor="white",
+                label=label,
+            )[0]
+            handles.append(line)
+            labels.append(label)
+        ms, nac = get_curve(system, "nac_l2")
+        if ms.size:
+            ax_n.plot(
+                ms,
+                np.maximum(nac, 1e-15),
+                color=color,
+                marker=marker,
+                markersize=3.8,
+                linewidth=1.05,
+                markeredgewidth=0.35,
+                markeredgecolor="white",
+            )
+
+    for ax in axes:
+        style_log_axis(ax)
+        ax.set_xlabel(r"DMRG bond dimension $M$")
+    ax_g.set_ylabel(r"gradient error (mE$_h$/Bohr)")
+    ax_n.set_ylabel("NAC error (a.u.)")
+    ax_g.set_title("Root-tracking benchmarks")
+    ax_n.set_title("Gauge-sensitive NAC")
+    panel_label(ax_g, "A")
+    panel_label(ax_n, "B")
+    ax_g.axhspan(1e-13, CHEM_ACC_MEH, color="#D9EAD3", alpha=0.35, zorder=0)
+    ax_g.axhline(CHEM_ACC_MEH, color="#4D7F3A", linewidth=0.75, linestyle=(0, (4, 2)))
+
+    fig.legend(
+        handles,
+        labels,
+        loc="lower center",
+        bbox_to_anchor=(0.51, -0.07),
+        ncol=3,
+        frameon=False,
+        handlelength=1.5,
+        columnspacing=1.1,
+    )
+    save_figure(fig, "bvoe_phase2_diagnostics")
+
+
+def high_m_matrices() -> tuple[np.ndarray, np.ndarray, list[str]]:
+    grad = np.full((len(BASIS_KEYS), len(BASIS_LABELS)), np.nan)
+    nac = np.full_like(grad, np.nan)
+    labels = list(BASIS_KEYS)
+    for row, label in enumerate(labels):
+        for col, key in enumerate(BASIS_KEYS[label]):
+            if key not in SUMMARY:
+                continue
+            _, rec = largest_m_record(key)
+            grad[row, col] = float(rec["grad_l2"]) * 1e3
+            nac[row, col] = float(rec["nac_l2"])
+    return grad, nac, labels
+
+
+def log_matrix(values: np.ndarray, floor: float) -> np.ndarray:
+    return np.log10(np.maximum(values, floor))
+
+
+def annotate_heatmap(ax: plt.Axes, values: np.ndarray, threshold: float | None = None) -> None:
+    for i in range(values.shape[0]):
+        for j in range(values.shape[1]):
+            if not np.isfinite(values[i, j]):
+                continue
+            text = f"{values[i, j]:.0e}"
+            color = "white" if np.log10(max(values[i, j], 1e-15)) > -3.0 else "#222222"
+            weight = "bold" if threshold is not None and values[i, j] <= threshold else "normal"
+            ax.text(j, i, text, ha="center", va="center", color=color, fontsize=5.7, weight=weight)
+
+
+def plot_highm_heatmap() -> None:
+    grad, nac, row_labels = high_m_matrices()
+    fig, axes = plt.subplots(1, 2, figsize=(7.0, 4.1), constrained_layout=True)
+
+    specs = [
+        (
+            axes[0],
+            grad,
+            1e-10,
+            1e-1,
+            r"largest-$M$ gradient error",
+            r"log$_{10}$(mE$_h$/Bohr)",
+            CHEM_ACC_MEH,
+        ),
+        (
+            axes[1],
+            nac,
+            1e-7,
+            1e-1,
+            r"largest-$M$ NAC error",
+            r"log$_{10}$(a.u.)",
+            1e-4,
+        ),
+    ]
+
+    cmap = colors.LinearSegmentedColormap.from_list(
+        "acs_blue_orange",
+        ["#F7FBFF", "#C6DBEF", "#6BAED6", "#2171B5", "#08306B", "#D55E00"],
+    )
+
+    for idx, (ax, matrix, vmin, vmax, title, cbar_label, threshold) in enumerate(specs):
+        image = ax.imshow(
+            log_matrix(matrix, vmin),
+            cmap=cmap,
+            vmin=np.log10(vmin),
+            vmax=np.log10(vmax),
+            aspect="auto",
+        )
+        ax.set_title(title)
+        ax.set_xticks(range(len(BASIS_LABELS)), BASIS_LABELS, rotation=30, ha="right")
+        ax.set_yticks(range(len(row_labels)), row_labels if idx == 0 else [""] * len(row_labels))
+        ax.tick_params(length=0)
+        for spine in ax.spines.values():
+            spine.set_visible(False)
+        ax.set_xticks(np.arange(-0.5, len(BASIS_LABELS), 1), minor=True)
+        ax.set_yticks(np.arange(-0.5, len(row_labels), 1), minor=True)
+        ax.grid(which="minor", color="white", linewidth=1.0)
+        ax.tick_params(which="minor", bottom=False, left=False)
+        annotate_heatmap(ax, matrix, threshold)
+        panel_label(ax, "A" if idx == 0 else "B")
+        cbar = fig.colorbar(image, ax=ax, shrink=0.86, pad=0.015)
+        cbar.set_label(cbar_label)
+        cbar.outline.set_linewidth(0.4)
+
+    save_figure(fig, "bvoe_highm_heatmap")
+
+
+def plot_basis_matrix() -> None:
+    """Compact supporting figure: high-M errors grouped by molecule and basis."""
+    grad, nac, row_labels = high_m_matrices()
+    x = np.arange(len(row_labels))
+    width = 0.22
+    basis_colors = [PALETTE["gray"], PALETTE["sky"], PALETTE["orange"]]
+
+    fig, axes = plt.subplots(2, 1, figsize=(7.0, 4.8), sharex=True, constrained_layout=True)
+    for col, (basis, color) in enumerate(zip(BASIS_LABELS, basis_colors)):
+        offset = (col - 1) * width
+        axes[0].scatter(x + offset, grad[:, col], s=22, color=color, edgecolor="white", linewidth=0.35, label=basis)
+        axes[1].scatter(x + offset, nac[:, col], s=22, color=color, edgecolor="white", linewidth=0.35)
+
+    axes[0].axhspan(1e-10, CHEM_ACC_MEH, color="#D9EAD3", alpha=0.38, zorder=0)
+    axes[0].axhline(CHEM_ACC_MEH, color="#4D7F3A", linewidth=0.75, linestyle=(0, (4, 2)))
+    axes[0].set_ylabel(r"gradient error (mE$_h$/Bohr)")
+    axes[1].set_ylabel("NAC error (a.u.)")
+    axes[1].set_xticks(x, row_labels, rotation=32, ha="right")
+    axes[1].set_xlabel("benchmark system")
+
+    for ax in axes:
         ax.set_yscale("log")
-        ax.grid(True, which="both", linestyle=":", alpha=0.35)
-    axg.set_ylabel("mE$_h$/Bohr", fontsize=8)
-    axn.set_ylabel("a.u.", fontsize=8)
+        ax.grid(True, axis="y", which="major", color="#D8D8D8", linewidth=0.45)
+        ax.grid(True, axis="y", which="minor", color="#EFEFEF", linewidth=0.28)
+        for spine in ("top", "right"):
+            ax.spines[spine].set_visible(False)
 
-axes[-1, 0].set_xlabel(r"DMRG bond dimension $M$")
-axes[-1, 1].set_xlabel(r"DMRG bond dimension $M$")
-fig3.suptitle("Basis-set matrix for BVOE derivative convergence",
-              fontsize=11, y=0.995)
-if legend_handles:
-    fig3.legend(legend_handles, legend_labels, loc="lower center", ncol=3,
-                fontsize=8, frameon=True, bbox_to_anchor=(0.5, 0.005))
-fig3.subplots_adjust(left=0.09, right=0.985, top=0.965, bottom=0.06,
-                     hspace=0.48, wspace=0.30)
+    panel_label(axes[0], "A")
+    panel_label(axes[1], "B")
+    axes[0].legend(frameon=False, ncol=3, loc="upper right", handletextpad=0.3, columnspacing=0.9)
+    save_figure(fig, "bvoe_basis_matrix")
 
-out3_png = fig_dir / "bvoe_basis_matrix.png"
-out3_pdf = fig_dir / "bvoe_basis_matrix.pdf"
-fig3.savefig(out3_png, dpi=300, bbox_inches="tight")
-fig3.savefig(out3_pdf, bbox_inches="tight")
-print(f"Wrote {out3_png}")
-print(f"Wrote {out3_pdf}")
+
+if __name__ == "__main__":
+    plot_convergence()
+    plot_root_sensitive_diagnostics()
+    plot_highm_heatmap()
+    plot_basis_matrix()
