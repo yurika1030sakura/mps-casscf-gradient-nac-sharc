@@ -45,5 +45,5 @@ python plot_bvoe_phase2.py
 
 ## Scope
 
-Do not add private chemistry applications, private trajectories, unpublished
-mechanistic conclusions, or local cluster output files to this repository.
+Do not add unpublished application systems, trajectory folders, mechanistic
+conclusions, or local cluster output files to this repository.

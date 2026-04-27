@@ -25,15 +25,19 @@ interface output on public benchmark systems.
 
 ## Claims To Avoid
 
-- Do not use private chemistry data, molecule names, trajectories, MECIs, or
-  mechanistic conclusions in this manuscript.
+- Do not use unpublished application data, molecule names, trajectories,
+  MECIs, or mechanistic conclusions in this manuscript.
 - Do not overstate LiF NAC convergence. Energy and gradient converge, but
   the derivative coupling has a gauge/degeneracy caveat.
 
 ## Remaining Before Submission
 
-- Write LaTeX manuscript from `OUTLINE.md`.
-- Convert validation results into a concise methods table.
+- Replace placeholder author list, affiliations, acknowledgments, conflict
+  of interest statement, and repository DOI/URL.
 - Decide whether LiF stays in the main figure or moves to SI with the NAC
   caveat.
-- Add code availability and test-reproducibility notes.
+- Confirm journal template formatting with the corresponding author.  The
+  current draft compiles as a neutral LaTeX article because the local TeX
+  installation does not provide `achemso.cls`.
+- Attach Supporting Information containing the full benchmark tables,
+  representative input files, and regression-test logs.

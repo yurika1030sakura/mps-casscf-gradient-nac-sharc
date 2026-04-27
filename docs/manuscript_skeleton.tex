@@ -79,7 +79,41 @@ we validate gradients and nonadiabatic couplings against FCI active-space
 references and characterize the finite-bond-dimension response error on
 public benchmark systems.  Third, we expose the validated backend through a
 SHARC-compatible PySCF interface and demonstrate the complete output path on a
-public ethylene test case.
+public ethylene test case.  The contribution is therefore an implementation,
+validation, and reproducibility paper rather than a new derivation of the
+underlying SA-DMRG response theory.
+
+\begin{table}[t]
+\centering
+\small
+\caption{Positioning of the present work relative to closely related methods
+and software.}
+\label{tab:positioning}
+\begin{tabular}{p{0.24\textwidth}p{0.25\textwidth}p{0.42\textwidth}}
+\toprule
+Work or software & Scope & Relation to the present implementation \\
+\midrule
+SA-CASSCF derivative couplings\cite{FdezGalvan2016}
+& Analytic CASSCF NAC theory and implementations
+& Provides the FCI active-space response reference used for numerical
+validation. \\
+SA-DMRG-SCF response\cite{Freitag2019}
+& Approximate analytic gradients and NACs with MPS response variables
+& Provides the theoretical DMRG response framework followed here. \\
+SA-DMRG-CASSCF gradients\cite{Iino2023}
+& Coupled-perturbed equations for analytic SA-DMRG-CASSCF gradients
+& Establishes an independent modern formulation; the present work emphasizes
+open PySCF/pyblock2 integration and NAC/interface validation. \\
+PySCF and block2\cite{Sun2018PySCF,Sun2020PySCF,Zhai2023Block2}
+& Open electronic-structure and DMRG infrastructure
+& Supplies the host CASSCF derivative code and the spin-adapted MPS backend. \\
+SHARC\cite{Richter2011SHARC,Mai2018SHARC}
+& Nonadiabatic dynamics driver and data interface
+& Defines the Hamiltonian, dipole, gradient, and derivative-coupling output
+contract tested in the ethylene regression case. \\
+\bottomrule
+\end{tabular}
+\end{table}
 
 \section{Theory and Algorithm}
 
@@ -138,6 +172,21 @@ PySCF's CASSCF gradient and nonadiabatic-coupling infrastructure.  The latter
 path is the main regression-test target because it permits direct comparison
 with standard FCI active-space calculations.
 
+The workflow used in the public benchmarks is:
+\begin{enumerate}
+\item converge an SA(2)-CASSCF reference with PySCF and an FCI active-space
+solver;
+\item freeze the converged orbitals and construct the active-space
+Hamiltonian in the same orbital basis;
+\item optimize spin-adapted block2 MPS roots at the selected bond dimension;
+\item align the MPS roots with the FCI reference by maximum overlap and
+global phase;
+\item evaluate energies, one- and two-particle density matrices, gradients,
+and derivative couplings through the PySCF response interface; and
+\item compare the resulting derivatives to the FCI active-space values at
+identical orbitals.
+\end{enumerate}
+
 The SHARC-facing interface adds a PySCF template method,
 \texttt{dmrg-casscf}.  When requested, the interface constructs a PySCF
 CASSCF object, installs the DMRG-backed active-space solver, evaluates the
@@ -155,6 +204,17 @@ run at each selected bond dimension, and the resulting state vectors were
 phase-aligned to the FCI reference before evaluating derivative errors.
 Gradients are reported in m$\Eh$/Bohr and derivative couplings in atomic
 units.
+
+The FCI reference calculations used restricted Hartree--Fock orbitals
+converged to $10^{-12}$, SA-CASSCF energy convergence of $10^{-10}$, and a
+CASSCF gradient convergence threshold of $10^{-7}$.  The bond-dimension scan
+used up to 30 DMRG sweeps and a sweep tolerance of $10^{-12}$ unless noted
+otherwise.  The ethylene SHARC-interface regression test used an
+SA(2)-DMRG-CASSCF(2,2)/STO-3G model with $M=60$, ten DMRG sweeps, a DMRG
+sweep tolerance of $10^{-8}$, CASSCF energy convergence of $10^{-8}$, and
+CASSCF gradient convergence of $10^{-5}$.  These settings are intentionally
+small enough for a public regression test and are not used to make a
+mechanistic chemistry claim.
 
 \begin{table}[h]
 \centering
@@ -187,6 +247,38 @@ formatting.  The current regression suite contains 46 passing tests across
 active-space references in small active spaces and consistency between the
 native MPS and PySCF-compatible solver paths.
 
+\begin{table}[t]
+\centering
+\small
+\caption{Validation layers included in the public test and benchmark suite.}
+\label{tab:validation}
+\begin{tabular}{p{0.25\textwidth}p{0.32\textwidth}p{0.34\textwidth}}
+\toprule
+Validation target & Public evidence & Quantity checked \\
+\midrule
+DMRG active-space solver
+& Solver regression tests
+& Energies, state density matrices, transition density matrices, and analytic
+NAC pipeline consistency with FCI references. \\
+MPS/FCI mapping
+& Active-space map tests
+& Round-trip mapping for CAS(2,2), CAS(4,4), and CAS(8,8) active spaces. \\
+Response linear algebra
+& Coupled-perturbed response tests
+& Hermiticity, linearity, response-vector solves, and agreement between MPS
+and FCI response operations in exactly recoverable cases. \\
+Gradient and NAC derivatives
+& Derivative regression tests
+& Analytic gradients and derivative couplings against PySCF FCI active-space
+references. \\
+SHARC interface
+& Ethylene interface regression
+& Presence of \texttt{H}, \texttt{DM}, \texttt{GRAD}, and \texttt{NACDR}
+blocks in \texttt{QM.out} with SHARC master error code 0. \\
+\bottomrule
+\end{tabular}
+\end{table}
+
 \subsection{Finite-Bond-Dimension Response Error}
 
 Figure~\ref{fig:bvoe} shows the fixed-orbital bond-dimension response error.
@@ -196,8 +288,8 @@ is a more demanding benchmark; it improves substantially with $M$ but also
 shows the expected sensitivity of excited-state tracking in a compact
 benchmark.  LiF provides a nonzero derivative-coupling test case.  Its energy
 and gradient errors converge rapidly, whereas the derivative coupling remains
-more gauge-sensitive, so it is interpreted as a diagnostic benchmark rather than the
-primary convergence example.
+more gauge-sensitive, so it is interpreted as a diagnostic benchmark rather
+than the primary convergence example.
 
 The key observation is that the catastrophic response spikes observed with an
 earlier SVD-truncated CI-vector proxy disappear when real DMRG roots are
@@ -205,9 +297,29 @@ evaluated at FCI-stationary orbitals.  This supports the interpretation that
 those spikes were not intrinsic failures of the DMRG response approximation,
 but artifacts of using a nonstationary truncated-CI orbital manifold.
 
+\begin{table}[t]
+\centering
+\small
+\caption{Representative largest-$M$ fixed-orbital response errors from the
+public benchmark scan.}
+\label{tab:largestm}
+\begin{tabular}{lllll}
+\toprule
+System & Active space & $M$ & $\Delta_g$ (m$\Eh$/Bohr) & $\Delta_d$ \\
+\midrule
+H$_4$/STO-3G & CAS(4,4) & 12 & $8.99\times10^{-11}$ & $2.22\times10^{-7}$ \\
+H$_2$O/STO-3G & CAS(4,4) & 12 & $1.44\times10^{-3}$ & $2.29\times10^{-6}$ \\
+N$_2$/STO-3G & CAS(6,6) & 30 & $4.58\times10^{-1}$ & $3.72\times10^{-3}$ \\
+H$_2$O/6-31G & CAS(6,6) & 30 & $9.37\times10^{-5}$ & $1.48\times10^{-4}$ \\
+C$_2$/STO-3G & CAS(8,8) & 70 & $1.80$ & $5.70\times10^{-2}$ \\
+LiF/STO-3G & CAS(4,4) & 12 & $1.75\times10^{-6}$ & $2.91\times10^{-1}$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
 \begin{figure}[h]
 \centering
-\includegraphics[width=\textwidth]{../sharc_pyscf_casscf/dmrg_analytic_dev/bvoe_convergence_study/figures/bvoe_phase2.pdf}
+\includegraphics[width=\textwidth]{../benchmarks/bvoe_convergence_study/figures/bvoe_phase2.pdf}
 \caption{Fixed-orbital bond-dimension response-error convergence for public
 benchmark systems.  Gradient errors are reported in m$\Eh$/Bohr and
 nonadiabatic coupling errors in atomic units.}
@@ -234,10 +346,17 @@ FCI-optimized orbitals.  The results provide a reproducible open-source
 platform for testing DMRG-based multireference response quantities and for
 connecting them to nonadiabatic dynamics interfaces.
 
+\section*{Supporting Information}
+
+Supporting Information: benchmark inputs, full convergence tables,
+regression-test summary, and SHARC ethylene interface example files.
+
 \section*{Data and Code Availability}
 
 The public code bundle contains the response implementation, tests, benchmark
-drivers, benchmark summaries, and plotting scripts.  Application systems and
+drivers, benchmark summaries, plotting scripts, and the ethylene SHARC
+interface regression example.  A permanent repository URL or DOI should be
+inserted in this section before journal submission.  Application systems and
 trajectory data outside the public benchmark set are not included.
 
 \section*{Acknowledgments}

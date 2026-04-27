@@ -7,7 +7,7 @@ cd /n/home04/yulili/daisuan/dmrg_sacasscf_response_public
 ```
 
 Do not upload `/n/home04/yulili/daisuan` or the full project directory.
-Those contain private chemistry work and cluster output.
+Those contain unrelated application work and cluster output.
 
 ## 1. Check The Bundle
 
@@ -21,7 +21,7 @@ Run the generic sensitive-term scanner with a private term list that is not
 committed:
 
 ```bash
-printf '%s\n' 'private_keyword_1' 'private_keyword_2' > .private_terms
+printf '%s\n' 'sensitive_keyword_1' 'sensitive_keyword_2' > .private_terms
 bash scripts/check_sensitive_terms.sh .private_terms
 ```
 
@@ -104,9 +104,9 @@ decided, keep the repository private.
 Do not commit:
 
 - parent project directories;
-- private chemistry directories;
+- unpublished application directories;
 - SHARC trajectory folders;
 - cluster scratch paths or node logs;
 - checkpoint files, HDF5 files, or binary scratch;
-- unpublished private application geometries;
+- unpublished application geometries;
 - generated `QM.log`, `QM.err`, `QM.out`, or `PySCF_master.log`.

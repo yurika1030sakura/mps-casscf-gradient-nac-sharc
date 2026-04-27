@@ -7,7 +7,7 @@ Generated 2026-04-27.
 The methods manuscript is a methods/software paper. It must use only public,
 non-confidential benchmark systems and must not mention, cite, copy, or
 summarize any molecule, mechanism, geometry, trajectory, or product-path
-evidence from the separate private chemistry project.
+evidence from unpublished application projects.
 
 ## Manuscript Story
 
@@ -18,7 +18,7 @@ Suggested framing:
 > and bond-dimension orbital-response-error validation.
 
 The manuscript contributes implementation, validation, and benchmark
-characterization, not a private mechanistic chemistry application.
+characterization, not an unpublished mechanistic application.
 
 ## Allowed Systems
 
@@ -35,9 +35,9 @@ Use these in the methods manuscript:
 
 ## Disallowed Material For Manuscript Text
 
-Do not use any private chemistry-project files, private trajectory files,
-private MECI searches, or private enlarged-active-space application runs for
-the methods manuscript.
+Do not use any unpublished application-project files, trajectory folders,
+MECI searches, or enlarged-active-space application runs for the methods
+manuscript.
 
 These can stay in the workspace for the separate chemistry project, but they
 are not part of the methods paper.
