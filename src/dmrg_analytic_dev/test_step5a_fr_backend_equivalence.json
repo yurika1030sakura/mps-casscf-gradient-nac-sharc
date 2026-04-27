@@ -1,0 +1,37 @@
+{
+  "milestone": "Step5a_FR_backend_equivalence",
+  "results": [
+    {
+      "name": "E1_matvec_equivalence",
+      "trials": 5,
+      "max_diff": 5.4672143489065705e-16,
+      "all_diffs": [
+        0.0,
+        1.3877787807814457e-17,
+        4.449557262054371e-16,
+        1.5700924586837752e-16,
+        5.4672143489065705e-16
+      ],
+      "tol": 1e-10,
+      "status": "pass"
+    },
+    {
+      "name": "E2_solve_state0_equivalence",
+      "info_n": 0,
+      "info_fr": 0,
+      "kappa_diff": 2.8609792490763984e-17,
+      "v_diff": 2.2521674280119965e-18,
+      "tol": 1e-08,
+      "status": "pass"
+    },
+    {
+      "name": "E3_solve_nac_equivalence",
+      "info_n": 0,
+      "info_fr": 0,
+      "kappa_diff": 3.0739378311296204e-17,
+      "v_diff": 3.885015761172427e-18,
+      "tol": 1e-06,
+      "status": "pass"
+    }
+  ]
+}

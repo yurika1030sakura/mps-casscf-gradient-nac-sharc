@@ -1,0 +1,140 @@
+{
+  "milestone": "M1_overlap_fci_reference",
+  "purpose": "Validate cross-geometry FCI/CAS overlap reference implementation",
+  "results": [
+    {
+      "name": "T1_identity",
+      "overlap": 1.0,
+      "status": "pass",
+      "tol": 1e-12
+    },
+    {
+      "name": "T2_phase_reversal",
+      "overlap": -1.0,
+      "status": "pass",
+      "tol": 1e-12
+    },
+    {
+      "name": "T3_random_unitary",
+      "overlap": 0.9947687510288785,
+      "U": [
+        [
+          -0.9978601647268763,
+          0.06538418502398999
+        ],
+        [
+          0.06538418502398999,
+          0.9978601647268762
+        ]
+      ],
+      "status": "pass",
+      "note": "magnitude bound test only"
+    },
+    {
+      "name": "T4_h2_displacement_scan",
+      "overlaps": [
+        {
+          "dx": 0.0,
+          "overlap": 1.0,
+          "abs_overlap": 1.0
+        },
+        {
+          "dx": 0.001,
+          "overlap": 0.9999994149726185,
+          "abs_overlap": 0.9999994149726185
+        },
+        {
+          "dx": 0.005,
+          "overlap": 0.9999853601718243,
+          "abs_overlap": 0.9999853601718243
+        },
+        {
+          "dx": 0.02,
+          "overlap": 0.9997649700040732,
+          "abs_overlap": 0.9997649700040732
+        },
+        {
+          "dx": 0.05,
+          "overlap": 0.9985228189729097,
+          "abs_overlap": 0.9985228189729097
+        },
+        {
+          "dx": 0.1,
+          "overlap": 0.9940560619324182,
+          "abs_overlap": 0.9940560619324182
+        }
+      ],
+      "near_one_at_zero": true,
+      "monotonic_decrease": true,
+      "status": "pass",
+      "tol": 1e-10
+    },
+    {
+      "name": "T5_root_assignment",
+      "n_roots": 3,
+      "overlap_matrix": [
+        [
+          1.0,
+          1.1452859856909432e-18,
+          4.176314885584683e-17
+        ],
+        [
+          1.1452859856909432e-18,
+          1.0,
+          -3.8857805861880474e-16
+        ],
+        [
+          4.176314885584683e-17,
+          -3.8857805861880474e-16,
+          1.0
+        ]
+      ],
+      "perm": [
+        0,
+        1,
+        2
+      ],
+      "signs": [
+        1,
+        1,
+        1
+      ],
+      "diag_unitary": true,
+      "perm_correct": true,
+      "status": "pass"
+    },
+    {
+      "name": "T6_displaced_root_tracking",
+      "overlap_matrix": [
+        [
+          0.9997649700040732,
+          1.0614947845476171e-16,
+          -0.013674450606976453
+        ],
+        [
+          4.907690652597271e-17,
+          -0.9996287743316351,
+          -8.90089479321915e-16
+        ],
+        [
+          0.013369471032995312,
+          -5.552785240209616e-16,
+          0.9994798514241898
+        ]
+      ],
+      "perm": [
+        0,
+        1,
+        2
+      ],
+      "signs": [
+        1,
+        -1,
+        1
+      ],
+      "diag_dominant": true,
+      "perm_identity": true,
+      "status": "pass"
+    }
+  ]
+}

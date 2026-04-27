@@ -1,0 +1,54 @@
+{
+  "milestone": "Step6.1_single_site_sigma_MPS_native",
+  "purpose": "Validate that driver.multiply(bra, MPO, ket) gives \u03c3 = MPO\u00b7|\u03c8\u27e9 in MPS form, matching FCI fallback.",
+  "results": [
+    {
+      "name": "M1_eigenstate_norm_and_expectation",
+      "results": [
+        {
+          "root": 0,
+          "E_dmrg": -2.8438350683375866,
+          "sigma_mps_norm": 2.8438350683375875,
+          "norm_via_overlap": 2.843835068337588,
+          "psi_MPO_psi_expectation": -2.843835068337588,
+          "abs(E_dmrg - sigma_norm)": 8.881784197001252e-16,
+          "abs(E_dmrg - <psi|MPO|psi>)": 1.3322676295501878e-15
+        },
+        {
+          "root": 1,
+          "E_dmrg": -1.7626353792565415,
+          "sigma_mps_norm": 1.7626353792565406,
+          "norm_via_overlap": 1.7626353792565406,
+          "psi_MPO_psi_expectation": -1.7626353792565403,
+          "abs(E_dmrg - sigma_norm)": 8.881784197001252e-16,
+          "abs(E_dmrg - <psi|MPO|psi>)": 1.1102230246251565e-15
+        }
+      ],
+      "max_abs_diff": 1.3322676295501878e-15,
+      "tol": 1e-06,
+      "status": "pass"
+    },
+    {
+      "name": "M2_mps_sigma_matches_fci_fallback",
+      "results": [
+        {
+          "root": 0,
+          "sign": 1.0,
+          "\u2016sigma_fci_direct\u2016": 4.272406496909014,
+          "\u2016sigma_fci_from_mps\u2016": 4.272406496909015,
+          "diff_after_sign_align": 1.777901156202321e-15
+        },
+        {
+          "root": 1,
+          "sign": 1.0,
+          "\u2016sigma_fci_direct\u2016": 3.191206807827968,
+          "\u2016sigma_fci_from_mps\u2016": 3.1912068078279687,
+          "diff_after_sign_align": 6.431871827503859e-16
+        }
+      ],
+      "max_abs_diff": 1.777901156202321e-15,
+      "tol": 1e-05,
+      "status": "pass"
+    }
+  ]
+}

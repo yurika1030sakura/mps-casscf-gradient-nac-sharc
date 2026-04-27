@@ -1,0 +1,152 @@
+{
+  "milestone": "Step6_production_MPSAsFCISolver_validation",
+  "purpose": "Validate MPSAsFCISolver as a production drop-in DMRG fcisolver for pyscf.mcscf.CASSCF + pyscf.grad.sacasscf + pyscf.nac.sacasscf, and for cp_casscf_response.CPCASSCFResponseFCI.",
+  "results": [
+    {
+      "name": "P1_heh_state0_gradient",
+      "g_fci": [
+        [
+          0.0,
+          0.0,
+          0.14218546041762214
+        ],
+        [
+          0.0,
+          0.0,
+          -0.14218546041762226
+        ]
+      ],
+      "g_dmrg": [
+        [
+          0.0,
+          0.0,
+          0.14218546041762237
+        ],
+        [
+          0.0,
+          0.0,
+          -0.1421854604176228
+        ]
+      ],
+      "diff": 5.978733960281817e-16,
+      "tol": 1e-07,
+      "status": "pass"
+    },
+    {
+      "name": "P2_h4_state0_gradient_cas44",
+      "g_fci": [
+        [
+          0.0,
+          0.0,
+          0.5088692790781986
+        ],
+        [
+          0.0,
+          0.0,
+          0.3191821631117668
+        ],
+        [
+          0.0,
+          0.0,
+          -0.31918216311176656
+        ],
+        [
+          0.0,
+          0.0,
+          -0.5088692790781981
+        ]
+      ],
+      "g_dmrg": [
+        [
+          0.0,
+          0.0,
+          0.5088692790782146
+        ],
+        [
+          0.0,
+          0.0,
+          0.31918216311182535
+        ],
+        [
+          0.0,
+          0.0,
+          -0.3191821631118251
+        ],
+        [
+          0.0,
+          0.0,
+          -0.5088692790782141
+        ]
+      ],
+      "diff": 8.585294421805431e-14,
+      "tol": 1e-06,
+      "status": "pass"
+    },
+    {
+      "name": "P3_h4_nac_states_01",
+      "nac_fci": [
+        [
+          0.0,
+          0.0,
+          0.3620041596774297
+        ],
+        [
+          0.0,
+          0.0,
+          0.2042179179377568
+        ],
+        [
+          0.0,
+          0.0,
+          0.20421802778821246
+        ],
+        [
+          0.0,
+          0.0,
+          0.36200413494351813
+        ]
+      ],
+      "nac_dmrg": [
+        [
+          0.0,
+          0.0,
+          -0.36200420408966844
+        ],
+        [
+          0.0,
+          0.0,
+          -0.2042179293902868
+        ],
+        [
+          0.0,
+          0.0,
+          -0.20421791277173593
+        ],
+        [
+          0.0,
+          0.0,
+          -0.3620042070992157
+        ]
+      ],
+      "diff_after_phase": 1.4331378845223156e-07,
+      "tol": 1e-06,
+      "status": "pass"
+    },
+    {
+      "name": "P4_cp_response_integration",
+      "Lvec_state0_diff_after_phase": 1.0898360627952484,
+      "Lvec_nac_diff_after_phase": 1.7588068092761717e-06,
+      "L_state0_norm_fci": 0.1997200853771524,
+      "L_state0_norm_dmrg": 1.2895561481653355,
+      "L_nac_norm_fci": 1.7968371322207884e-06,
+      "L_nac_norm_dmrg": 2.2548228125292387e-07,
+      "ratio_state0": 0.15487505965622061,
+      "ratio_nac": 0.1254884358796841,
+      "info_state0_fci": 500,
+      "info_state0_dmrg": 500,
+      "info_nac_fci": 500,
+      "info_nac_dmrg": 0,
+      "status": "pass"
+    }
+  ]
+}

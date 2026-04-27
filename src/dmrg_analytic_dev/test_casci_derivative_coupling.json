@@ -1,0 +1,133 @@
+{
+  "milestone": "M3_CASCI_derivative_coupling",
+  "scope": "analytic 1e + FD 2e (hybrid). Fully analytic 2e is M3-followup.",
+  "results": [
+    {
+      "name": "C1_hybrid_matches_full_FD",
+      "nac_hybrid": [
+        [
+          0.0,
+          0.0,
+          0.6323846338956749
+        ],
+        [
+          0.0,
+          0.0,
+          -0.6323846338956745
+        ]
+      ],
+      "nac_full_fd": [
+        [
+          0.0,
+          0.0,
+          0.6323845257130423
+        ],
+        [
+          0.0,
+          0.0,
+          -0.6323845257130145
+        ]
+      ],
+      "abs_diff": 1.529933655905764e-07,
+      "tol": 1e-06,
+      "status": "pass"
+    },
+    {
+      "name": "C2_hermiticity_symmetry_and_d_IJ_antisymmetry",
+      "nac_01": [
+        [
+          0.0,
+          0.0,
+          0.6323846338956749
+        ],
+        [
+          0.0,
+          0.0,
+          -0.6323846338956745
+        ]
+      ],
+      "nac_10": [
+        [
+          0.0,
+          0.0,
+          0.6323846338957313
+        ],
+        [
+          0.0,
+          0.0,
+          -0.6323846338956756
+        ]
+      ],
+      "sym_residual_of_N": 5.641025598454445e-14,
+      "asym_residual_of_d_IJ": 5.219229170424792e-14,
+      "tol_N_sym": 1e-06,
+      "tol_d_asym": 1e-06,
+      "status": "pass"
+    },
+    {
+      "name": "C3_translational_invariance",
+      "nac": [
+        [
+          0.0,
+          0.0,
+          0.6323846338956749
+        ],
+        [
+          0.0,
+          0.0,
+          -0.6323846338956745
+        ]
+      ],
+      "trans_residual": 4.440892098500626e-16,
+      "norm": 0.8943269258916076,
+      "tol": 0.001,
+      "status": "pass"
+    },
+    {
+      "name": "C4_overlap_nac_order_of_magnitude",
+      "dE_hartree": 1.0811996890810478,
+      "tau_overlap": [
+        [
+          0.0,
+          0.0,
+          -1.1228924210860778
+        ],
+        [
+          0.0,
+          0.0,
+          -0.19854467712036947
+        ]
+      ],
+      "tau_times_dE": [
+        [
+          0.0,
+          0.0,
+          -1.2140709365497322
+        ],
+        [
+          0.0,
+          0.0,
+          -0.2146664431712405
+        ]
+      ],
+      "nac_analytic_hybrid": [
+        [
+          0.0,
+          0.0,
+          0.6323846338956749
+        ],
+        [
+          0.0,
+          0.0,
+          -0.6323846338956745
+        ]
+      ],
+      "norm_tau_times_dE": 1.2329030459847747,
+      "norm_nac": 0.8943269258916076,
+      "ratio": 0.7253830127228444,
+      "tol": "0.01 < ratio < 100",
+      "note": "Loose check; exact match requires full CASSCF response.",
+      "status": "pass"
+    }
+  ]
+}

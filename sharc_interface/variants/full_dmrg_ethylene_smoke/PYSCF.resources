@@ -1,0 +1,5 @@
+scratchdir $TMPDIR/WORK
+savedir $PWD/SAVEDIR
+ncpu 1
+memory 8000
+delay 0.0

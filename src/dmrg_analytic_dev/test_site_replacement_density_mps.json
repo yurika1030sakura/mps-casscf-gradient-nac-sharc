@@ -1,0 +1,26 @@
+{
+  "milestone": "Step6.2_site_replacement_density_MPS_native",
+  "purpose": "Validate transition_rdm_site_replacement_mps + T_matrix_site_replacement_mps on HeH+ CAS(2,2) (DMRG=FCI).",
+  "results": [
+    {
+      "name": "R1_trans_rdm_matches_fci",
+      "\u2016gamma_fci\u2016": 1.3748834537048826,
+      "\u2016Gamma_fci\u2016": 2.0000000000000004,
+      "sign_g": 1.0,
+      "sign_G": 1.0,
+      "diff_gamma": 2.2516683988987807e-16,
+      "diff_Gamma": 1.301254447358317e-15,
+      "tol": 1e-08,
+      "status": "pass"
+    },
+    {
+      "name": "R2_T_matrix_matches_fci",
+      "\u2016T_fci\u2016": 2.2342804198846915,
+      "\u2016T_mps\u2016": 2.234280419884692,
+      "sign": 1.0,
+      "diff": 6.280369834735101e-16,
+      "tol": 1e-08,
+      "status": "pass"
+    }
+  ]
+}

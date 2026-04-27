@@ -1,0 +1,55 @@
+{
+  "milestone": "FreitagReiher_Step5b_NAC_baseline_validation",
+  "results": [
+    {
+      "name": "N1_nac_rhs_nontrivial",
+      "rhs_O_norm": 0.43866456192167175,
+      "rhs_flat_norm": 0.310182686401063,
+      "tol_min": 0.001,
+      "status": "pass"
+    },
+    {
+      "name": "N2_nac_lvec_matches_pyscf",
+      "info": 0,
+      "Lvec_pyscf_norm": 0.1008461164619873,
+      "Lvec_mine_norm": 0.10084615654970275,
+      "diff_pos": 9.695789253089891e-08,
+      "diff_neg": 0.20169227301167075,
+      "diff_min": 9.695789253089891e-08,
+      "tol": 1e-06,
+      "status": "pass"
+    },
+    {
+      "name": "N3_full_nac_matches",
+      "de_ref": [
+        [
+          0.0,
+          0.0,
+          0.522039908154133
+        ],
+        [
+          0.0,
+          0.0,
+          0.12881010620031577
+        ]
+      ],
+      "de_mine": [
+        [
+          0.0,
+          0.0,
+          0.5220398635360478
+        ],
+        [
+          0.0,
+          0.0,
+          0.12881015081840103
+        ]
+      ],
+      "Lvec_diff": 9.695789253089891e-08,
+      "max_abs_diff": 4.461808525424438e-08,
+      "rel_diff": 8.546872481839228e-08,
+      "tol_rel": 1e-06,
+      "status": "pass"
+    }
+  ]
+}

@@ -1,0 +1,152 @@
+\documentclass[11pt]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage[hidelinks]{hyperref}
+
+\title{Analytic State-Averaged DMRG-CASSCF Gradients and Nonadiabatic Couplings in PySCF with SHARC Integration}
+
+\author{Author list to be finalized}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+We present an open-source PySCF/pyblock2 implementation of analytic
+state-averaged DMRG-CASSCF gradients and nonadiabatic couplings, together
+with a SHARC-compatible interface for nonadiabatic dynamics workflows.  The
+implementation exposes both a native MPS response path and a PySCF-compatible
+FCI-solver wrapper, enabling validation against standard CASSCF gradient and
+derivative-coupling machinery on small and medium active spaces.  We quantify
+the bond-dimension orbital-response error on public benchmark systems and
+demonstrate that DMRG-CASSCF energies, dipoles, gradients, and derivative
+couplings can be emitted in SHARC format.  The present SHARC path uses
+FCI-projected response vectors and is therefore intended for validated
+benchmark active spaces; CAS(24,18)-scale production trajectories require a
+future MPS-Krylov response backend.
+\end{abstract}
+
+\section{Introduction}
+
+Nonadiabatic photochemistry requires electronic-structure methods that remain
+well behaved near near-degeneracies and conical intersections.  CASSCF is a
+natural reference method in this regime, but the factorial growth of the
+full-CI active-space solver limits practical applications.  DMRG provides a
+compact MPS representation of large active-space wave functions, but analytic
+state-averaged DMRG-CASSCF gradients and nonadiabatic couplings are not yet
+available as a routine open-source PySCF-to-dynamics workflow.
+
+This work reports an implementation and validation study.  The contribution is
+not a new response theory; rather, it is a PySCF/pyblock2 implementation,
+test suite, benchmark characterization, and SHARC interface.
+
+\section{Theory}
+
+We start from the state-averaged CASSCF Lagrangian and coupled-perturbed
+orbital-response equations.  In the DMRG variant, active-space CI vectors are
+represented by MPS wave functions and response quantities are evaluated either
+through a native MPS response path or through a PySCF-compatible wrapper that
+exposes the expected FCI-solver contract for validation.
+
+\subsection{Bond-Dimension Orbital-Response Error}
+
+For a fixed set of FCI-optimized CASSCF orbitals, we replace the active-space
+FCI vector by a bond-dimension-$M$ DMRG approximation and recompute analytic
+gradients and nonadiabatic couplings.  This isolates the bond-dimension
+orbital-response error from artifacts caused by reoptimizing orbitals on an
+incompletely converged truncated CI manifold.
+
+\section{Implementation}
+
+The code provides two validated paths:
+
+\begin{itemize}
+  \item \texttt{CPDMRGCASSCFResponseMPS}: native MPS response operations.
+  \item \texttt{MPSAsFCISolver}: a PySCF-compatible active-space solver
+        wrapper used by the current production validation path.
+\end{itemize}
+
+The SHARC interface adds a non-hybrid electronic-structure method name,
+\texttt{dmrg-casscf}, which installs the DMRG-backed active-space solver in a
+PySCF CASSCF object and writes Hamiltonians, dipoles, gradients, and
+nonadiabatic coupling vectors in SHARC format.
+
+\section{Validation}
+
+The implementation is validated by unit and integration tests covering
+FCI/DMRG energies, one- and transition-density matrices, MPS-to-FCI
+conversion, analytic gradients, analytic nonadiabatic couplings, and SHARC
+output formatting.  The current test report contains 46 passing tests across
+14 test files.
+
+\begin{table}[h]
+\centering
+\caption{Public validation systems used in this manuscript draft.}
+\begin{tabular}{llll}
+\toprule
+System & Basis & Active space & Role \\
+\midrule
+H$_4$ chain & STO-3G & CAS(4,4) & Small-system BVOE validation \\
+H$_2$O & STO-3G & CAS(4,4) & Small-system BVOE validation \\
+N$_2$ & STO-3G & CAS(6,6) & Medium-CAS BVOE validation \\
+H$_2$O & 6-31G & CAS(6,6) & Clean public NAC convergence \\
+C$_2$ & STO-3G & CAS(8,8) & Large active-space stress test \\
+LiF & STO-3G & CAS(4,4) & Nonzero-NAC stress test with gauge caveat \\
+Ethylene & STO-3G & CAS(2,2) & Public SHARC-interface smoke \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Results}
+
+\subsection{BVOE Convergence}
+
+Figure~\ref{fig:bvoe} shows phase-2 BVOE convergence using real block2 SU2
+DMRG at FCI-converged orbitals.  The catastrophic spikes observed in the
+earlier SVD-proxy phase disappear when the response equation is evaluated at
+stationary FCI-optimized orbitals.  H$_4$, H$_2$O/STO-3G, N$_2$, and
+H$_2$O/6-31G provide the cleanest convergence story.  C$_2$ supplies a
+CAS(8,8) stress test, while LiF is retained as a useful but gauge-sensitive
+nonzero-NAC stress test.
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=\textwidth]{../sharc_pyscf_casscf/dmrg_analytic_dev/bvoe_convergence_study/figures/bvoe_phase2.pdf}
+\caption{Bond-dimension orbital-response-error convergence for public
+benchmark systems.  Gradient errors are reported in m$E_h$/Bohr and NAC
+errors in atomic units.  LiF derivative couplings are gauge sensitive and
+should be interpreted as a stress test rather than the primary NAC
+convergence proof.}
+\label{fig:bvoe}
+\end{figure}
+
+\subsection{SHARC Interface Demonstration}
+
+The public ethylene smoke test requests Hamiltonians, dipoles, gradients for
+both singlet states, and the $S_0/S_1$ derivative coupling.  The run completes
+with SHARC master error code 0 and writes all requested data blocks to
+\texttt{QM.out}.  This validates the interface plumbing for
+\texttt{method dmrg-casscf}; it is not presented as a production trajectory
+claim.
+
+\section{Limitations}
+
+The current SHARC-facing \texttt{dmrg-casscf} path still projects response
+vectors into FCI-shaped arrays.  A determinant-count guard prevents using this
+path for active spaces where such arrays are not feasible.  CAS(24,18)-scale
+production dynamics will require replacing the FCI-projected response vectors
+with an MPS-Krylov response backend.
+
+\section{Conclusions}
+
+We have implemented and validated analytic state-averaged DMRG-CASSCF
+gradients and nonadiabatic couplings in a PySCF/pyblock2 workflow and added a
+SHARC-compatible output path.  Public benchmark results support manuscript
+writing now, provided the claims are scoped to implementation, validation,
+BVOE characterization, and interface demonstration.
+
+\end{document}
