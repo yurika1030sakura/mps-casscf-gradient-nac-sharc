@@ -1,4 +1,4 @@
-# MPS-CASSCF Response for SHARC
+# MPS-CASSCF Gradient/NAC Response for SHARC
 
 This is the sanitized public code bundle for the methods manuscript.
 It contains only public benchmark systems and methods/software material.
