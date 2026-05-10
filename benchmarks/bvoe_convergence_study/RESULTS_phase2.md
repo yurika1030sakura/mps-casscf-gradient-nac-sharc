@@ -3,39 +3,38 @@
 ## What changed vs. Phase 1
 
 Phase 1 used CI-vector SVD truncation to bond dim M as a proxy for DMRG.
-Phase 2 uses **actual block2 DMRG** (SU2 mode, ``nroots=2``) at the
-FCI-converged orbitals. The pipeline:
+Phase 2 uses **actual block2 DMRG** (SU2 mode with buffered candidate roots)
+at fixed SA-CASSCF orbitals. The pipeline:
 
 1. Run SA(2)-CASSCF with the standard PySCF FCI fcisolver to convergence;
-   keep the final ``mc.mo_coeff`` and the FCI ``mc.ci``.
-2. At those orbitals, build the SU2-mode DMRG MPO from the active-space
+   keep the final ``mc.mo_coeff`` as the fixed orbital basis.
+2. Rediagonalize the singlet active-space Hamiltonian at those orbitals with
+   PySCF ``direct_spin0`` FCI over multiple roots.
+3. Use the two lowest spin-adapted singlet roots as the validation FCI roots
+   for energies, gradients, NACs, overlaps, and phases.  Record ``S^2`` and
+   residuals as QC diagnostics.
+4. At those orbitals, build the SU2-mode DMRG MPO from the active-space
    integrals.
-3. Run SU2 DMRG with ``nroots=2`` and ``bond_dim = M`` to get a
-   state-averaged singlet pair of MPSes.
-4. Convert each MPS → PySCF FCI ndarray via the SZ-mode CSF route
+5. Run SU2 DMRG with buffered candidate roots and ``bond_dim = M``.
+6. Convert each MPS → PySCF FCI ndarray via the SZ-mode CSF route
    (``mps_change_to_sz`` then ``get_csf_coefficients`` on a separate SZ
    driver, with the PySCF↔block2 fermion-ordering sign correction).
-5. Phase-align each CI vector to the FCI reference (sign), normalize, and
+7. Phase-align each CI vector to the FCI reference (sign), normalize, and
    install as ``mc.ci``. Recompute analytic gradient (state 0) via
    ``pyscf.grad.sacasscf`` and analytic NAC ((0,1)) via
    ``pyscf.nac.sacasscf``. The orbital response Hessian uses the same
-   FCI-optimal orbitals → the response equation is well-conditioned and we
+   fixed orbitals → the response equation is well-conditioned and we
    measure the *pure* CI-truncation error.
 
-## Why not the headline production path (`MPSAsFCISolver(force_dmrg=True)`)?
+The ``*_FCI.json`` files use schema version 4.  They store the fixed-orbital
+singlet FCI roots and residual diagnostics in ``fci_polish_diagnostics`` with
+``mode = spin_adapted_singlet_fci``.  This avoids using spin-penalty FCI roots
+as derivative references; spin penalties can leave small residuals with
+respect to the unpenalized Hamiltonian, and NACs near avoided crossings can
+amplify those residuals.
 
-The validated ``dmrg_fcisolver.MPSAsFCISolver`` runs **SZ-mode** DMRG when
-``force_dmrg=True``. SZ is not spin-adapted; with ``nroots=2`` random-MPS
-initial guesses the second-root energy collapses to a non-physical sector
-(observed: ``e=[-2.1655, -4980.6]`` for H4 CAS(4,4)) and the downstream
-``mps_to_fci_generic`` deadlocks on the broken MPS via
-``driver.expectation``. The single-root ``force_dmrg`` path is also too
-slow to drive an SA-CASSCF macro loop in our time budget.
-
-Phase 2 sidesteps this by running DMRG **post-hoc at FCI orbitals**, using
-SU2 mode (which handles ``nroots=2`` cleanly). This is the cleanest
-isolation of "BVOE = bond-dim CI compression error" because the
-orbital-rotation Hessian is at its FCI-optimal point.
+The validation scan uses fixed orbitals and SU2 DMRG to isolate the
+active-space bond-dimension response error from orbital reoptimization effects.
 
 ## Test systems × M completed
 

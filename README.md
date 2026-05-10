@@ -1,4 +1,4 @@
-# Analytic SA-DMRG-CASSCF Response Code
+# MPS-CASSCF Response for SHARC
 
 This is the sanitized public code bundle for the methods manuscript.
 It contains only public benchmark systems and methods/software material.
@@ -11,6 +11,9 @@ It contains only public benchmark systems and methods/software material.
   SHARC-interface regression test.
 - `benchmarks/bvoe_convergence_study/`: public BVOE convergence driver,
   summary, and figure.
+- `benchmarks/large_active_space/run_mps_only_hchain_response.py`:
+  fixed-orbital MPS-only response endpoint that does not store dense
+  active-space response vectors.
 - `docs/`: manuscript scope, readiness notes, and LaTeX skeleton.
 - `UPLOAD_TUTORIAL.md`: step-by-step upload procedure.
 
@@ -34,6 +37,15 @@ environment:
 ```bash
 cd sharc_interface/variants/full_dmrg_ethylene_regression
 PYSCF_PYTHON=python ./submit_regression.sh
+```
+
+Run the focused MPS-Krylov and fixed-orbital SHARC facade checks:
+
+```bash
+cd src/dmrg_analytic_dev
+PYTHONPATH=../..:../../sharc_interface python test_mps_krylov_response.py
+PYTHONPATH=../..:../../sharc_interface python test_mps_krylov_sharc_interface.py
+PYTHONPATH=../..:../../sharc_interface python test_mps_only_fixed_orbital_sharc.py
 ```
 
 Plot the BVOE summary:

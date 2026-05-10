@@ -58,16 +58,23 @@ For same-spin internal conversion, analytic derivative coupling vectors are
 especially useful because they define, together with state gradients, the
 first-order topology near conical intersections and provide direct inputs to
 optimization and dynamics workflows.\cite{FdezGalvan2016}
+Conical intersections are a standard mechanistic framework for ultrafast
+internal conversion and organic photochemistry.\cite{Yarkony1996,Bernardi1996,Bearpark1994}
 
 CASSCF and state-averaged CASSCF (SA-CASSCF) wave functions are widely used
 for this purpose because they provide a balanced multiconfigurational
-description of near-degenerate states.  The conventional active-space solver,
+description of near-degenerate states.\cite{Roos1980CASSCF,KnowlesWerner1985MCSCF}
+The conventional active-space solver,
 however, is a full configuration interaction (FCI) expansion whose dimension
 grows combinatorially with active electrons and orbitals.  The density matrix
 renormalization group (DMRG) replaces the FCI vector by a matrix product state
 (MPS), making compact approximations to much larger active spaces possible
-when the entanglement structure is favorable.\cite{ChanHeadGordon2002,ChanSharma2011,SharmaChan2012}
+when the entanglement structure is favorable.\cite{White1992DMRG,WhiteMartin1999DMRG,RommerOstlund1997MPS,ChanHeadGordon2002,ChanSharma2011,SharmaChan2012}
+Practical reviews and open implementations have helped make ab initio DMRG a
+standard large-active-space tool.\cite{Wouters2014DMRGReview,OlivaresAmaya2015DMRGPractice,Wouters2014CheMPS2}
 
+DMRG orbital-optimization methods established the replacement of the FCI
+active-space solver by an MPS solver in CASSCF-like workflows.\cite{ZgidNooijen2008,Ghosh2008}
 Analytic response theory for DMRG-CASSCF has developed rapidly.  Freitag and
 co-workers introduced an approximate SA-DMRG-SCF gradient and nonadiabatic
 coupling formalism based on single-site MPS Lagrange multipliers in a
@@ -105,6 +112,10 @@ SA-CASSCF derivative couplings\cite{FdezGalvan2016}
 & Analytic CASSCF NAC theory and implementations
 & Provides the FCI active-space response reference used for numerical
 validation. \\
+DMRG-SCF orbital optimization\cite{ZgidNooijen2008,Ghosh2008}
+& DMRG replacement of the FCI active-space solver in orbital optimization
+& Establishes the CASSCF-like orbital-optimization setting targeted by the
+present PySCF wrapper. \\
 SA-DMRG-SCF response\cite{Freitag2019}
 & Approximate analytic gradients and NACs with MPS response variables
 & Provides the theoretical DMRG response framework followed here. \\
@@ -115,6 +126,11 @@ open PySCF/pyblock2 integration and NAC/interface validation. \\
 PySCF and block2\cite{Sun2018PySCF,Sun2020PySCF,Zhai2023Block2}
 & Open electronic-structure and DMRG infrastructure
 & Supplies the host CASSCF derivative code and the spin-adapted MPS backend. \\
+OpenMolcas/QCMaquis
+& Public DMRG-CI/DMRG-SCF ecosystem with state-specific and state-averaged
+DMRG-SCF capabilities\cite{Aquilante2020OpenMolcas,Szenes2025QCMaquis}
+& Provides closely related DMRG-SCF infrastructure; the present work targets
+the PySCF/pyblock2 derivative-coupling and SHARC-compatible workflow. \\
 SHARC\cite{Richter2011SHARC,Mai2018SHARC}
 & Nonadiabatic dynamics driver and data interface
 & Defines the Hamiltonian, dipole, gradient, and derivative-coupling output
@@ -134,12 +150,62 @@ Lagrangian that enforces stationarity with respect to orbital rotations and
 active-space wave-function parameters.  The resulting coupled-perturbed
 CASSCF equations determine the orbital-response multipliers that enter the
 effective one- and two-particle density matrices used in the derivative
-contractions.\cite{FdezGalvan2016,Freitag2019}
+contractions.\cite{KnowlesWerner1985MCSCF,FdezGalvan2016,Freitag2019}
+The theory used here follows the SA-CASSCF derivative-coupling Lagrangian
+formulation of Fdez. Galv{\'a}n et al. and the SA-DMRG-SCF response framework
+of Freitag et al.; the present work implements these response quantities in a
+PySCF/pyblock2 workflow rather than introducing a new derivative theory.
+
+Let $x$ collect the orbital rotations and active-space wave-function
+parameters.  For FCI-CASSCF, $x=(\kappa,C)$; for the DMRG representation,
+the active-space part is replaced by MPS tensor parameters, $x=(\kappa,A)$.
+For states $I$ with weights $w_I$, the optimized state-averaged reference is
+defined by
+\begin{equation}
+  E_{\mathrm{SA}} = \sum_I w_I E_I,
+  \qquad
+  \frac{\partial E_{\mathrm{SA}}}{\partial \kappa_{pq}} = 0,
+  \qquad
+  \frac{\partial E_{\mathrm{SA}}}{\partial a_{\mu I}} = 0 ,
+\end{equation}
+where $\kappa_{pq}$ are orbital-rotation parameters and $a_{\mu I}$ denotes
+the active-space state parameters in either the CI or MPS representation.  For
+a state-specific derivative, the response multipliers $z_I$ are obtained from
+the coupled-perturbed equation
+\begin{equation}
+  \mathbf{H}^{\mathrm{SA}} z_I =
+  -\frac{\partial E_I}{\partial x},
+  \qquad
+  \mathbf{H}^{\mathrm{SA}}
+  =
+  \frac{\partial^2 E_{\mathrm{SA}}}{\partial x\,\partial x}.
+\end{equation}
+They define the stationary state Lagrangian
+\begin{equation}
+  \mathcal{L}_I =
+  E_I + z_I^{\mathrm{T}}
+  \frac{\partial E_{\mathrm{SA}}}{\partial x}.
+\end{equation}
+The analytic state gradient is then obtained as the explicit nuclear
+derivative of this stationary Lagrangian,
+\begin{equation}
+  \frac{dE_I}{dR_A} =
+  \left.\frac{\partial \mathcal{L}_I}{\partial R_A}\right|_{\mathrm{stat.}},
+\end{equation}
+and the derivative-coupling vector is
+\begin{equation}
+  \mathbf{d}^{A}_{IJ} =
+  \left\langle \Psi_I \middle| \frac{\partial \Psi_J}{\partial R_A}
+  \right\rangle,\qquad I\ne J .
+\end{equation}
+These are the quantities required by state-specific geometry optimization,
+minimum-energy-crossing-point searches, and nonadiabatic dynamics drivers.
 
 \subsection{DMRG Active-Space Representation}
 
 In DMRG-CASSCF, each active-space state is represented by an MPS rather than
-by an explicit FCI vector.  A finite bond dimension $M$ controls the rank of
+by an explicit FCI vector.\cite{RommerOstlund1997MPS,WhiteMartin1999DMRG}
+A finite bond dimension $M$ controls the rank of
 the MPS approximation and therefore the accuracy of energies, density
 matrices, gradients, and derivative couplings.  Following the SA-DMRG-SCF
 response strategy of Freitag et al., the present implementation evaluates the
@@ -152,11 +218,17 @@ using pyblock2/block2 for the MPS representation and DMRG optimization.
 To isolate the effect of the MPS compression, we define a fixed-orbital
 bond-dimension response error.  For each benchmark system we first converge a
 standard SA-CASSCF calculation with an FCI active-space solver.  We then hold
-the converged molecular orbitals fixed, run spin-adapted block2 DMRG in the
-same active-space Hamiltonian at a selected bond dimension $M$, convert the
-resulting MPS roots into the PySCF active-space representation, and recompute
-analytic gradients and nonadiabatic couplings.  The error is measured against
-the FCI active-space derivative at the same orbitals,
+the converged molecular orbitals fixed and rediagonalize the singlet
+active-space Hamiltonian with PySCF \texttt{direct\_spin0} FCI.  The
+validation roots are the lowest two spin-adapted singlet roots, with
+$\langle S^2\rangle$ recorded as a diagnostic.  Spin-adapted block2 DMRG is
+then run in
+the same active-space Hamiltonian at a selected bond dimension $M$; the
+resulting MPS roots are converted into the PySCF active-space representation,
+assigned to the fixed-orbital FCI roots by maximum overlap, phase-aligned,
+and used to recompute analytic gradients and nonadiabatic couplings.  The
+error is measured against the FCI active-space derivative at identical
+orbitals,
 \begin{align}
 \Delta_g(M) &= \left\|\nabla_{\bfR} E_0(M) -
               \nabla_{\bfR} E_0^{\mathrm{FCI}}\right\|_2,\\
@@ -189,12 +261,14 @@ The workflow used in the public benchmarks is:
 \begin{enumerate}
 \item converge an SA(2)-CASSCF reference with PySCF and an FCI active-space
 solver;
-\item freeze the converged orbitals and construct the active-space
-Hamiltonian in the same orbital basis;
+\item freeze the converged orbitals, rediagonalize the singlet active-space
+Hamiltonian with PySCF \texttt{direct\_spin0} FCI, and use the lowest two
+spin-adapted singlet roots;
 \item optimize the target spin-adapted block2 MPS roots, optionally with a
 small buffer of additional candidate roots, at the selected bond dimension;
-\item select and phase-align the target MPS roots by maximum overlap with
-the FCI reference;
+\item select and phase-align isolated target MPS roots by maximum overlap with
+the FCI reference, or align a same-energy candidate-root subspace to the fixed
+FCI gauge when the reference scan identifies a degenerate target cluster;
 \item evaluate energies, one- and two-particle density matrices, gradients,
 and derivative couplings through the PySCF response interface; and
 \item compare the resulting derivatives to the FCI active-space values at
@@ -222,11 +296,12 @@ this work is used as an end-to-end interface regression test.
 \begin{figure}[t]
 \centering
 \includegraphics[width=0.92\textwidth]{figures/workflow_architecture.pdf}
-\caption{Software workflow used in the public validation and SHARC-interface
-tests.  PySCF provides the SA-CASSCF derivative infrastructure, block2
-provides DMRG active-space roots, and the DMRG-facing solver layer supplies
-the root tracking, density matrices, transition density matrices, and
-response operations required by the PySCF and SHARC-facing interfaces.}
+\caption{General DMRG-SA-CASSCF response workflow.  The same solver layer
+supplies target-state tracking, density matrices, transition density
+matrices, and response operations to PySCF.  When FCI is available, it is used
+only as a validation reference; production calculations use overlap-based
+root following between successive geometries, macroiterations, or trajectory
+steps.}
 \label{fig:workflow}
 \end{figure}
 
@@ -234,21 +309,37 @@ response operations required by the PySCF and SHARC-facing interfaces.}
 
 All benchmark calculations used singlet state averaging over two roots with
 equal weights.  The public systems are listed in Table~\ref{tab:systems}.
-The bond-dimension response-error calculations used FCI-converged SA-CASSCF
-orbitals as the fixed orbital basis.  Spin-adapted SU2 block2 DMRG was then
-run at each selected bond dimension, and the resulting target state vectors
-were selected and phase-aligned to the FCI reference before evaluating
-derivative errors.  The same root-buffer assignment machinery used by the
-production interface was enabled for dense or symmetry-related candidate
-subspaces.
+The bond-dimension response-error calculations used SA-CASSCF-converged
+orbitals as the fixed orbital basis.  At those orbitals, the singlet
+active-space Hamiltonian was rediagonalized with PySCF \texttt{direct\_spin0}
+FCI for multiple roots, and the two lowest spin-adapted singlet roots defined
+the reference CI vectors, energies, gradients, and derivative couplings.
+Spin-adapted SU2 block2 DMRG
+was then run at each selected bond dimension.  Isolated target states were
+selected and phase-aligned by maximum overlap with the FCI reference.  When the
+FCI root scan identified an exact or near-degenerate same-energy singlet
+cluster, the DMRG candidate roots spanning that cluster were aligned to the
+fixed FCI gauge by a subspace projection before derivative errors were
+evaluated.  The same root-buffer assignment machinery used by the production
+interface was enabled for dense or symmetry-related candidate subspaces.
+Points shown in the convergence plots were required to have a minimum absolute
+CI overlap of 0.98 with the assigned FCI roots and a converged corresponding
+Lagrange-response solve.  All attempted bond dimensions are retained in the
+machine-readable benchmark output.
 Gradients are reported in m$\Eh$/Bohr and derivative couplings in atomic
 units.
 
 The FCI reference calculations used restricted Hartree--Fock orbitals
-converged to $10^{-12}$, SA-CASSCF energy convergence of $10^{-10}$, and a
-CASSCF gradient convergence threshold of $10^{-7}$.  The bond-dimension scan
-used up to 30 DMRG sweeps and a sweep tolerance of $10^{-12}$ unless noted
-otherwise.  The ethylene SHARC-interface regression test used an
+converged to $10^{-12}$, SA-CASSCF energy convergence of $10^{-12}$, and a
+CASSCF gradient convergence threshold of $10^{-9}$.  The fixed-orbital FCI
+polishing step used PySCF \texttt{direct\_spin0} with up to 20 roots
+and an FCI convergence tolerance of $10^{-14}$; singlet roots were selected by
+$\langle S^2\rangle$, same-energy clusters were identified with a
+$10^{-4}$~$E_h$ threshold, and fixed-orbital residuals were recorded as QC
+diagnostics.  The bond-dimension
+scan used up to 100 DMRG sweeps, a DMRG
+sweep tolerance of $10^{-14}$, and a Davidson threshold of $10^{-14}$ unless
+noted otherwise.  The ethylene SHARC-interface regression test used an
 SA(2)-DMRG-CASSCF(2,2)/STO-3G model with $M=60$, ten DMRG sweeps, a DMRG
 sweep tolerance of $10^{-8}$, CASSCF energy convergence of $10^{-8}$, and
 CASSCF gradient convergence of $10^{-5}$.  These settings are intentionally
@@ -324,20 +415,19 @@ blocks in \texttt{QM.out} with SHARC master error code 0. \\
 \subsection{Finite-Bond-Dimension Response Error}
 
 Figure~\ref{fig:bvoe} shows representative fixed-orbital
-bond-dimension response-error curves.  The selected systems cover small
-active spaces, CAS(6,6) and CAS(8,8) examples, nonzero derivative couplings,
-and a public SHARC-interface molecule.  The curves show systematic reduction
-of the derivative error as $M$ is increased and recover the FCI active-space
-limit at high $M$.  The high-$M$ gradient errors in Table~\ref{tab:largestm}
-are reported in m$\Eh$/Bohr; values near $10^{-4}$ in this column correspond
-to $10^{-7}$ $\Eh$/Bohr and are well below the $0.1$ m$\Eh$/Bohr reference
-line in Figure~\ref{fig:bvoe}.  The NAC column is an absolute vector error and
-is interpreted together with the benchmark matrix in Figure~\ref{fig:highm}.
-
-The fixed-orbital protocol also separates active-space truncation from orbital
-relaxation.  With real DMRG roots evaluated at the same FCI-stationary
-orbitals, the response errors follow smooth bond-dimension convergence instead
-of the large excursions produced by an earlier SVD-truncated CI-vector proxy.
+bond-dimension response-error curves for points that pass the root-overlap and
+response-equation convergence checks described above.  The selected systems
+cover small active spaces, CAS(6,6) and CAS(8,8) examples, nonzero derivative
+couplings, and a public SHARC-interface molecule.  These curves show
+reduction of the derivative error as $M$ is increased and recover the FCI
+active-space limit at high $M$.  The high-$M$ gradient errors in
+Table~\ref{tab:largestm} are reported in m$\Eh$/Bohr; values near
+$10^{-4}$ in this column correspond to $10^{-7}$ $\Eh$/Bohr and are well
+below the $0.1$ m$\Eh$/Bohr reference line in Figure~\ref{fig:bvoe}.  The NAC
+column is an absolute vector error and is interpreted together with the
+benchmark matrix in Figure~\ref{fig:highm}.  The full scan, including low-$M$
+points excluded from accuracy claims by the overlap or Lagrange-response QC
+criteria, is provided with the benchmark data.
 
 \begin{table}[t]
 \centering
@@ -363,16 +453,18 @@ Benzene/6-31G & CAS(6,6) & 200 & $1.45\times10^{-5}$ & $8.17\times10^{-7}$ & Aro
 \end{tabular}
 \end{table}
 
-\begin{figure}[h]
+\begin{figure}[tbp]
 \centering
 \includegraphics[width=\textwidth]{../benchmarks/bvoe_convergence_study/figures/bvoe_phase2.pdf}
 \caption{Fixed-orbital bond-dimension response-error convergence for public
 benchmark systems.  Gradient errors are reported in m$\Eh$/Bohr and
-nonadiabatic coupling errors in atomic units.}
+nonadiabatic coupling errors in atomic units.  Points use the same fixed
+spin-adapted FCI reference protocol; near-degenerate reference clusters are
+compared after the uniform subspace-alignment step described in the text.}
 \label{fig:bvoe}
 \end{figure}
 
-\begin{figure}[t]
+\begin{figure}[tbp]
 \centering
 \includegraphics[width=0.96\textwidth]{../benchmarks/bvoe_convergence_study/figures/bvoe_highm_heatmap.pdf}
 \caption{Largest-$M$ derivative errors across the public molecule/basis
@@ -381,6 +473,8 @@ reports the corresponding gradient error in m$\Eh$/Bohr or NAC error in
 atomic units.}
 \label{fig:highm}
 \end{figure}
+
+\clearpage
 
 \subsection{SHARC Interface Regression Test}
 
@@ -412,16 +506,18 @@ regression-test summary, and SHARC ethylene interface example files.
 The public code bundle contains the response implementation, tests, benchmark
 drivers, benchmark summaries, plotting scripts, and the ethylene SHARC
 interface regression example.  The repository is available at
-\url{https://github.com/yurika1030sakura/dmrg_sacasscf}.  A permanent
-archival DOI will be added before final publication.  Application systems and
-trajectory data outside the public benchmark set are not included.
+\url{https://github.com/yurika1030sakura/mps-casscf-response-sharc}.  All input files,
+generated benchmark summaries, and plotting scripts needed to reproduce the
+public figures and tables are included in the repository.  A versioned
+archival DOI will be supplied for the submitted version.
 
 \section*{Acknowledgments}
 
-Y.L. thanks Prof. Christina L. Woo for mentorship and the research
-environment, Prof. Richard Liu for helpful discussions, and Harvard FAS
-Research Computing for computational resources.  Funding information will be
-added before submission.
+Y.L. thanks Prof. Christina M. Woo for mentorship and for providing a
+supportive research environment in which this methodological project was
+carried out.  Y.L. thanks Prof. Richard Liu for helpful discussions.
+Computations were performed on the Harvard FAS Research Computing Cannon
+cluster.  No specific external grant funding was used for this work.
 
 \bibliography{references}
 

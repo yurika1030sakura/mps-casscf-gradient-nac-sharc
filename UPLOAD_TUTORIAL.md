@@ -56,13 +56,13 @@ git commit -m "Describe the public change"
 ## 3. Create The Remote Repository
 
 Recommended first remote: the private GitHub repository
-`git@github.com:yurika1030sakura/dmrg_sacasscf.git`.
+`git@github.com:yurika1030sakura/mps-casscf-response-sharc.git`.
 
 After creating the empty remote repo, push with SSH:
 
 ```bash
 git branch -M main
-git remote add origin git@github.com:yurika1030sakura/dmrg_sacasscf.git
+git remote add origin git@github.com:yurika1030sakura/mps-casscf-response-sharc.git
 git push -u origin main
 ```
 
@@ -70,7 +70,7 @@ Or push with HTTPS:
 
 ```bash
 git branch -M main
-git remote add origin https://github.com/yurika1030sakura/dmrg_sacasscf.git
+git remote add origin https://github.com/yurika1030sakura/mps-casscf-response-sharc.git
 git push -u origin main
 ```
 

@@ -1,42 +1,31 @@
 """BVOE convergence study — Phase 2 (REAL DMRG).
 
 Phase 1 used CI-vector SVD truncation as a proxy for DMRG. Phase 2 uses
-**actual block2 DMRG**: SU2-mode driver with a target SA(2) singlet pair
-plus a configurable root buffer at the converged FCI orbitals, then converts
-each candidate MPS to a PySCF FCI ndarray via ``mps_change_to_sz`` +
-``get_csf_coefficients``.
+actual spin-adapted block2 DMRG at fixed SA-CASSCF orbitals.  A configurable
+candidate-root buffer is included so that the target roots can be selected by
+overlap with the fixed-orbital FCI reference.
 
 Pipeline at each (system, M):
 
-  1. Run SA(2)-CASSCF with the standard PySCF FCI fcisolver → converged
-     orbitals (mc.mo_coeff) and CI vectors.
+  1. Run SA(2)-CASSCF with the standard PySCF FCI fcisolver to get converged
+     orbitals (mc.mo_coeff), then polish the CI roots by fixed-orbital FCI.
   2. At the converged orbitals, build the SU2-mode DMRG MPO from the
      active-space integrals.
   3. Run SU2 DMRG with ``nroots=2+BVOE_ROOT_BUFFER``, ``bond_dim = M``.
   4. Convert each candidate MPS to a PySCF FCI ndarray via the SZ-mode CSF route
      (``mps_change_to_sz`` then ``get_csf_coefficients``, then PySCF
      ordering-sign correction).
-  5. Select and phase-align the two target roots by overlap with the FCI
-     validation reference.
+  5. Select and phase-align the two target roots by overlap with the polished
+     FCI validation reference.
   6. Install the bond-dim-M CI vectors back into ``mc`` (replacing
      ``mc.ci``), and recompute the analytic gradient (state 0) and NAC
      (states (0,1)) with PySCF's standard ``pyscf.grad.sacasscf`` /
      ``pyscf.nac.sacasscf`` machinery.
 
-Reference: same SA-CASSCF/FCI run, no DMRG truncation.
-
-Why SU2 mode + post-hoc swap vs full DMRG-fcisolver SA-CASSCF:
-  * The validated ``MPSAsFCISolver`` with ``force_dmrg=True`` uses
-    SZ-mode DMRG. SZ is not spin-adapted; with ``nroots=2`` random-MPS
-    initial guesses the second-root energy collapses to a non-physical
-    sector and ``mps_to_fci_generic`` deadlocks on the broken MPS. SU2
-    mode is spin-adapted and handles ``nroots=2`` cleanly.
-  * Doing the DMRG at the FCI-converged orbitals (rather than letting
-    DMRG drive the CASSCF macro loop) means the response Hessian is
-    well-conditioned at FCI-optimal orbitals and we measure the *pure*
-    BVOE — i.e. the gradient/NAC error from CI-vector compression at
-    bond dim M, isolated from orbital re-optimization at the
-    M-truncated MPS manifold.
+Reference: the same SA-CASSCF orbitals followed by fixed-orbital
+rediagonalization of the singlet active-space Hamiltonian with PySCF
+``direct_spin0`` FCI.  This benchmark isolates the bond-dimension response
+error of the active-space wavefunction at identical orbitals.
 
 Output:
   data_phase2/{system}_M{M}.json     raw results per (system, M)
@@ -48,7 +37,9 @@ from __future__ import annotations
 
 import json
 import itertools
+import multiprocessing as mp
 import os
+import queue
 import shutil
 import sys
 import tempfile
@@ -59,13 +50,19 @@ from pathlib import Path
 import numpy as np
 from pyblock2.driver.core import DMRGDriver, SymmetryTypes
 from pyscf import ao2mo, fci, gto, mcscf, scf
-from pyscf.fci import cistring
+from pyscf.fci import cistring, spin_op
 from pyscf.grad import sacasscf as sacasscf_grad
 from pyscf.nac import sacasscf as nac_sacasscf
 
 ROOT = Path(__file__).resolve().parent
-DEV_ROOT = (ROOT / ".." / ".." / "src" / "dmrg_analytic_dev").resolve()
-sys.path.insert(0, str(DEV_ROOT))
+DEV_ROOT = ROOT.parent
+for candidate in (
+    DEV_ROOT,
+    ROOT.parents[2] / "dmrg_sacasscf_response_public" / "src" / "dmrg_analytic_dev",
+    ROOT.parents[1] / "src" / "dmrg_analytic_dev",
+):
+    if candidate.exists() and str(candidate) not in sys.path:
+        sys.path.insert(0, str(candidate))
 from site_replacement_density import _pyscf_to_block2_sign  # noqa: E402
 
 
@@ -263,7 +260,10 @@ M_SCANS = {
     "h4": [2, 3, 4, 5, 6, 8, 12, 200],
     "h2o": [2, 3, 4, 5, 6, 8, 12, 20, 30, 200],
     "n2": [2, 4, 8, 12, 16, 20, 30, 200],
-    "c2": [4, 8, 16, 32, 64, 70, 120, 200],
+    # CAS(8,8) is the only present small-FCI benchmark where M=200 is still a
+    # truncation rather than an effectively full-rank calculation; include
+    # higher-M points under the same fixed-reference protocol.
+    "c2": [4, 8, 16, 32, 64, 70, 120, 200, 400, 800],
     "lif": [2, 3, 4, 5, 6, 8, 12, 20, 30, 200],
     "ethylene": [2, 3, 4, 6, 8, 12, 200],
     "butadiene": [2, 3, 4, 5, 6, 8, 12, 20, 200],
@@ -295,6 +295,43 @@ SYSTEMS = _build_systems()
 # Benchmarks use FCI overlaps only to score the result; production runs use
 # the same extra-root idea with previous-step overlaps instead of FCI.
 ROOT_BUFFER = int(os.environ.get("BVOE_ROOT_BUFFER", "4"))
+DMRG_DAV_THRD = float(os.environ.get("BVOE_DAV_THRD", "1e-14"))
+DMRG_DAV_MAX_ITER = int(os.environ.get("BVOE_DAV_MAX_ITER", "8000"))
+DMRG_DAV_DEF_MAX_SIZE = int(os.environ.get("BVOE_DAV_DEF_MAX_SIZE", "80"))
+DMRG_SWEEP_TOL = float(os.environ.get("BVOE_SWEEP_TOL", "1e-14"))
+REFINE_SPLIT_ROOTS = os.environ.get("BVOE_REFINE_SPLIT_ROOTS", "1") != "0"
+REFINE_SWEEPS = int(os.environ.get("BVOE_REFINE_SWEEPS", "20"))
+REFINE_SWEEP_TOL = float(os.environ.get("BVOE_REFINE_SWEEP_TOL", "1e-12"))
+REFINE_PROJ_WEIGHT = float(os.environ.get("BVOE_REFINE_PROJ_WEIGHT", "5.0"))
+MPS_COEFF_CUTOFF = float(os.environ.get("BVOE_MPS_COEFF_CUTOFF", "1e-16"))
+SA_CASSCF_CONV_TOL = float(os.environ.get("BVOE_CASSCF_CONV_TOL", "1e-12"))
+SA_CASSCF_CONV_TOL_GRAD = float(os.environ.get(
+    "BVOE_CASSCF_CONV_TOL_GRAD", "1e-9"
+))
+SA_CASSCF_MAX_CYCLE = int(os.environ.get("BVOE_CASSCF_MAX_CYCLE", "300"))
+FCI_POLISH_CONV_TOL = float(os.environ.get("BVOE_FCI_POLISH_CONV_TOL",
+                                           "1e-14"))
+FCI_POLISH_MAX_CYCLE = int(os.environ.get("BVOE_FCI_POLISH_MAX_CYCLE",
+                                          "300"))
+FCI_POLISH_MAX_SPACE = int(os.environ.get("BVOE_FCI_POLISH_MAX_SPACE", "80"))
+FCI_POLISH_PSPACE_SIZE = int(os.environ.get(
+    "BVOE_FCI_POLISH_PSPACE_SIZE", "2000"
+))
+FCI_POLISH_SCAN_ROOTS = int(os.environ.get(
+    "BVOE_FCI_POLISH_SCAN_ROOTS", "20"
+))
+FCI_POLISH_SPIN_SHIFT = float(os.environ.get("BVOE_FCI_POLISH_SPIN_SHIFT",
+                                             "0.5"))
+FCI_POLISH_SPIN_TOL = float(os.environ.get("BVOE_FCI_POLISH_SPIN_TOL",
+                                           "1e-6"))
+FCI_DEGENERACY_TOL = float(os.environ.get("BVOE_FCI_DEGENERACY_TOL", "1e-4"))
+ROOT_LOCK_OVERLAP = float(os.environ.get("BVOE_ROOT_LOCK_OVERLAP", "0.90"))
+ROOT_LOCK_MARGIN = float(os.environ.get("BVOE_ROOT_LOCK_MARGIN", "0.10"))
+MIN_DERIVATIVE_ROOT_OVERLAP = float(
+    os.environ.get("BVOE_MIN_DERIVATIVE_ROOT_OVERLAP", "0.50")
+)
+POINT_TIMEOUT_S = float(os.environ.get("BVOE_POINT_TIMEOUT_S", "1800"))
+SCHEMA_VERSION = 5
 
 
 def _singlet_csf_dim(norb, nelec):
@@ -320,6 +357,133 @@ def _singlet_csf_dim(norb, nelec):
     return max(1, dim)
 
 
+def _ci_residual_norms(mc):
+    """Return fixed-orbital FCI residual norms for the current CI roots."""
+    h1, ecore = mc.get_h1eff(mc.mo_coeff)
+    eri = ao2mo.restore(1, np.asarray(mc.get_h2eff(mc.mo_coeff)), mc.ncas)
+    h2e = fci.direct_spin1.absorb_h1e(
+        h1, eri, mc.ncas, mc.nelecas, 0.5
+    )
+    out = []
+    for ci in mc.ci:
+        ci = np.asarray(ci)
+        hci = fci.direct_spin1.contract_2e(
+            h2e, ci, mc.ncas, mc.nelecas
+        ) + float(ecore) * ci
+        energy = float(np.vdot(ci, hci))
+        resid = hci - energy * ci
+        out.append({
+            "energy_expectation": energy,
+            "residual_l2": float(np.linalg.norm(resid)),
+        })
+    return out
+
+
+def _configure_fci_polish_solver(solver, nroots):
+    solver.nroots = int(nroots)
+    solver.conv_tol = FCI_POLISH_CONV_TOL
+    solver.max_cycle = FCI_POLISH_MAX_CYCLE
+    solver.max_space = FCI_POLISH_MAX_SPACE
+    solver.pspace_size = FCI_POLISH_PSPACE_SIZE
+    return solver
+
+
+def _spin_square(ci, ncas, nelec):
+    ss, mult = spin_op.spin_square(np.asarray(ci), ncas, nelec)
+    return float(ss), float(mult)
+
+
+def _select_lowest_singlets(energies_all, ci_all, scan, nroots=2):
+    selected = []
+    for energy, ci, row in zip(energies_all, ci_all, scan):
+        if float(row["spin_square"]) <= FCI_POLISH_SPIN_TOL:
+            selected.append((float(energy), np.asarray(ci), row))
+            if len(selected) == int(nroots):
+                break
+    if len(selected) < int(nroots):
+        raise RuntimeError(
+            "FCI root scan did not contain enough singlet roots: "
+            f"needed {int(nroots)}, found {len(selected)}, scan={scan}"
+        )
+    return selected
+
+
+def _selected_root_clusters(selected, scan, tol):
+    """Return same-energy singlet root clusters for each selected target root."""
+    singlet_rows = [
+        row for row in scan
+        if float(row.get("spin_square", 999.0)) <= FCI_POLISH_SPIN_TOL
+    ]
+    clusters = []
+    for target_index, (_, _, selected_row) in enumerate(selected[:2]):
+        energy = float(selected_row["energy"])
+        members = [
+            row for row in singlet_rows
+            if abs(float(row["energy"]) - energy) <= float(tol)
+        ]
+        clusters.append({
+            "target_index": int(target_index),
+            "selected_root": int(selected_row["root"]),
+            "selected_energy": energy,
+            "cluster_roots": [int(row["root"]) for row in members],
+            "cluster_energies": [float(row["energy"]) for row in members],
+            "cluster_size": int(len(members)),
+            "isolated": bool(len(members) <= 1),
+        })
+    return clusters
+
+
+def _polish_fci_roots_at_fixed_orbitals(mc):
+    """Rediagonalize target-spin FCI at fixed CASSCF orbitals.
+
+    All public singlet benchmarks use the same reference construction:
+    final SA-CASSCF orbitals are frozen, the singlet active-space Hamiltonian
+    is diagonalized with PySCF direct_spin0 FCI, and the lowest target roots
+    define energies, CI vectors, gradients, and NACs.
+    """
+    before = _ci_residual_norms(mc)
+    h1, ecore = mc.get_h1eff(mc.mo_coeff)
+    eri = ao2mo.restore(1, np.asarray(mc.get_h2eff(mc.mo_coeff)), mc.ncas)
+    solver = _configure_fci_polish_solver(
+        fci.direct_spin0.FCI(), max(2, FCI_POLISH_SCAN_ROOTS)
+    )
+    energies_all, ci_all = solver.kernel(
+        h1, eri, mc.ncas, mc.nelecas, ecore=float(ecore)
+    )
+    scan = []
+    for i, (energy, ci) in enumerate(zip(energies_all, ci_all)):
+        ss, mult = _spin_square(ci, mc.ncas, mc.nelecas)
+        row = {"root": int(i), "energy": float(energy),
+               "spin_square": ss, "multiplicity": mult}
+        scan.append(row)
+    selected = _select_lowest_singlets(energies_all, ci_all, scan, nroots=2)
+
+    energies = [row[0] for row in selected[:2]]
+    mc.ci = [row[1] for row in selected[:2]]
+    _set_state_energies(mc, energies)
+    mc.converged = True
+    after = _ci_residual_norms(mc)
+    selected_clusters = _selected_root_clusters(
+        selected, scan, FCI_DEGENERACY_TOL
+    )
+    return {
+        "mode": "spin_adapted_singlet_fci",
+        "conv_tol": FCI_POLISH_CONV_TOL,
+        "max_cycle": FCI_POLISH_MAX_CYCLE,
+        "max_space": FCI_POLISH_MAX_SPACE,
+        "pspace_size": FCI_POLISH_PSPACE_SIZE,
+        "scan_roots": FCI_POLISH_SCAN_ROOTS,
+        "spin_tol": FCI_POLISH_SPIN_TOL,
+        "degeneracy_tol": FCI_DEGENERACY_TOL,
+        "selection": "lowest_singlets_from_root_scan",
+        "root_scan": scan,
+        "selected_roots": [row[2] for row in selected[:2]],
+        "selected_root_clusters": selected_clusters,
+        "before": before,
+        "after": after,
+    }
+
+
 # ---------------------------------------------------------------------------
 # DMRG MPS → PySCF FCI ndarray  (fast path via SU2→SZ conversion)
 # ---------------------------------------------------------------------------
@@ -341,8 +505,9 @@ def _su2_mps_to_fci(driver, mps, ncas, nelec, *, sz_driver,
     """
     na, nb = int(nelec[0]), int(nelec[1])
     mps_sz = driver.mps_change_to_sz(mps, tag=sz_tag)
-    csfs, coefs = sz_driver.get_csf_coefficients(mps_sz, cutoff=1e-14,
-                                                   iprint=0)
+    csfs, coefs = sz_driver.get_csf_coefficients(
+        mps_sz, cutoff=MPS_COEFF_CUTOFF, iprint=0
+    )
     strs_a = list(cistring.make_strings(range(ncas), na))
     strs_b = list(cistring.make_strings(range(ncas), nb))
     a_idx = {int(s): j for j, s in enumerate(strs_a)}
@@ -385,14 +550,115 @@ def _align_global_phase(ci, ci_ref):
     return ci if ovlp >= 0 else -ci
 
 
-def _match_and_align_roots(ci_roots, fci_refs):
-    """Assign DMRG roots to FCI roots by maximum CI overlap.
+def _orthonormal_ci_basis(ci_roots):
+    """Modified Gram-Schmidt basis for CI vectors flattened to one dimension."""
+    if not ci_roots:
+        return np.zeros((0, 0))
+    dim = np.asarray(ci_roots[0]).size
+    basis = []
+    for ci in ci_roots:
+        vec = np.asarray(ci, dtype=float).ravel().copy()
+        for q in basis:
+            vec -= q * float(np.vdot(q, vec))
+        norm = float(np.linalg.norm(vec))
+        if norm > 1e-10:
+            basis.append(vec / norm)
+    if not basis:
+        return np.zeros((dim, 0))
+    return np.column_stack(basis)
+
+
+def _target_cluster_sets(selected_root_clusters, ntarget):
+    """Normalize selected-root cluster metadata to one set per target root."""
+    cluster_sets = []
+    for target in range(ntarget):
+        if selected_root_clusters and target < len(selected_root_clusters):
+            roots = selected_root_clusters[target].get("cluster_roots", [])
+            if roots:
+                cluster_sets.append(set(map(int, roots)))
+                continue
+        cluster_sets.append({target})
+    return cluster_sets
+
+
+def _target_groups(selected_root_clusters, ntarget):
+    """Group selected target roots that share one FCI degeneracy cluster."""
+    cluster_sets = _target_cluster_sets(selected_root_clusters, ntarget)
+    groups = []
+    assigned = set()
+    for i in range(ntarget):
+        if i in assigned:
+            continue
+        group = {i}
+        changed = True
+        while changed:
+            changed = False
+            union = set().union(*(cluster_sets[j] for j in group))
+            for j in range(ntarget):
+                if j in group:
+                    continue
+                if union & cluster_sets[j]:
+                    group.add(j)
+                    changed = True
+        groups.append(sorted(group))
+        assigned.update(group)
+    return groups, cluster_sets
+
+
+def _project_group_to_candidate_subspace(ci_roots, fci_refs, group, pool):
+    """Align selected FCI references to a DMRG candidate-root subspace.
+
+    For isolated roots this reduces to ordinary root assignment.  For an exact
+    or near-degenerate FCI target root, any unitary rotation within the
+    degenerate subspace is a valid eigenbasis, so single raw-root overlaps are
+    not a well-defined error metric.  The polar alignment below picks the
+    orthonormal vectors inside the selected DMRG candidate subspace that are
+    closest to the fixed FCI gauge.
+    """
+    q = _orthonormal_ci_basis([ci_roots[i] for i in pool])
+    if q.shape[1] < len(group):
+        raise RuntimeError(
+            f"DMRG candidate subspace rank {q.shape[1]} is smaller than "
+            f"target group size {len(group)}"
+        )
+    c = np.column_stack([np.asarray(fci_refs[j]).ravel() for j in group])
+    projected = q @ (q.T @ c)
+    subspace_overlaps = [
+        float(np.linalg.norm(projected[:, col]))
+        for col in range(projected.shape[1])
+    ]
+
+    # Orthogonal Procrustes/polar alignment: closest orthonormal columns in the
+    # DMRG candidate subspace to the fixed FCI target gauge.
+    s = q.T @ c
+    u, sigma, vh = np.linalg.svd(s, full_matrices=False)
+    aligned_flat = q @ (u[:, :len(group)] @ vh)
+
+    aligned = []
+    target_overlaps = []
+    for col, target in enumerate(group):
+        ci = aligned_flat[:, col].reshape(np.asarray(fci_refs[target]).shape)
+        ci = _align_global_phase(ci, fci_refs[target])
+        norm = np.linalg.norm(ci)
+        if norm > 1e-30:
+            ci = ci / norm
+        aligned.append(ci)
+        target_overlaps.append(
+            float(abs(np.vdot(np.asarray(fci_refs[target]).ravel(),
+                              np.asarray(ci).ravel())))
+        )
+    return aligned, target_overlaps, subspace_overlaps, list(map(float, sigma))
+
+
+def _match_and_align_roots(ci_roots, fci_refs, selected_root_clusters=None):
+    """Assign or subspace-align DMRG roots to FCI target roots.
 
     The SU2 DMRG solver returns roots ordered by its internal optimization.
     Near avoided crossings or compact symmetry benchmarks, that order can
-    differ from the PySCF FCI root order.  Derivative comparisons must first
-    solve this small assignment problem; otherwise a root flip looks like a
-    large response error.
+    differ from the PySCF FCI root order.  If the FCI scan identifies an exact
+    or near-degenerate target root, the comparison is made after projecting the
+    DMRG candidate-root subspace onto the fixed FCI gauge; this is the same
+    rule for every benchmark system.
     """
     ntarget = len(fci_refs)
     nraw = len(ci_roots)
@@ -406,25 +672,199 @@ def _match_and_align_roots(ci_roots, fci_refs):
         for j, ref in enumerate(fci_refs):
             overlap[i, j] = float(np.vdot(np.asarray(ref).ravel(), ci_vec))
 
-    best_perm = None
-    best_score = -1.0
-    for perm in itertools.permutations(range(nraw), ntarget):
-        score = sum(abs(overlap[perm[j], j]) for j in range(ntarget))
-        if score > best_score:
-            best_score = score
-            best_perm = perm
+    aligned = [None] * ntarget
+    root_assignment = [None] * ntarget
+    assigned_overlaps = [None] * ntarget
+    diagnostics = [None] * ntarget
+    available = set(range(nraw))
 
-    aligned = []
-    assigned_overlaps = []
-    for j, i in enumerate(best_perm):
-        ci = _align_global_phase(ci_roots[i], fci_refs[j])
-        norm = np.linalg.norm(ci)
-        if norm > 1e-30:
-            ci = ci / norm
-        aligned.append(ci)
-        assigned_overlaps.append(float(abs(overlap[i, j])))
+    groups, cluster_sets = _target_groups(selected_root_clusters, ntarget)
+    degenerate_groups = []
+    for group in groups:
+        cluster_union = set().union(*(cluster_sets[j] for j in group))
+        if len(cluster_union) > len(group) or any(
+            len(cluster_sets[j]) > 1 for j in group
+        ):
+            degenerate_groups.append(group)
+    degenerate_groups.sort(
+        key=lambda g: len(set().union(*(cluster_sets[j] for j in g))),
+        reverse=True,
+    )
+    degenerate_targets = set().union(*map(set, degenerate_groups)) if degenerate_groups else set()
 
-    return aligned, list(best_perm), overlap.tolist(), assigned_overlaps
+    # Protect well-isolated roots before any near-degenerate subspace match.
+    # Without this, a one-target degenerate group can choose a larger pool
+    # that accidentally includes an already obvious isolated root.  The
+    # subsequent isolated assignment then has to choose from leftover roots and
+    # can report zero overlap even though the correct raw root was present.
+    isolated_candidates = []
+    for target in range(ntarget):
+        if target in degenerate_targets or len(cluster_sets[target]) != 1:
+            continue
+        scores = np.sort(np.abs(overlap[:, target]))
+        best_score = float(scores[-1]) if scores.size else 0.0
+        second_score = float(scores[-2]) if scores.size > 1 else 0.0
+        if (best_score >= ROOT_LOCK_OVERLAP
+                and best_score - second_score >= ROOT_LOCK_MARGIN):
+            isolated_candidates.append(target)
+
+    if isolated_candidates:
+        best_perm = None
+        best_score = -1.0
+        for perm in itertools.permutations(
+            sorted(available), len(isolated_candidates)
+        ):
+            score = sum(
+                abs(overlap[root, target])
+                for root, target in zip(perm, isolated_candidates)
+            )
+            if score > best_score:
+                best_score = score
+                best_perm = perm
+        if best_perm is not None:
+            for root, target in zip(best_perm, isolated_candidates):
+                target_overlap = float(abs(overlap[root, target]))
+                if target_overlap < ROOT_LOCK_OVERLAP:
+                    continue
+                ci = _align_global_phase(ci_roots[root], fci_refs[target])
+                norm = np.linalg.norm(ci)
+                if norm > 1e-30:
+                    ci = ci / norm
+                aligned[target] = ci
+                root_assignment[target] = int(root)
+                assigned_overlaps[target] = target_overlap
+                diagnostics[target] = {
+                    "target_index": int(target),
+                    "mode": "confident_isolated_root_lock",
+                    "raw_roots": [int(root)],
+                    "fci_cluster_roots": sorted(map(int, cluster_sets[target])),
+                    "target_overlap": target_overlap,
+                    "subspace_overlap": target_overlap,
+                    "group_singular_values": [target_overlap],
+                    "lock_overlap_threshold": float(ROOT_LOCK_OVERLAP),
+                    "lock_margin_threshold": float(ROOT_LOCK_MARGIN),
+                }
+                available.remove(root)
+
+    for group in degenerate_groups:
+        group = [target for target in group if aligned[target] is None]
+        if not group:
+            continue
+        cluster_union = set().union(*(cluster_sets[j] for j in group))
+        cluster_size = max(len(group), len(cluster_union))
+        pool_size = min(max(cluster_size, len(group)), len(available))
+        if pool_size < len(group):
+            raise RuntimeError(
+                f"Need {len(group)} available DMRG roots for target group "
+                f"{group}, got {pool_size}"
+            )
+
+        if pool_size == len(group):
+            best_pool = None
+            best_score = -1.0
+            for pool in itertools.permutations(sorted(available), len(group)):
+                score = sum(abs(overlap[root, target])
+                            for root, target in zip(pool, group))
+                if score > best_score:
+                    best_pool = list(pool)
+                    best_score = score
+            pool = best_pool
+        else:
+            best_pool = None
+            best_score = -1.0
+            for pool in itertools.combinations(sorted(available), pool_size):
+                q = _orthonormal_ci_basis([ci_roots[i] for i in pool])
+                if q.shape[1] < len(group):
+                    continue
+                score = 0.0
+                for target in group:
+                    ref_vec = np.asarray(fci_refs[target]).ravel()
+                    score += float(np.linalg.norm(q.T @ ref_vec))
+                if score > best_score:
+                    best_pool = list(pool)
+                    best_score = score
+            if best_pool is None:
+                raise RuntimeError(
+                    f"Could not construct DMRG subspace for target group {group}"
+                )
+            pool = best_pool
+
+        aligned_group, target_ovlps, subspace_ovlps, singular_values = (
+            _project_group_to_candidate_subspace(ci_roots, fci_refs, group, pool)
+        )
+        mode = (
+            "single_root_assignment"
+            if len(group) == 1 and len(pool) == 1
+            else "degenerate_subspace_projection"
+        )
+        for local_col, target in enumerate(group):
+            aligned[target] = aligned_group[local_col]
+            root_assignment[target] = (
+                int(pool[local_col]) if len(pool) == len(group)
+                else [int(i) for i in pool]
+            )
+            assigned_overlaps[target] = float(target_ovlps[local_col])
+            diagnostics[target] = {
+                "target_index": int(target),
+                "mode": mode,
+                "raw_roots": (
+                    [int(pool[local_col])] if len(pool) == len(group)
+                    else [int(i) for i in pool]
+                ),
+                "fci_cluster_roots": sorted(map(int, cluster_sets[target])),
+                "target_overlap": float(target_ovlps[local_col]),
+                "subspace_overlap": float(subspace_ovlps[local_col]),
+                "group_singular_values": singular_values,
+            }
+        available.difference_update(pool)
+
+    remaining_targets = [i for i in range(ntarget) if aligned[i] is None]
+    if remaining_targets:
+        best_perm = None
+        best_score = -1.0
+        for perm in itertools.permutations(
+            sorted(available), len(remaining_targets)
+        ):
+            score = sum(
+                abs(overlap[root, target])
+                for root, target in zip(perm, remaining_targets)
+            )
+            if score > best_score:
+                best_score = score
+                best_perm = perm
+        if best_perm is None:
+            raise RuntimeError(
+                f"Could not assign isolated targets {remaining_targets}"
+            )
+        for root, target in zip(best_perm, remaining_targets):
+            ci = _align_global_phase(ci_roots[root], fci_refs[target])
+            norm = np.linalg.norm(ci)
+            if norm > 1e-30:
+                ci = ci / norm
+            target_overlap = float(abs(overlap[root, target]))
+            aligned[target] = ci
+            root_assignment[target] = int(root)
+            assigned_overlaps[target] = target_overlap
+            diagnostics[target] = {
+                "target_index": int(target),
+                "mode": "single_root_assignment",
+                "raw_roots": [int(root)],
+                "fci_cluster_roots": sorted(map(int, cluster_sets[target])),
+                "target_overlap": target_overlap,
+                "subspace_overlap": target_overlap,
+                "group_singular_values": [target_overlap],
+            }
+
+    if any(ci is None for ci in aligned):
+        raise RuntimeError("Root matching failed to assign all target roots")
+
+    return (
+        aligned,
+        root_assignment,
+        overlap.tolist(),
+        assigned_overlaps,
+        diagnostics,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -433,8 +873,9 @@ def _match_and_align_roots(ci_roots, fci_refs):
 
 def _redirect_block2_logs(scratch):
     """Block2 sometimes writes ATTENTION: xsyev info messages to stderr;
-    when the SA-CASSCF preconditioner has a near-singular block those messages
-    can be verbose. The caller keeps them in the redirected benchmark log.
+    when the SA-CASSCF preconditioner has a near-singular block we get a
+    flood. We can't fully suppress them but at least ensure they aren't
+    lost into our redirected log via stderr-mixing (handled by the caller).
     """
     return None
 
@@ -445,9 +886,9 @@ def setup_sacasscf_fci(mol, ncas, nelec_act):
     mc = mcscf.CASSCF(mf, ncas, nelec_act)
     mc.fix_spin_(ss=0)
     mc.fcisolver.nroots = 2
-    mc.conv_tol = 1e-10
-    mc.conv_tol_grad = 1e-7
-    mc.max_cycle_macro = 200
+    mc.conv_tol = SA_CASSCF_CONV_TOL
+    mc.conv_tol_grad = SA_CASSCF_CONV_TOL_GRAD
+    mc.max_cycle_macro = SA_CASSCF_MAX_CYCLE
     mc = mc.state_average_([0.5, 0.5])
     mc.kernel()
     return mc
@@ -460,15 +901,18 @@ def _reference_has_wavefunction(ref):
         and "mo_coeff" in ref
         and "ci" in ref
         and len(ref.get("ci", [])) == 2
+        and int(ref.get("schema_version", 0)) >= SCHEMA_VERSION
     )
 
 
 def setup_sacasscf_from_reference(system_key, ref):
     """Build an SA-CASSCF object at the cached FCI orbital/CI gauge.
 
-    Phase-2 derivative comparisons use one fixed FCI-stationary orbital basis.
-    This keeps symmetry-equivalent active-orbital gauges aligned across the
-    bond-dimension scan, especially under threaded BLAS.
+    Phase-2 derivative comparisons must use one fixed FCI-stationary orbital
+    basis.  Re-running CASSCF independently for every M can converge to a
+    symmetry-equivalent active-orbital gauge, especially under threaded BLAS,
+    which makes derivative comparisons look like root/gauge failures even
+    when the DMRG state is correct.
     """
     builder = SYSTEMS[system_key][0]
     mol, ncas, nelec_act = builder()
@@ -476,9 +920,9 @@ def setup_sacasscf_from_reference(system_key, ref):
     mc = mcscf.CASSCF(mf, ncas, nelec_act)
     mc.fix_spin_(ss=0)
     mc.fcisolver.nroots = 2
-    mc.conv_tol = 1e-10
-    mc.conv_tol_grad = 1e-7
-    mc.max_cycle_macro = 200
+    mc.conv_tol = SA_CASSCF_CONV_TOL
+    mc.conv_tol_grad = SA_CASSCF_CONV_TOL_GRAD
+    mc.max_cycle_macro = SA_CASSCF_MAX_CYCLE
     mc = mc.state_average_([0.5, 0.5])
     mc.mo_coeff = np.asarray(ref["mo_coeff"])
     mc.ci = [np.asarray(c) for c in ref["ci"]]
@@ -551,6 +995,7 @@ def run_fci_reference(system_key):
     mol, ncas, nelec_act = builder()
     t0 = time.time()
     mc = setup_sacasscf_fci(mol, ncas, nelec_act)
+    fci_polish = _polish_fci_roots_at_fixed_orbitals(mc)
     e_states = list(map(float, mc.e_states))
     g, n, derivative_diag = compute_grad_and_nac(mc, with_diagnostics=True)
     return {
@@ -558,6 +1003,7 @@ def run_fci_reference(system_key):
         "e_states": e_states,
         "grad": g.tolist(), "nac": n.tolist(),
         "derivative_diagnostics": derivative_diag,
+        "fci_polish_diagnostics": fci_polish,
         "mo_coeff": np.asarray(mc.mo_coeff).tolist(),
         "ci": [np.asarray(ci).tolist() for ci in mc.ci],
         "ci_norms": [float(np.linalg.norm(ci)) for ci in mc.ci],
@@ -565,7 +1011,7 @@ def run_fci_reference(system_key):
         "ncas": int(mc.ncas), "ncore": int(mc.ncore),
         "nelecas": [int(x) for x in mc.nelecas],
         "nelec_act": int(sum(mc.nelecas)),
-        "schema_version": 2,
+        "schema_version": SCHEMA_VERSION,
         "runtime_s": time.time() - t0,
     }
 
@@ -621,10 +1067,51 @@ def run_dmrg_at_fci_orbitals(system_key, bond_dim, *, fci_ref_payload=None,
             noises = noises + [0.0] * (ns - len(noises))
         e_dmrg = driver.dmrg(
             mpo, ket, n_sweeps=ns, bond_dims=bd,
-            noises=noises[:ns], tol=float(sweep_tol), iprint=0,
+            noises=noises[:ns], thrds=[DMRG_DAV_THRD] * ns,
+            tol=float(sweep_tol), iprint=0,
+            dav_max_iter=DMRG_DAV_MAX_ITER,
+            dav_def_max_size=DMRG_DAV_DEF_MAX_SIZE,
         )
         kets = [driver.split_mps(ket, i, f"KS_{bond_dim}_{i}")
                 for i in range(n_solve_roots)]
+        split_expectations = [
+            float(driver.expectation(k, mpo, k, iprint=0))
+            for k in kets
+        ]
+        refined_energies = None
+        refined_expectations = None
+        if REFINE_SPLIT_ROOTS and n_solve_roots > 1:
+            refined_kets = []
+            refined_energies = []
+            refined_expectations = []
+            ns_ref = max(int(REFINE_SWEEPS), 1)
+            for i, k in enumerate(kets):
+                mps = driver.copy_mps(k, tag=f"KSR_{bond_dim}_{i}")
+                e_ref = driver.dmrg(
+                    mpo,
+                    mps,
+                    n_sweeps=ns_ref,
+                    bond_dims=[int(bond_dim)] * ns_ref,
+                    noises=[0.0] * ns_ref,
+                    thrds=[DMRG_DAV_THRD] * ns_ref,
+                    tol=float(REFINE_SWEEP_TOL),
+                    iprint=0,
+                    dav_max_iter=DMRG_DAV_MAX_ITER,
+                    dav_def_max_size=DMRG_DAV_DEF_MAX_SIZE,
+                    proj_mpss=refined_kets or None,
+                    proj_weights=(
+                        [REFINE_PROJ_WEIGHT] * len(refined_kets)
+                        if refined_kets else None
+                    ),
+                )
+                refined_kets.append(mps)
+                refined_energies.append(
+                    float(e_ref[0] if hasattr(e_ref, "__iter__") else e_ref)
+                )
+                refined_expectations.append(
+                    float(driver.expectation(mps, mpo, mps, iprint=0))
+                )
+            kets = refined_kets
 
         # Build SZ driver for get_csf_coefficients route
         sz_driver = DMRGDriver(
@@ -649,8 +1136,21 @@ def run_dmrg_at_fci_orbitals(system_key, bond_dim, *, fci_ref_payload=None,
                 ci_i = ci_i / n_i
             ci_dmrg_raw.append(ci_i)
 
-        ci_dmrg, root_assignment, overlap_matrix, assigned_overlaps = (
-            _match_and_align_roots(ci_dmrg_raw, fci_ci)
+        (
+            ci_dmrg,
+            root_assignment,
+            overlap_matrix,
+            assigned_overlaps,
+            alignment_diagnostics,
+        ) = _match_and_align_roots(
+            ci_dmrg_raw,
+            fci_ci,
+            selected_root_clusters=(
+                fci_ref_payload
+                .get("fci_polish_diagnostics", {})
+                .get("selected_root_clusters", [])
+                if isinstance(fci_ref_payload, dict) else []
+            ),
         )
 
         # Energy expectation under FCI Hamiltonian (sanity check)
@@ -659,6 +1159,21 @@ def run_dmrg_at_fci_orbitals(system_key, bond_dim, *, fci_ref_payload=None,
             e_i = (fci.direct_spin1.energy(h1_act, eri_act, ci_i, ncas,
                                             mc.nelecas) + ecore)
             e_dmrg_check.append(float(e_i))
+        expectation_reference = (
+            refined_expectations
+            if refined_expectations is not None
+            else split_expectations
+        )
+        projection_energy_defect_mEh = []
+        for i, source in enumerate(root_assignment[:len(e_dmrg_check)]):
+            if isinstance(source, (int, np.integer)):
+                projection_energy_defect_mEh.append(
+                    float(1000.0 * (
+                        e_dmrg_check[i] - expectation_reference[int(source)]
+                    ))
+                )
+            else:
+                projection_energy_defect_mEh.append(None)
     finally:
         try:
             shutil.rmtree(scratch, ignore_errors=True)
@@ -666,6 +1181,13 @@ def run_dmrg_at_fci_orbitals(system_key, bond_dim, *, fci_ref_payload=None,
             pass
 
     # Install DMRG-truncated CI into mc, recompute grad and NAC
+    min_overlap = min(abs(float(x)) for x in assigned_overlaps[:2])
+    if min_overlap < MIN_DERIVATIVE_ROOT_OVERLAP:
+        raise RuntimeError(
+            "root-overlap QC failed before derivative solve: "
+            f"min assigned overlap {min_overlap:.6f} < "
+            f"{MIN_DERIVATIVE_ROOT_OVERLAP:.6f}"
+        )
     mc.ci = ci_dmrg
     _set_state_energies(mc, e_dmrg_check)
     mc.converged = True
@@ -676,11 +1198,17 @@ def run_dmrg_at_fci_orbitals(system_key, bond_dim, *, fci_ref_payload=None,
         "e_states_dmrg": e_dmrg_check,
         "e_dmrg_su2": (list(map(float, e_dmrg))
                        if hasattr(e_dmrg, "__iter__") else [float(e_dmrg)]),
+        "split_expectation_energies_hartree": split_expectations,
+        "refined_energies_hartree": refined_energies,
+        "refined_expectation_energies_hartree": refined_expectations,
+        "projection_energy_defect_mEh": projection_energy_defect_mEh,
         "root_assignment_dmrg_to_fci": root_assignment,
         "root_overlap_matrix": overlap_matrix,
         "root_assigned_abs_overlaps": assigned_overlaps,
+        "root_alignment_diagnostics": alignment_diagnostics,
         "grad": g.tolist(), "nac": n.tolist(),
         "derivative_diagnostics": derivative_diag,
+        "ci_residual_diagnostics": _ci_residual_norms(mc),
         "ci_overlap_with_fci": [
             float(np.vdot(ci_dmrg[i].ravel(), fci_ci[i].ravel()))
             for i in range(2)
@@ -689,6 +1217,81 @@ def run_dmrg_at_fci_orbitals(system_key, bond_dim, *, fci_ref_payload=None,
         "nelec_act": int(sum(mc.nelecas)),
         "runtime_s": time.time() - t0,
     }
+
+
+def _dmrg_point_worker(result_queue, system_key, bond_dim, fci_ref_payload,
+                       n_sweeps, sweep_tol, n_threads):
+    try:
+        result_queue.put((
+            "ok",
+            run_dmrg_at_fci_orbitals(
+                system_key,
+                bond_dim,
+                fci_ref_payload=fci_ref_payload,
+                n_sweeps=n_sweeps,
+                sweep_tol=sweep_tol,
+                n_threads=n_threads,
+            ),
+        ))
+    except Exception as exc:
+        result_queue.put(("error", str(exc), traceback.format_exc()))
+
+
+def run_dmrg_point_with_timeout(system_key, bond_dim, *, fci_ref_payload=None,
+                                n_sweeps=30, sweep_tol=1e-12, n_threads=1):
+    """Run one DMRG point in a child process so a bad low-M solve cannot
+    block the whole benchmark set."""
+    if POINT_TIMEOUT_S <= 0:
+        return run_dmrg_at_fci_orbitals(
+            system_key,
+            bond_dim,
+            fci_ref_payload=fci_ref_payload,
+            n_sweeps=n_sweeps,
+            sweep_tol=sweep_tol,
+            n_threads=n_threads,
+        )
+
+    # Do not use fork here.  The parent process may already have run PySCF,
+    # BLAS/OpenMP, and block2 code while building the FCI reference; forking
+    # after that can inherit locked native-thread state and leave every child
+    # process hanging until the timeout.  Spawn is slower but robust and keeps
+    # the per-point timeout useful for general systems.
+    ctx_name = os.environ.get("BVOE_MP_CONTEXT", "spawn")
+    ctx = mp.get_context(ctx_name)
+    result_queue = ctx.Queue(maxsize=1)
+    proc = ctx.Process(
+        target=_dmrg_point_worker,
+        args=(
+            result_queue,
+            system_key,
+            bond_dim,
+            fci_ref_payload,
+            n_sweeps,
+            sweep_tol,
+            n_threads,
+        ),
+    )
+    proc.start()
+    proc.join(float(POINT_TIMEOUT_S))
+    if proc.is_alive():
+        proc.terminate()
+        proc.join(10)
+        if proc.is_alive():
+            proc.kill()
+            proc.join(10)
+        raise TimeoutError(
+            f"DMRG point timed out after {POINT_TIMEOUT_S:.0f}s"
+        )
+
+    try:
+        status, *payload = result_queue.get_nowait()
+    except queue.Empty as exc:
+        raise RuntimeError(
+            f"DMRG point exited with code {proc.exitcode} without a result"
+        ) from exc
+    if status == "ok":
+        return payload[0]
+    raise RuntimeError(payload[0] + "\n" + payload[1])
 
 
 def diff_norms(arr_M, arr_ref):
@@ -725,9 +1328,14 @@ def phase_aware_diff(arr_M, arr_ref):
 # ---------------------------------------------------------------------------
 
 def main(only=None):
-    data_dir = ROOT / "data_phase2"
-    data_dir.mkdir(exist_ok=True)
-    summary_path = ROOT / "summary_phase2.json"
+    data_dir = Path(os.environ.get(
+        "BVOE_DATA_DIR", str(ROOT / "data_phase2")
+    )).resolve()
+    data_dir.mkdir(parents=True, exist_ok=True)
+    summary_path = Path(os.environ.get(
+        "BVOE_SUMMARY_PATH", str(ROOT / "summary_phase2.json")
+    )).resolve()
+    summary_path.parent.mkdir(parents=True, exist_ok=True)
     summary = {}
     if summary_path.exists():
         try:
@@ -783,10 +1391,11 @@ def main(only=None):
                 print(f"[{sys_key}] M={M:4d}  cached", flush=True)
                 continue
             try:
-                res = run_dmrg_at_fci_orbitals(
+                res = run_dmrg_point_with_timeout(
                     sys_key, M,
                     fci_ref_payload=ref,
                     n_sweeps=int(os.environ.get("BVOE_SWEEPS", "30")),
+                    sweep_tol=DMRG_SWEEP_TOL,
                     n_threads=int(os.environ.get("BVOE_THREADS", "1")),
                 )
                 out_path.write_text(json.dumps(res, indent=2))
@@ -794,6 +1403,17 @@ def main(only=None):
                 nac_d = phase_aware_diff(res["nac"], ref["nac"])
                 e0_d = abs(res["e_states_dmrg"][0] - ref["e_states"][0])
                 e1_d = abs(res["e_states_dmrg"][1] - ref["e_states"][1])
+                alignment = res.get("root_alignment_diagnostics", [])
+                cluster_sizes = [
+                    len(item.get("fci_cluster_roots", []))
+                    for item in alignment if isinstance(item, dict)
+                ]
+                degenerate_targets = [
+                    int(item["target_index"])
+                    for item in alignment
+                    if isinstance(item, dict)
+                    and len(item.get("fci_cluster_roots", [])) > 1
+                ]
                 summary[sys_key][str(M)] = {
                     "grad_l2": grad_d["l2"], "grad_max": grad_d["max"],
                     "grad_rel": grad_d["rel_l2"],
@@ -802,6 +1422,24 @@ def main(only=None):
                     "e0_diff": e0_d, "e1_diff": e1_d,
                     "ci0_overlap": res["ci_overlap_with_fci"][0],
                     "ci1_overlap": res["ci_overlap_with_fci"][1],
+                    "root_alignment_modes": [
+                        item.get("mode", "missing")
+                        for item in alignment if isinstance(item, dict)
+                    ],
+                    "root_assignment_dmrg_to_fci": (
+                        res.get("root_assignment_dmrg_to_fci")
+                    ),
+                    "root_assigned_abs_overlaps": (
+                        res.get("root_assigned_abs_overlaps")
+                    ),
+                    "root_alignment_diagnostics": alignment,
+                    "max_fci_cluster_size": (
+                        int(max(cluster_sizes)) if cluster_sizes else 1
+                    ),
+                    "degenerate_target_roots": degenerate_targets,
+                    "min_target_overlap": float(min(
+                        abs(float(x)) for x in res["ci_overlap_with_fci"]
+                    )),
                     "grad_lagrange_converged": bool(
                         res.get("derivative_diagnostics", {})
                         .get("gradient_lagrange", {})

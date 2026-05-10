@@ -20,26 +20,25 @@ This module exposes:
   - `transition_rdm_site_replacement`: γ^ΨΨ̄_pq, Γ^ΨΨ̄_pqrs (Eqs 17-20 plus
     site-replacement) for use in the gradient/NAC assembly.
   - `transition_rdm_site_replacement_mps`, `T_matrix_site_replacement_mps`:
-    MPS-native counterparts using ``driver.get_npdm`` between an MPS and a
-    site-replaced "modified" MPS. The site replacement is implemented through
-    the CSF↔FCI mapping inherited from ``dmrg_fcisolver``: an FCI-form trial
-    vector gets converted to CSF coefficients, then back to an MPS via
-    ``driver.get_mps_from_csf_coefficients``. This is a faithful encoding for
-    CAS(2,2) singlet (used for validation); production-scale CAS(n,m) needs
-    a generic CSF↔determinant decomposition (the same gap as in
-    ``dmrg_fcisolver.MPSAsFCISolver``).
+    MPS counterparts using ``driver.get_trans_1pdm`` and
+    ``driver.get_trans_2pdm`` between an MPS state and an MPS trial vector.
+    In production response solves the trial is already an MPS Krylov vector.
+    For exact small-CAS validation only, an FCI-form trial vector can be
+    converted to an MPS through the legacy CAS(2,2) CSF helper.
 
-Pyblock2 native MPS extension is straightforward in principle (replace site-l
-tensor in the bra MPS, compute transition RDMs via the standard pyblock2
-sweep). The current implementation realizes the trial as a *full* MPS via the
-CSF round-trip — this is exact when DMRG = FCI, and this is what the analytic
-NAC validation regime needs.
+The routines below therefore have two intentionally separate modes: MPS input
+for the production response path and ndarray input for small-CAS regression
+tests against PySCF FCI.
 """
 
 from __future__ import annotations
 
+from itertools import count
+
 import numpy as np
 from pyscf import fci
+
+_TRANS_NPDM_COUNTER = count()
 
 
 def transition_rdm_site_replacement(
@@ -160,11 +159,11 @@ def T_matrix_site_replacement(
 # bond dimension is unbounded (DMRG = FCI), and degrades smoothly to a
 # bond-truncated estimate at finite M.
 #
-# Convention conversion empirically determined (see
-# /tmp/test_block2_npdm_convention.py):
+# Convention conversion empirically determined by comparing SU2 block2 NPDMs
+# against PySCF FCI transition RDMs on CAS(2,2) and CAS(4,4):
 #
 #   dm1_pyscf[p, q]       = dm1_block2[q, p]                 (transpose)
-#   dm2_pyscf[p, q, r, s] = dm2_block2.transpose(0, 2, 1, 3) (chemist Mulliken)
+#   dm2_pyscf[p, q, r, s] = dm2_block2.transpose(0, 3, 1, 2) (chemist Mulliken)
 #
 # These conversions are direct: no δ correction needed because block2's SU2
 # convention sums spin pairs with a fixed operator ordering matching PySCF
@@ -173,7 +172,7 @@ def T_matrix_site_replacement(
 
 def _block2_trans_rdm12_to_pyscf(dm1_b: np.ndarray, dm2_b: np.ndarray):
     """Convert block2 SU2 transition RDMs to PySCF chemist's-notation RDMs."""
-    return dm1_b.T.copy(), dm2_b.transpose(0, 2, 1, 3).copy()
+    return dm1_b.T.copy(), dm2_b.transpose(0, 3, 1, 2).copy()
 
 
 def _fci22_singlet_to_csf_corrected(ci: np.ndarray):
@@ -221,6 +220,26 @@ def fci_to_mps_via_csf(driver, ci_v: np.ndarray, ncas: int, nelec: tuple[int, in
     return driver.get_mps_from_csf_coefficients(
         csfs, coefs.astype(np.float64), tag=tag, dot=dot, iprint=0,
     )
+
+
+def _prepare_trans_npdm_mps(driver, mps, tag: str):
+    """Return a transition-NPDM-safe copy of an MPS.
+
+    State-specific block2 refinement can leave single-root MPS objects in a
+    ``CR``/two-site canonical form.  In that representation SU2 transition
+    NPDMs may silently evaluate to zero, and reverse 2PDMs can segfault inside
+    block2.  A copied one-site canonical form gives the same wavefunction and
+    is stable for both ordinary and refined roots.
+    """
+    safe = driver.copy_mps(mps, tag=tag)
+    try:
+        driver.adjust_mps(safe, dot=1)
+    except Exception:
+        # Some non-block2 objects used in validation wrappers may not support
+        # in-place canonical-form adjustment.  In that case, keep the copy and
+        # let the downstream driver raise the real incompatibility.
+        pass
+    return safe
 
 
 # ---------------------------------------------------------------------------
@@ -475,8 +494,15 @@ def transition_rdm_site_replacement_mps(
     else:
         trial_mps = trial
 
-    dm1_b = driver.get_trans_1pdm(bra=mps_state, ket=trial_mps, iprint=0)
-    dm2_b = driver.get_trans_2pdm(bra=mps_state, ket=trial_mps, iprint=0)
+    ctr = next(_TRANS_NPDM_COUNTER)
+    bra_mps = _prepare_trans_npdm_mps(
+        driver, mps_state, tag=f"{trial_tag}-BRA-{ctr}",
+    )
+    ket_mps = _prepare_trans_npdm_mps(
+        driver, trial_mps, tag=f"{trial_tag}-KET-{ctr}",
+    )
+    dm1_b = driver.get_trans_1pdm(bra=bra_mps, ket=ket_mps, iprint=0)
+    dm2_b = driver.get_trans_2pdm(bra=bra_mps, ket=ket_mps, iprint=0)
     return _block2_trans_rdm12_to_pyscf(dm1_b, dm2_b)
 
 
@@ -512,8 +538,15 @@ def T_matrix_site_replacement_mps(
                                            tag=trial_tag + "-BRA")
         else:
             trial_mps = trial
-        dm1_b = driver.get_trans_1pdm(bra=trial_mps, ket=mps_state, iprint=0)
-        dm2_b = driver.get_trans_2pdm(bra=trial_mps, ket=mps_state, iprint=0)
+        ctr = next(_TRANS_NPDM_COUNTER)
+        bra_mps = _prepare_trans_npdm_mps(
+            driver, trial_mps, tag=f"{trial_tag}-BA-BRA-{ctr}",
+        )
+        ket_mps = _prepare_trans_npdm_mps(
+            driver, mps_state, tag=f"{trial_tag}-BA-KET-{ctr}",
+        )
+        dm1_b = driver.get_trans_1pdm(bra=bra_mps, ket=ket_mps, iprint=0)
+        dm2_b = driver.get_trans_2pdm(bra=bra_mps, ket=ket_mps, iprint=0)
         gamma_BA, Gamma_BA = _block2_trans_rdm12_to_pyscf(dm1_b, dm2_b)
         gamma = 0.5 * (gamma_AB + gamma_BA)
         Gamma = 0.5 * (Gamma_AB + Gamma_BA)

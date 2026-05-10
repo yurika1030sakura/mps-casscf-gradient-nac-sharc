@@ -30,9 +30,10 @@ Design summary
   using the FCI↔MPS converters for I/O. This path also generalises beyond
   CAS(2,2) and is what BVOE phase 2 / large-active-space production needs.
 
-- Lifecycle: scratch directories are managed explicitly via `kernel_close()`
-  and ownership flags, keeping shared block2 scratch state tied to the owning
-  solver object.
+- Lifecycle: scratch directories are managed via reference counting (only
+  the *creator* instance cleans up when `kernel_close()` is called). This
+  avoids the `__del__` segfault triggered by PySCF's `solver_obj.view(cls)`
+  pattern in `pyscf.grad.sacasscf.Gradients.make_fcasscf`.
 
 Validation
 ----------
@@ -201,8 +202,9 @@ def _sz_dm1_to_pyscf(dm1_b: list[np.ndarray]) -> np.ndarray:
     and transpose.
     """
     if not isinstance(dm1_b, (list, tuple)):
-        # SU2 mode returns a single ndarray summed over spins; no transpose.
-        return np.asarray(dm1_b)
+        # SU2 mode returns a single ndarray summed over spins with block2's
+        # transition-density index order, transposed relative to PySCF.
+        return np.asarray(dm1_b).T.copy()
     return (np.asarray(dm1_b[0]) + np.asarray(dm1_b[1])).T.copy()
 
 
@@ -220,7 +222,7 @@ def _sz_dm2_to_pyscf(dm2_b: list[np.ndarray]) -> np.ndarray:
                     .transpose(0, 2, 1, 3)
     """
     if not isinstance(dm2_b, (list, tuple)):
-        return np.asarray(dm2_b).transpose(0, 2, 1, 3).copy()
+        return np.asarray(dm2_b).transpose(0, 3, 1, 2).copy()
     aa, ab, bb = (np.asarray(d) for d in dm2_b)
     total = aa + ab + ab.transpose(2, 3, 0, 1) + bb
     return total.transpose(0, 2, 1, 3).copy()
@@ -272,7 +274,11 @@ class MPSAsFCISolver(lib.StreamObject):
                  spin_penalty: float = 0.0, track_roots: bool = True,
                  root_buffer: int = 0,
                  root_overlap_warn: float = 0.70,
-                 gap_warn: float = 1.0e-3):
+                 gap_warn: float = 1.0e-3,
+                 refine_split_roots: bool = True,
+                 refine_sweeps: int | None = None,
+                 refine_sweep_tol: float | None = None,
+                 refine_proj_weight: float = 5.0):
         self.mol = mol
         # PySCF FCISolver attributes that downstream wrappers expect.
         self.nroots = 1
@@ -307,6 +313,14 @@ class MPSAsFCISolver(lib.StreamObject):
         self.root_buffer = max(0, int(root_buffer))
         self.root_overlap_warn = float(root_overlap_warn)
         self.gap_warn = float(gap_warn)
+        self.refine_split_roots = bool(refine_split_roots)
+        self.refine_sweeps = (
+            None if refine_sweeps is None else max(1, int(refine_sweeps))
+        )
+        self.refine_sweep_tol = (
+            None if refine_sweep_tol is None else float(refine_sweep_tol)
+        )
+        self.refine_proj_weight = float(refine_proj_weight)
         # Target S(S+1). When ``None`` and a closed-shell (na == nb) CAS is
         # passed to ``kernel``, defaults to the singlet (S² = 0). Set via
         # ``fix_spin_(ss=...)`` to match the PySCF FCI solver convention.
@@ -326,6 +340,9 @@ class MPSAsFCISolver(lib.StreamObject):
         self._root_min_overlap = None
         self._root_candidate_energies = None
         self._root_selected_energies = None
+        self._split_expectation_energies = None
+        self._refined_energies = None
+        self._refined_expectation_energies = None
         self._root_min_energy_gap = None
         self._root_tracking_warnings = []
 
@@ -406,6 +423,72 @@ class MPSAsFCISolver(lib.StreamObject):
             indices = list(range(nroots))
         return [values[i] for i in indices[:nroots]]
 
+    def _refine_split_kets(self, driver, mpo, kets, *, bond_dim: int,
+                           tag_prefix: str):
+        """State-specifically relax split multi-root MPS objects.
+
+        block2's multi-root DMRG returns useful Ritz energies for the root
+        subspace, but the individual objects returned by ``split_mps`` can
+        have higher Hamiltonian expectation values.  Since PySCF's analytic
+        response receives individual CI vectors, refine those split roots
+        before conversion so ``ci`` and ``e_states`` describe the same state.
+        """
+        split_expectations = [
+            float(driver.expectation(k, mpo, k, iprint=0)) for k in kets
+        ]
+        self._split_expectation_energies = split_expectations
+        self._refined_energies = None
+        self._refined_expectation_energies = None
+
+        if not self.refine_split_roots or len(kets) <= 1:
+            return kets
+
+        ns = int(self.refine_sweeps or max(4, min(self.n_sweeps, 24)))
+        tol = float(self.refine_sweep_tol or min(float(self.sweep_tol), 1.0e-9))
+        refined = []
+        refined_energies = []
+        refined_expectations = []
+        for i, ket in enumerate(kets):
+            mps = driver.copy_mps(ket, tag=f"{tag_prefix}-{i}")
+            energy = driver.dmrg(
+                mpo,
+                mps,
+                n_sweeps=ns,
+                bond_dims=[int(bond_dim)] * ns,
+                noises=[0.0] * ns,
+                tol=tol,
+                iprint=0,
+                proj_mpss=refined or None,
+                proj_weights=(
+                    [self.refine_proj_weight] * len(refined)
+                    if refined else None
+                ),
+            )
+            refined.append(mps)
+            refined_energies.append(
+                float(energy[0] if hasattr(energy, "__iter__") else energy)
+            )
+            refined_expectations.append(
+                float(driver.expectation(mps, mpo, mps, iprint=0))
+            )
+
+        self._refined_energies = refined_energies
+        self._refined_expectation_energies = refined_expectations
+        return refined
+
+    @staticmethod
+    def _ci_energy_expectations(h1e, eri, norb, nelec_t, ecore, ci_roots):
+        eri_full = ao2mo.restore(1, np.asarray(eri), norb)
+        return [
+            float(
+                fci.direct_spin1.energy(
+                    np.asarray(h1e), eri_full, np.asarray(ci),
+                    norb, nelec_t
+                ) + float(ecore)
+            )
+            for ci in ci_roots
+        ]
+
     def _track_and_store_ci(self, ci_list, ci0=None, target_nroots=None):
         """Apply root/phase continuity and cache selected roots.
 
@@ -466,8 +549,8 @@ class MPSAsFCISolver(lib.StreamObject):
 
     # We intentionally do NOT define __del__: PySCF's lagrange/grad pipeline
     # creates many short-lived view copies; relying on __del__ for scratch
-    # cleanup makes solver state lifetime brittle during PySCF derivative
-    # runs. Users should call `kernel_close()` explicitly if they want
+    # cleanup makes solver state lifetime brittle (segfaults at the end of
+    # NAC runs). Users should call `kernel_close()` explicitly if they want
     # eager cleanup; otherwise scratch dirs are reused across `kernel` calls.
 
     # ----- spin penalty -----------------------------------------------------
@@ -545,9 +628,9 @@ class MPSAsFCISolver(lib.StreamObject):
                 solver.nroots = n_solve_roots
             self._fci_solver = solver
             # PySCF FCI expects the initial-guess list length to match the
-            # number of solved roots.  When a root buffer is active, ci0 remains
-            # available for overlap tracking while the eigensolver starts from
-            # its default guesses for the larger candidate-root space.
+            # number of solved roots.  When a root buffer is active, keep ci0
+            # for overlap tracking but do not pass a shorter target-state
+            # list as the eigensolver initial guess.
             ci0_kernel = None if n_solve_roots > nroots else ci0
             e, c = solver.kernel(h1e, eri, norb, nelec_t, ci0=ci0_kernel,
                                  ecore=float(ecore),
@@ -600,8 +683,8 @@ class MPSAsFCISolver(lib.StreamObject):
         # for non-spin-adapted CAS should set ``mps_native_rdms=False``
         # and let the FCI fallback handle the small-CAS validation regime.
         # For large CAS where DMRG is mandatory, users should configure
-        # spin via the initial-guess MPS or a custom block2 H+lambda*S^2 MPO
-        # constructor.
+        # spin via the initial-guess MPS or a custom block2 H+λS² MPO
+        # constructor (TODO: hook into ``driver.get_mpo_any_fermionic``).
         self._mpo = mpo
 
         # We request more roots than nroots when targeting spin, then filter
@@ -630,6 +713,10 @@ class MPSAsFCISolver(lib.StreamObject):
         else:
             self._kets = [driver.split_mps(ket, i, f"KET-{i}")
                           for i in range(n_solve_roots)]
+        self._kets = self._refine_split_kets(
+            driver, mpo, self._kets, bond_dim=self.bond_dim,
+            tag_prefix="KETR",
+        )
 
         self._driver = driver
         e_all = self._energy_list(energies)
@@ -644,8 +731,11 @@ class MPSAsFCISolver(lib.StreamObject):
         )
         selected_indices = self._root_assignment[:nroots]
         self._kets = [self._kets[i] for i in selected_indices]
-        e_sel = self._select_by_assignment(e_all, nroots)
+        e_sel = self._ci_energy_expectations(
+            h1e, eri, norb, nelec_t, ecore, ci_list
+        )
         self._record_energy_diagnostics(e_all, selected_indices)
+        self._root_selected_energies = [float(e) for e in e_sel]
         self.e_states = e_sel
         self.e_tot = self.e_states if nroots > 1 else self.e_states[0]
         if nroots == 1:
@@ -701,6 +791,10 @@ class MPSAsFCISolver(lib.StreamObject):
         else:
             self._kets = [driver.split_mps(ket, i, f"KET-{i}")
                           for i in range(n_solve_roots)]
+        self._kets = self._refine_split_kets(
+            driver, mpo, self._kets, bond_dim=self.bond_dim,
+            tag_prefix="KETR",
+        )
         self._driver = driver
         self._mpo = mpo
         e_all = self._energy_list(energies)
@@ -715,8 +809,11 @@ class MPSAsFCISolver(lib.StreamObject):
         )
         selected_indices = self._root_assignment[:nroots]
         self._kets = [self._kets[i] for i in selected_indices]
-        e_sel = self._select_by_assignment(e_all, nroots)
+        e_sel = self._ci_energy_expectations(
+            h1e, eri, norb, nelec_t, ecore, ci_list
+        )
         self._record_energy_diagnostics(e_all, selected_indices)
+        self._root_selected_energies = [float(e) for e in e_sel]
         self.e_states = e_sel
         self.e_tot = self.e_states if nroots > 1 else self.e_states[0]
         if nroots == 1:

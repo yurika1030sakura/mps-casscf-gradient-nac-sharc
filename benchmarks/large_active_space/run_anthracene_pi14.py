@@ -20,7 +20,7 @@ from pathlib import Path
 import numpy as np
 from pyblock2.driver.core import DMRGDriver, SymmetryTypes
 from pyscf import ao2mo, fci, gto, mcscf, scf
-from pyscf.fci import cistring
+from pyscf.fci import cistring, spin_op
 from pyscf.mcscf import avas
 
 
@@ -73,14 +73,21 @@ def build_anthracene_geometry() -> str:
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--basis", default="sto-3g")
-    parser.add_argument("--m-list", default="64,128,256,512,1024")
+    parser.add_argument("--m-list", default="64,128,256,512,1024,2048")
     parser.add_argument("--nroots", type=int, default=2)
     parser.add_argument("--sweeps", type=int, default=80)
     parser.add_argument("--sweep-tol", type=float, default=1.0e-8)
     parser.add_argument("--skip-fci", action="store_true")
-    parser.add_argument("--fci-conv-tol", type=float, default=1.0e-10)
-    parser.add_argument("--fci-max-cycle", type=int, default=120)
-    parser.add_argument("--spin-shift", type=float, default=0.5)
+    parser.add_argument("--fci-solver-roots", type=int, default=6)
+    parser.add_argument("--fci-conv-tol", type=float, default=1.0e-12)
+    parser.add_argument("--fci-max-cycle", type=int, default=300)
+    parser.add_argument("--fci-max-space", type=int, default=80)
+    parser.add_argument("--fci-pspace-size", type=int, default=2000)
+    parser.add_argument("--fci-spin-tol", type=float, default=1.0e-6)
+    parser.add_argument("--fci-degeneracy-tol", type=float, default=1.0e-4)
+    parser.add_argument("--dav-thrd", type=float, default=1.0e-14)
+    parser.add_argument("--dav-max-iter", type=int, default=8000)
+    parser.add_argument("--dav-def-max-size", type=int, default=80)
     parser.add_argument("--threads", type=int, default=1)
     parser.add_argument("--memory-mb", type=int, default=120000)
     parser.add_argument("--stack-mem", type=float, default=2.0e9)
@@ -91,7 +98,8 @@ def parse_args() -> argparse.Namespace:
 
 
 def run_dmrg_casci(h1, eri, ecore, ncas, nelec, *, bond_dim, nroots,
-                   sweeps, sweep_tol, threads, stack_mem, scratch_root):
+                   sweeps, sweep_tol, dav_thrd, dav_max_iter,
+                   dav_def_max_size, threads, stack_mem, scratch_root):
     scratch = tempfile.mkdtemp(
         prefix=f"anth_pi14_M{bond_dim}_",
         dir=scratch_root,
@@ -131,7 +139,10 @@ def run_dmrg_casci(h1, eri, ecore, ncas, nelec, *, bond_dim, nroots,
             n_sweeps=nsweep,
             bond_dims=[int(bond_dim)] * nsweep,
             noises=noises[:nsweep],
+            thrds=[float(dav_thrd)] * nsweep,
             tol=float(sweep_tol),
+            dav_max_iter=int(dav_max_iter),
+            dav_def_max_size=int(dav_def_max_size),
             iprint=0,
         )
         if hasattr(energies, "__iter__"):
@@ -144,30 +155,141 @@ def run_dmrg_casci(h1, eri, ecore, ncas, nelec, *, bond_dim, nroots,
         shutil.rmtree(scratch, ignore_errors=True)
 
 
-def run_fci_reference(h1, eri, ecore, ncas, nelec, *, nroots, conv_tol,
-                      max_cycle, spin_shift):
+def _as_list(value):
+    if isinstance(value, (list, tuple, np.ndarray)):
+        return list(value)
+    return [value]
+
+
+def _ci_residual_norms(h1, eri, ecore, ncas, nelec, ci_roots):
+    h2e = fci.direct_spin1.absorb_h1e(h1, eri, ncas, nelec, 0.5)
+    out = []
+    for ci in ci_roots:
+        ci = np.asarray(ci)
+        hci = fci.direct_spin1.contract_2e(h2e, ci, ncas, nelec)
+        hci = hci + float(ecore) * ci
+        energy = float(np.vdot(ci, hci))
+        resid = hci - energy * ci
+        out.append({
+            "energy_expectation": energy,
+            "residual_l2": float(np.linalg.norm(resid)),
+        })
+    return out
+
+
+def _spin_square(ci, ncas, nelec):
+    ss, mult = spin_op.spin_square(np.asarray(ci), ncas, nelec)
+    return float(ss), float(mult)
+
+
+def _selected_root_clusters(selected, root_scan, *, spin_tol, degeneracy_tol):
+    singlets = [
+        row for row in root_scan
+        if float(row.get("spin_square", 999.0)) <= float(spin_tol)
+    ]
+    clusters = []
+    for target_index, (_, _, selected_row) in enumerate(selected):
+        energy = float(selected_row["energy"])
+        members = [
+            row for row in singlets
+            if abs(float(row["energy"]) - energy) <= float(degeneracy_tol)
+        ]
+        clusters.append({
+            "target_index": int(target_index),
+            "selected_root": int(selected_row["root"]),
+            "selected_energy": energy,
+            "cluster_roots": [int(row["root"]) for row in members],
+            "cluster_energies": [float(row["energy"]) for row in members],
+            "cluster_size": int(len(members)),
+            "isolated": bool(len(members) <= 1),
+        })
+    return clusters
+
+
+def run_fci_reference(h1, eri, ecore, ncas, nelec, *, target_nroots,
+                      solver_nroots, conv_tol,
+                      max_cycle, max_space, pspace_size, spin_tol,
+                      degeneracy_tol, memory_mb):
     """Run direct fixed-orbital CASCI/FCI for CAS(14,14)."""
     neleca = int(nelec) // 2
     nelecb = int(nelec) - neleca
-    solver = fci.direct_spin1.FCI()
-    solver.nroots = int(nroots)
+    nelec_tuple = (neleca, nelecb)
+    solver_nroots = max(int(target_nroots), int(solver_nroots))
+    # For this energy benchmark we want the ordered singlet spectrum itself,
+    # not a spin-free spectrum that may contain many triplet roots below S1.
+    solver = fci.direct_spin0.FCI()
+    solver.nroots = solver_nroots
     solver.conv_tol = float(conv_tol)
     solver.max_cycle = int(max_cycle)
-    solver = fci.addons.fix_spin(solver, shift=float(spin_shift), ss=0)
-    solver.nroots = int(nroots)
+    solver.max_space = int(max_space)
+    solver.pspace_size = int(pspace_size)
+    solver.max_memory = int(memory_mb)
     t0 = time.time()
-    energies, _ = solver.kernel(
+    energies, ci_roots = solver.kernel(
         np.asarray(h1),
         np.asarray(eri),
         int(ncas),
-        (neleca, nelecb),
+        nelec_tuple,
         ecore=float(ecore),
     )
-    if hasattr(energies, "__iter__"):
-        e_list = [float(x) for x in energies]
-    else:
-        e_list = [float(energies)]
-    return {"energies_hartree": e_list, "runtime_s": time.time() - t0}
+    e_all = [float(x) for x in _as_list(energies)]
+    ci_list = [np.asarray(ci) for ci in _as_list(ci_roots)]
+    converged = [bool(x) for x in _as_list(getattr(solver, "converged", []))]
+    root_scan = []
+    for i, (energy, ci) in enumerate(zip(e_all, ci_list)):
+        ss, mult = _spin_square(ci, int(ncas), nelec_tuple)
+        row = {
+            "root": int(i),
+            "energy": float(energy),
+            "spin_square": ss,
+            "multiplicity": mult,
+        }
+        root_scan.append(row)
+    selected = []
+    for energy, ci, row in zip(e_all, ci_list, root_scan):
+        if float(row["spin_square"]) <= float(spin_tol):
+            selected.append((float(energy), np.asarray(ci), row))
+            if len(selected) == int(target_nroots):
+                break
+    if len(selected) < int(target_nroots):
+        raise RuntimeError(
+            "FCI root scan did not contain enough singlet roots: "
+            f"needed {int(target_nroots)}, found {len(selected)}, "
+            f"scan={root_scan}"
+        )
+    residuals = _ci_residual_norms(
+        np.asarray(h1), np.asarray(eri), float(ecore),
+        int(ncas), nelec_tuple, [x[1] for x in selected],
+    )
+    selected_root_clusters = _selected_root_clusters(
+        selected,
+        root_scan,
+        spin_tol=spin_tol,
+        degeneracy_tol=degeneracy_tol,
+    )
+    return {
+        "schema_version": 5,
+        "mode": "spin_adapted_singlet_fci",
+        "energies_hartree": [x[0] for x in selected],
+        "energies_all_hartree": e_all,
+        "target_nroots": int(target_nroots),
+        "solver_nroots": int(solver_nroots),
+        "converged": converged,
+        "root_scan": root_scan,
+        "selected_roots": [x[2] for x in selected],
+        "selected_root_clusters": selected_root_clusters,
+        "selection": "lowest_singlets_from_root_scan",
+        "residual_diagnostics": residuals,
+        "settings": {
+            "conv_tol": float(conv_tol),
+            "max_cycle": int(max_cycle),
+            "max_space": int(max_space),
+            "pspace_size": int(pspace_size),
+            "spin_tol": float(spin_tol),
+            "degeneracy_tol": float(degeneracy_tol),
+        },
+        "runtime_s": time.time() - t0,
+    }
 
 
 def main() -> None:
@@ -212,6 +334,7 @@ def main() -> None:
         "m_list": [int(x) for x in args.m_list.split(",") if x.strip()],
         "sweeps": int(args.sweeps),
         "sweep_tol": float(args.sweep_tol),
+        "dav_thrd": float(args.dav_thrd),
         "threads": int(args.threads),
         "rhf_energy_hartree": float(mf.e_tot),
         "preview_only": bool(args.preview_only),
@@ -239,10 +362,15 @@ def main() -> None:
             ecore,
             ncas,
             nelecas,
-            nroots=args.nroots,
+            target_nroots=args.nroots,
+            solver_nroots=args.fci_solver_roots,
             conv_tol=args.fci_conv_tol,
             max_cycle=args.fci_max_cycle,
-            spin_shift=args.spin_shift,
+            max_space=args.fci_max_space,
+            pspace_size=args.fci_pspace_size,
+            spin_tol=args.fci_spin_tol,
+            degeneracy_tol=args.fci_degeneracy_tol,
+            memory_mb=args.memory_mb,
         )
         out_path.write_text(json.dumps(output, indent=2))
         e_msg = " ".join(
@@ -267,6 +395,9 @@ def main() -> None:
             nroots=args.nroots,
             sweeps=args.sweeps,
             sweep_tol=args.sweep_tol,
+            dav_thrd=args.dav_thrd,
+            dav_max_iter=args.dav_max_iter,
+            dav_def_max_size=args.dav_def_max_size,
             threads=args.threads,
             stack_mem=args.stack_mem,
             scratch_root=scratch_root,

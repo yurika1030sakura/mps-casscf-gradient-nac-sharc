@@ -1,0 +1,21 @@
+{
+  "benchmark": "mps_only_hchain_response",
+  "system": "H10 chain",
+  "basis": "sto-3g",
+  "active_space": "CAS(10,10)",
+  "uses_fci_reference": false,
+  "uses_dense_ci_response_vector": false,
+  "bond_dim": 200,
+  "sweeps": 20,
+  "energies_hartree": [
+    -5.156465953684389,
+    -4.7389555930902
+  ],
+  "timings_s": {
+    "dmrg": 3.8073482330073602,
+    "gradient_state0": 441.7624400529894,
+    "nac_01": 751.4156290370156
+  },
+  "gradient_state0_norm": 0.8347225128690579,
+  "nac_01_norm": 0.6946965393453801
+}

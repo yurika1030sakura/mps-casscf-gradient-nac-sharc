@@ -87,6 +87,8 @@ from single_site_sigma import (
 from site_replacement_density import (
     T_matrix_site_replacement,
     T_matrix_site_replacement_mps,
+    transition_rdm_site_replacement_mps,
+    fci_to_mps_via_csf,
     fci_to_mps_generic,
     mps_to_fci_generic,
     generalized_fock_matrix,
@@ -250,6 +252,16 @@ class CPDMRGCASSCFResponseMPS(CPCASSCFResponseFCI):
         finally:
             _block2.Global.frame = prev
 
+    @contextlib.contextmanager
+    def _use_su2_frame(self):
+        """Activate the SU2 state-driver frame for MPS transition NPDMs."""
+        prev = _block2.Global.frame
+        _block2.Global.frame = self._su2_frame
+        try:
+            yield
+        finally:
+            _block2.Global.frame = prev
+
     # ------------------------------------------------------------------
     # Attribute aliases for caller convenience
     # ------------------------------------------------------------------
@@ -399,15 +411,45 @@ class CPDMRGCASSCFResponseMPS(CPCASSCFResponseFCI):
         # converted on-demand to SZ via the FCI-form first; this is the
         # bottleneck at large CAS but unavoidable since the existing
         # mps_states are SU2.
-        from pyscf.fci import direct_spin1 as _ds1
         tdm1 = np.zeros((ncas, ncas))
         tdm2 = np.zeros((ncas, ncas, ncas, ncas))
         s10 = np.zeros(self.nstates)
         for I, (c1, c0, w_I) in enumerate(zip(v_list, self.ci_list, self.weights)):
-            # MPS-routed transition density: ket=c0 (FCI form, same as the
-            # validated FR primitive expects for the ndarray path), bra=c1.
-            # The internal call goes through the SZ MPS converter.
-            d1, d2 = _ds1.trans_rdm12(c1, c0, ncas, self.nelec)
+            if not np.any(np.abs(c1) > 1e-14):
+                d1 = np.zeros((ncas, ncas))
+                d2 = np.zeros((ncas, ncas, ncas, ncas))
+            elif ncas == 2 and tuple(self.nelec) == (1, 1):
+                # Validation MPS path: build the trial vector as an SU2 MPS
+                # and contract it against the stored DMRG root MPS.  This
+                # exercises the site-replacement transition-density primitive
+                # directly on block2 MPS objects.
+                tag = f"HOC-{self._call_counter}-{I}"
+                with self._use_su2_frame():
+                    trial_mps = fci_to_mps_via_csf(
+                        self._driver_su2, c1, ncas, self.nelec,
+                        tag=f"{tag}-TRIAL",
+                    )
+                    d1, d2 = transition_rdm_site_replacement_mps(
+                        self._driver_su2, trial_mps, self._mps_states[I],
+                        ncas, self.nelec, trial_tag=tag,
+                    )
+                    ref_mps = fci_to_mps_via_csf(
+                        self._driver_su2, c0, ncas, self.nelec,
+                        tag=f"{tag}-REF",
+                    )
+                    phase = float(self._driver_su2.expectation(
+                        ref_mps, self._driver_su2.get_identity_mpo(),
+                        self._mps_states[I], iprint=0,
+                    ))
+                if abs(phase) > 1.0e-10:
+                    d1 *= float(np.sign(phase))
+                    d2 *= float(np.sign(phase))
+            else:
+                # Generic large-CAS H_OC still needs the full site-tensor
+                # replacement backend.  Keep the validated parent algebra here
+                # until the full MPS-Krylov implementation is completed.
+                from pyscf.fci import direct_spin1 as _ds1
+                d1, d2 = _ds1.trans_rdm12(c1, c0, ncas, self.nelec)
             tdm1 += w_I * d1
             tdm2 += w_I * d2
             s10[I] = float(np.tensordot(c1, c0, axes=([0, 1], [0, 1]))) * 2 * w_I

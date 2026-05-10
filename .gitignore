@@ -36,5 +36,6 @@ tmp/
 *.h5
 *.npy
 *.npz
+data/anthracene_pi14_mps_native_M128.json
 
 .DS_Store

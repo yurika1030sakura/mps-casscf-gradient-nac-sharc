@@ -1,0 +1,13 @@
+{
+  "milestone": "MPS_Krylov_SHARC_interface",
+  "purpose": "Validate SHARC-facing gradient/NAC assembly through the MPS-Krylov response backend against the projected-CI path.",
+  "results": [
+    {
+      "name": "S1_mps_krylov_sharc_grad_nac_matches_projected_path",
+      "grad_diff": 2.2619197699107944e-15,
+      "nac_diff": 6.4796043696850615e-16,
+      "tol": 1e-08,
+      "status": "pass"
+    }
+  ]
+}

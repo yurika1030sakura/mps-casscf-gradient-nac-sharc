@@ -47,7 +47,7 @@ Table 4: largest-M errors after job `8878801` completes.
 
 ## Language Rules
 
-- Say "public benchmark systems", not private application chemistry.
+- Say "public benchmark systems", not non-benchmark application chemistry.
 - Use "interface regression test" in the manuscript.
 - Avoid cluster-specific details in manuscript.
 - Treat FCI references as validation only; production root following uses

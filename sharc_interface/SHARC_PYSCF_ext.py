@@ -38,7 +38,7 @@ from copy import deepcopy
 from socket import gethostname
 import time
 
-from pyscf import lib, gto, mcscf
+from pyscf import ao2mo, lib, gto, mcscf
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 if HERE not in sys.path:
@@ -57,6 +57,15 @@ try:
 except ImportError as _e:
     _ANALYTIC_CP_AVAILABLE = False
     _ANALYTIC_CP_IMPORT_ERR = _e
+
+
+def _ensure_dmrg_dev_path():
+    for dev_dir in (
+        os.path.join(HERE, "dmrg_analytic_dev"),
+        os.path.join(os.path.dirname(HERE), "src", "dmrg_analytic_dev"),
+    ):
+        if os.path.isdir(dev_dir) and dev_dir not in sys.path:
+            sys.path.insert(0, dev_dir)
 
 _version_ = "3.0"
 _versiondate_ = datetime.date(2024, 2, 2)
@@ -484,7 +493,7 @@ at least one task"""
     if not has_veloc:
         del qmin["veloc"]
 
-    # Parse optional task lines after the molecular-geometry block.
+    # TODO: I hate this and this should be fixed up....ugh!
     i = natom + 1
     while i + 1 < len(lines):
         i += 1
@@ -572,8 +581,11 @@ at least one task"""
         print("'init' and 'samestep' cannot both be present in inputfile")
         sys.exit(1)
 
-    if "phases" in qmin:
-        qmin["overlap"] = []
+    # SHARC requests PHASES during dynamics even when derivative couplings are
+    # propagated with NACDR.  The stock PySCF interface does not implement full
+    # wave-function overlap matrices, but phase continuity is handled inside
+    # the PySCF/DMRG root-tracking layer.  Keep PHASES as its own lightweight
+    # output task instead of remapping it to the unsupported OVERLAP task.
 
     if "overlap" in qmin and "init" in qmin:
         print("'overlap' and 'phases' cannot both be calculated in the first timestep")
@@ -680,7 +692,7 @@ at least one task"""
     nacmap.sort()
     qmin["nacmap"] = nacmap
 
-    # Read PySCF resource settings from the SHARC-side resources file.
+    # TODO from 2222 of SHARC_MOLCAS, the MOLCAS.resources file loading stuff...
 
     pyscf_resource_filename = "PYSCF.resources"
     with open(pyscf_resource_filename, "r") as f:
@@ -781,11 +793,11 @@ at least one task"""
         template = f.readlines()
 
     template_dict = {}
-    INTEGERS_KEYS = ["ncas", "nelecas", "roots", "grids-level", "verbose", "max-cycle-macro", "max-cycle-micro", "ah-max-cycle", "ah-start-cycle", "grad-max-cycle", "charge", "dmrg-ncas", "dmrg-nelecas", "dmrg-startm", "dmrg-maxm", "dmrg-memory-mb", "dmrg-nsteps", "dmrg-max-fci-dets", "dmrg-root-buffer"]
+    INTEGERS_KEYS = ["ncas", "nelecas", "roots", "grids-level", "verbose", "max-cycle-macro", "max-cycle-micro", "ah-max-cycle", "ah-start-cycle", "grad-max-cycle", "charge", "dmrg-ncas", "dmrg-nelecas", "dmrg-startm", "dmrg-maxm", "dmrg-memory-mb", "dmrg-nsteps", "dmrg-max-fci-dets", "dmrg-root-buffer", "dmrg-refine-split-roots", "dmrg-refine-sweeps"]
     STRING_KEYS = ["basis", "method", "pdft-functional"]
-    RAW_STRING_KEYS = ["dmrg-avas-labels", "dmrg-cas-list", "dmrg-grad-mode"]
-    FLOAT_KEYS = ["conv-tol", "conv-tol-grad", "max-stepsize", "ah-start-tol", "ah-level-shift", "ah-conv-tol", "ah-lindep", "fix-spin-shift", "dmrg-sweep-tol", "dmrg-avas-threshold", "dmrg-fd-step"]
-    BOOL_KEYS = ["analytic-nac"]
+    RAW_STRING_KEYS = ["dmrg-avas-labels", "dmrg-cas-list", "dmrg-grad-mode", "dmrg-response-mode"]
+    FLOAT_KEYS = ["conv-tol", "conv-tol-grad", "max-stepsize", "ah-start-tol", "ah-level-shift", "ah-conv-tol", "ah-lindep", "fix-spin-shift", "dmrg-sweep-tol", "dmrg-avas-threshold", "dmrg-fd-step", "dmrg-refine-sweep-tol", "dmrg-refine-proj-weight"]
+    BOOL_KEYS = ["analytic-nac", "dmrg-fixed-orbitals", "dmrg-fixed-orbital"]
 
     template_dict["roots"] = [0 for _ in range(8)]
     template_dict["charge"] = 0
@@ -819,6 +831,9 @@ at least one task"""
     template_dict["grad-max-cycle"] = 50
     template_dict["dmrg-grad-mode"] = "base"
     template_dict["dmrg-fd-step"] = 1.0e-3
+    template_dict["dmrg-response-mode"] = "projected-ci"
+    template_dict["dmrg-fixed-orbitals"] = False
+    template_dict["dmrg-fixed-orbital"] = False
 
     # Step 7: analytic CP-CASSCF gradient + NAC backend (off by default for
     # backward compatibility).  Enable in PYSCF.template via:
@@ -832,6 +847,12 @@ at least one task"""
     # overlap with the previous accepted CI vectors.  This is system-agnostic
     # root following; it is not tied to FCI references or benchmark labels.
     template_dict["dmrg-root-buffer"] = 4
+    # After splitting a multi-root MPS, refine each candidate root
+    # state-specifically before projection to PySCF CI arrays.
+    template_dict["dmrg-refine-split-roots"] = 1
+    template_dict["dmrg-refine-sweeps"] = 20
+    template_dict["dmrg-refine-sweep-tol"] = 1.0e-9
+    template_dict["dmrg-refine-proj-weight"] = 5.0
 
     for line in template:
         orig = re.sub("#.*$", "", line).split(None, 1)
@@ -1135,8 +1156,21 @@ def build_mol(qmin):
 
 def gen_solver(mol, qmin):
     mf = mol.RHF()
-    mf.max_cycle = 0
+    fixed_mps = (
+        qmin.get("method") == 5
+        and (
+            bool(qmin["template"].get("dmrg-fixed-orbitals", False))
+            or bool(qmin["template"].get("dmrg-fixed-orbital", False))
+        )
+    )
+    if fixed_mps:
+        mf.conv_tol = qmin["template"]["conv-tol"]
+    else:
+        mf.max_cycle = 0
     mf.run()
+
+    if fixed_mps:
+        return gen_fixed_orbital_mps_solver(mf, qmin)
 
     ncas = qmin["template"]["ncas"]
     nelecas = qmin["template"]["nelecas"]
@@ -1164,14 +1198,7 @@ def gen_solver(mol, qmin):
 
         if qmin["method"] == 5:
             from pyscf.fci import cistring
-            dev_dir_candidates = [
-                os.path.join(HERE, "dmrg_analytic_dev"),
-                os.path.abspath(os.path.join(HERE, "..", "src", "dmrg_analytic_dev")),
-            ]
-            for dev_dir in dev_dir_candidates:
-                if os.path.isdir(dev_dir) and dev_dir not in sys.path:
-                    sys.path.insert(0, dev_dir)
-                    break
+            _ensure_dmrg_dev_path()
             from dmrg_fcisolver import MPSAsFCISolver
 
             if isinstance(nelecas, (tuple, list)):
@@ -1184,14 +1211,35 @@ def gen_solver(mol, qmin):
                 * int(cistring.num_strings(int(ncas), nelecb))
             )
             max_fci_dets = int(qmin["template"]["dmrg-max-fci-dets"])
+            response_mode = str(
+                qmin["template"].get("dmrg-response-mode", "projected-ci")
+            ).strip().lower()
+            projected_modes = {
+                "projected-ci", "projected_ci", "fci-projected",
+                "fci_projected",
+            }
+            mps_modes = {"mps-krylov", "mps_krylov", "mps-native", "mps_native"}
+            if response_mode not in projected_modes | mps_modes:
+                requested = []
+                for key in ("h", "dm", "grad", "nacdr", "overlap", "nacdt"):
+                    if key in qmin:
+                        requested.append(key)
+                raise RuntimeError(
+                    "Unknown dmrg-response-mode. Requested "
+                    f"dmrg-response-mode={response_mode!r} for CAS({nelecas},"
+                    f"{ncas}) with {n_dets} determinants and SHARC quantities "
+                    f"{requested}. Valid modes are projected-ci and mps-krylov."
+                )
             if n_dets > max_fci_dets:
                 raise RuntimeError(
-                    "method dmrg-casscf currently uses DMRG roots with an "
-                    "FCI-projected response vector. Requested CAS has "
+                    "method dmrg-casscf currently uses PySCF CASSCF objects "
+                    "that must carry active-space root data through the solver "
+                    "interface. Requested CAS has "
                     f"{n_dets} determinants, exceeding dmrg-max-fci-dets="
                     f"{max_fci_dets}. Increase dmrg-max-fci-dets only after "
-                    "confirming that the projected response vectors fit in "
-                    "the available memory."
+                    "confirming that the active-space root data fit in the "
+                    "available memory, or use a fixed-orbital MPS-native "
+                    "benchmark driver."
                 )
 
             dmrg_scratch = os.path.join(qmin["scratchdir"], "dmrg_casscf")
@@ -1205,6 +1253,18 @@ def gen_solver(mol, qmin):
                 force_dmrg=True,
                 max_fci_dets=max_fci_dets,
                 root_buffer=int(qmin["template"].get("dmrg-root-buffer", 4)),
+                refine_split_roots=bool(int(qmin["template"].get(
+                    "dmrg-refine-split-roots", 1
+                ))),
+                refine_sweeps=int(qmin["template"].get(
+                    "dmrg-refine-sweeps", 20
+                )),
+                refine_sweep_tol=float(qmin["template"].get(
+                    "dmrg-refine-sweep-tol", 1.0e-9
+                )),
+                refine_proj_weight=float(qmin["template"].get(
+                    "dmrg-refine-proj-weight", 5.0
+                )),
             )
             solver.fcisolver.fix_spin_(
                 ss=0.0,
@@ -1215,7 +1275,8 @@ def gen_solver(mol, qmin):
                 f"MPSAsFCISolver(M={solver.fcisolver.bond_dim}, "
                 f"n_sweeps={solver.fcisolver.n_sweeps}, "
                 f"root_buffer={solver.fcisolver.root_buffer}, "
-                f"n_dets={n_dets}) with FCI-projected analytic response.",
+                f"refine_split_roots={solver.fcisolver.refine_split_roots}, "
+                f"n_dets={n_dets}) with {response_mode} analytic response.",
                 flush=True,
             )
         else:
@@ -1275,7 +1336,7 @@ def gen_solver(mol, qmin):
         if os.getenv("SHARC_DMRG_EXPERIMENTAL", "0") != "1":
             raise RuntimeError(
                 "method dmrg-hybrid is wired into the local interface but remains experimental. "
-                "It is not part of the validated public dmrg-casscf workflow. "
+                "The local pyblock2 multistate backend segfaulted on the H2 validation harness. "
                 "Set SHARC_DMRG_EXPERIMENTAL=1 only if you explicitly want to test this path."
             )
         print(
@@ -1293,14 +1354,198 @@ def gen_solver(mol, qmin):
     return solver
 
 
+class MPSOnlyRootStore:
+    """Small PySCF-compatible root store for fixed-orbital MPS-only SHARC.
+
+    The object intentionally stores block2 MPS roots, not determinant CI
+    arrays.  It provides the state and transition 1-RDM helpers needed for
+    SHARC dipoles; gradients and NACs are evaluated by
+    ``CPDMRGCASSCFResponseMPSKrylov`` through ``analytic_cp_sharc``.
+    """
+
+    def __init__(self, driver, mpo, kets, *, bond_dim, nroots, nelec,
+                 weights=None):
+        self._driver = driver
+        self._mpo = mpo
+        self._kets = list(kets)
+        self.bond_dim = int(bond_dim)
+        self.nroots = int(nroots)
+        self.nelec = nelec
+        self.weights = (
+            np.ones(self.nroots) / self.nroots
+            if weights is None else np.asarray(weights, dtype=float)
+        )
+
+    def _state_rdm1(self, state):
+        from site_replacement_density import _block2_trans_rdm12_to_pyscf
+
+        dm1_b = self._driver.get_1pdm(self._kets[int(state)], iprint=0)
+        dm1, _ = _block2_trans_rdm12_to_pyscf(
+            np.asarray(dm1_b), np.zeros((dm1_b.shape[0],) * 4),
+        )
+        return dm1
+
+    def _transition_rdm1(self, bra, ket):
+        from site_replacement_density import _block2_trans_rdm12_to_pyscf
+
+        dm1_b = self._driver.get_trans_1pdm(
+            bra=self._kets[int(bra)], ket=self._kets[int(ket)], iprint=0,
+        )
+        dm1, _ = _block2_trans_rdm12_to_pyscf(
+            np.asarray(dm1_b), np.zeros((dm1_b.shape[0],) * 4),
+        )
+        return dm1
+
+
+def _refine_fixed_mps_roots(driver, mpo, kets, *, bond_dim, n_sweeps,
+                            sweep_tol, proj_weight):
+    if len(kets) <= 1 or n_sweeps <= 0:
+        return kets, []
+    refined = []
+    energies = []
+    for i, ket in enumerate(kets):
+        mps = driver.copy_mps(ket, tag=f"SHARC-FIXED-REFINE-{i}")
+        energy = driver.dmrg(
+            mpo,
+            mps,
+            n_sweeps=int(n_sweeps),
+            bond_dims=[int(bond_dim)] * int(n_sweeps),
+            noises=[0.0] * int(n_sweeps),
+            tol=float(sweep_tol),
+            iprint=0,
+            proj_mpss=refined or None,
+            proj_weights=([float(proj_weight)] * len(refined)
+                          if refined else None),
+        )
+        refined.append(mps)
+        energies.append(float(energy[0] if hasattr(energy, "__iter__") else energy))
+    return refined, energies
+
+
+def gen_fixed_orbital_mps_solver(mf, qmin):
+    """Build a fixed-orbital MPS-only SA-CASSCF-like object for SHARC calls."""
+    from pyblock2.driver.core import DMRGDriver, SymmetryTypes
+
+    _ensure_dmrg_dev_path()
+    ncas = int(qmin["template"]["ncas"])
+    nelecas = qmin["template"]["nelecas"]
+    if isinstance(nelecas, (tuple, list)):
+        neleca, nelecb = int(nelecas[0]), int(nelecas[1])
+    else:
+        neleca = int(nelecas) // 2 + int(nelecas) % 2
+        nelecb = int(nelecas) // 2
+    if neleca != nelecb:
+        raise NotImplementedError(
+            "dmrg-fixed-orbitals currently targets singlet closed-shell "
+            "active spaces."
+        )
+    if len(qmin["states"]) != 1:
+        raise NotImplementedError("Only singlet fixed-orbital MPS SHARC is supported.")
+
+    nroots = int(qmin["template"]["roots"][0])
+    weights = [1.0 / nroots] * nroots
+    mc = mcscf.CASSCF(mf, ncas, (neleca, nelecb))
+    mc.state_average_(weights)
+    mc.mo_coeff = np.asarray(mf.mo_coeff)
+
+    h1_act, ecore = mc.get_h1eff(mc.mo_coeff)
+    eri_act = ao2mo.restore(1, np.asarray(mc.get_h2eff(mc.mo_coeff)), ncas)
+    bond_dim = int(qmin["template"].get("dmrg-maxm", 500))
+    n_sweeps = max(int(qmin["template"].get("dmrg-nsteps", 30)), 1)
+    scratch = os.path.join(qmin["scratchdir"], "dmrg_fixed_orbital_mps")
+    driver = DMRGDriver(
+        scratch=scratch,
+        clean_scratch=False,
+        stack_mem=int(max(qmin.get("memory", 4000), 1) * 1e6),
+        n_threads=max(1, int(qmin.get("ncpu", 1))),
+        symm_type=SymmetryTypes.SU2,
+    )
+    driver.initialize_system(
+        n_sites=ncas,
+        n_elec=neleca + nelecb,
+        spin=0,
+        orb_sym=[0] * ncas,
+    )
+    mpo = driver.get_qc_mpo(
+        np.asarray(h1_act), np.asarray(eri_act), ecore=float(ecore), iprint=0,
+    )
+    ket = driver.get_random_mps(
+        tag="SHARC-FIXED-KET", bond_dim=bond_dim, nroots=nroots,
+    )
+    noises = ([1.0e-4] * min(4, n_sweeps)
+              + [0.0] * max(0, n_sweeps - 4))
+    energies = driver.dmrg(
+        mpo,
+        ket,
+        n_sweeps=n_sweeps,
+        bond_dims=[bond_dim] * n_sweeps,
+        noises=noises[:n_sweeps],
+        tol=float(qmin["template"].get("dmrg-sweep-tol", 1.0e-8)),
+        iprint=0,
+    )
+    kets = (
+        [ket] if nroots == 1
+        else [driver.split_mps(ket, i, f"SHARC-FIXED-KET-{i}")
+              for i in range(nroots)]
+    )
+    if bool(int(qmin["template"].get("dmrg-refine-split-roots", 1))):
+        kets_ref, e_ref = _refine_fixed_mps_roots(
+            driver,
+            mpo,
+            kets,
+            bond_dim=bond_dim,
+            n_sweeps=int(qmin["template"].get("dmrg-refine-sweeps", 20)),
+            sweep_tol=float(qmin["template"].get(
+                "dmrg-refine-sweep-tol", 1.0e-9,
+            )),
+            proj_weight=float(qmin["template"].get(
+                "dmrg-refine-proj-weight", 5.0,
+            )),
+        )
+        if e_ref:
+            kets = kets_ref
+            energies = e_ref
+
+    e_states = np.asarray(
+        list(map(float, energies)) if hasattr(energies, "__iter__")
+        else [float(energies)],
+        dtype=float,
+    )[:nroots]
+    root_store = MPSOnlyRootStore(
+        driver, mpo, kets[:nroots], bond_dim=bond_dim,
+        nroots=nroots, nelec=(neleca, nelecb), weights=weights,
+    )
+    root_store.e_states = e_states
+    root_store.e_tot = e_states
+    mc.fcisolver = root_store
+    mc.ci = [np.zeros((1, 1)) for _ in range(nroots)]
+    try:
+        mc.e_tot = e_states
+    except AttributeError:
+        pass
+    mc.converged = True
+    print(
+        "[SHARC_PYSCF_ext] method dmrg-casscf: using fixed-orbital "
+        f"MPS-only roots with M={bond_dim}, nroots={nroots}, "
+        "dmrg-response-mode=mps-krylov.",
+        flush=True,
+    )
+    return mc
+
+
 def _state_rdm1(fcisolver, ci, state, ncas, nelecas):
     """Return the active-space 1-RDM for one state."""
+    if hasattr(fcisolver, "_state_rdm1"):
+        return fcisolver._state_rdm1(state)
     if hasattr(fcisolver, "states_make_rdm1"):
         return fcisolver.states_make_rdm1([ci[state]], ncas, nelecas)[0]
     return fcisolver.make_rdm1(ci[state], ncas, nelecas)
 
 
-def _transition_rdm1(fcisolver, ci_bra, ci_ket, ncas, nelecas):
+def _transition_rdm1(fcisolver, ci_bra, ci_ket, ncas, nelecas,
+                     bra=None, ket=None):
+    if hasattr(fcisolver, "_transition_rdm1") and bra is not None and ket is not None:
+        return fcisolver._transition_rdm1(bra, ket)
     if hasattr(fcisolver, "trans_rdm1"):
         return fcisolver.trans_rdm1(ci_bra, ci_ket, ncas, nelecas)
     return fcisolver._base_class.trans_rdm1(fcisolver, ci_bra, ci_ket, ncas, nelecas)
@@ -1318,7 +1563,7 @@ def get_dipole_elements(solver):
 
     dip_matrix = np.ones(shape=(3, nroots, nroots))
 
-    # Use the default origin convention for the dipole integrals.
+    # TODO: decide on gauge???? Use same as OpenMolcas
     # charge_center = (
         # np.einsum("z,zx->x", mol.atom_charges(), mol.atom_coords())
         # / mol.atom_charges().sum()
@@ -1349,7 +1594,8 @@ def get_dipole_elements(solver):
     for bra in range(nroots):
         for ket in range(bra + 1, nroots):
             t_dm = _transition_rdm1(
-                solver.fcisolver, solver.ci[bra], solver.ci[ket], solver.ncas, solver.nelecas
+                solver.fcisolver, solver.ci[bra], solver.ci[ket],
+                solver.ncas, solver.nelecas, bra=bra, ket=ket,
             )
             t_dm = mo_cas @ t_dm @ mo_cas.conj().T
             t_dip = -np.einsum("xij, ji->x", dipole_ints, t_dm)
@@ -1473,6 +1719,9 @@ def run_calc(qmin):
             mc_for_cp,
             gradient_states=grad_zb,
             nac_pairs=nac_zb,
+            backend=str(qmin.get("template", {}).get(
+                "dmrg-response-mode", "newton_casscf",
+            )),
         )
         grad_list, nac_arr, e = fill_grad_nac_arrays(solver, qmin, cp_results)
         if qmin["gradmap"]:
@@ -1546,7 +1795,7 @@ def run_jobs(joblist, qmin):
         print(string)
 
     if any((i != 0 for i in error_codes.values())):
-        print("Some subprocesses reported nonzero exit status!")
+        print("Some subprocesses did not finish successfully!")
         sys.exit(1)
 
     return result
@@ -1646,6 +1895,14 @@ def write_nac(qmin, result):
     return string
 
 
+def write_phases(qmin):
+    nmstates = qmin["nmstates"]
+    string = f"! 7 Phases\n{nmstates} ! for all nmstates\n"
+    for _ in range(nmstates):
+        string += f"{eformat(1.0, 9, 3)} {eformat(0.0, 9, 3)}\n"
+    return string
+
+
 def write_qmout_time(runtime):
     return f"! 8 Runtime\n{eformat(runtime, 9, 3)}\n"
 
@@ -1674,6 +1931,9 @@ def write_qmout(qmin, result, qmin_filename):
 
     if "nacdr" in qmin:
         string += write_nac(qmin, result)
+
+    if "phases" in qmin:
+        string += write_phases(qmin)
 
     string += write_qmout_time(result["runtime"])
     with open(os.path.join(qmin["pwd"], outfilename), "w") as f:

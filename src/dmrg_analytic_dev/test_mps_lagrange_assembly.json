@@ -1,0 +1,32 @@
+{
+  "milestone": "MPS_Lci_nuclear_assembly",
+  "purpose": "Validate CI-Lagrange nuclear derivative assembly from MPS transition RDMs against PySCF's dense Lci path.",
+  "results": [
+    {
+      "name": "L1_lci_dot_from_mps_transition_rdm_matches_pyscf",
+      "diff": 7.021666937153402e-16,
+      "norm_ref": 1.9814114649229115,
+      "norm_mps": 1.9814114649229122,
+      "tol": 1e-08,
+      "status": "pass"
+    },
+    {
+      "name": "L2_full_lagrange_nuclear_term_matches_pyscf",
+      "diff": 2.220446049250313e-16,
+      "norm_ref": 2.16594592745666,
+      "norm_mps": 2.16594592745666,
+      "tol": 1e-08,
+      "status": "pass"
+    },
+    {
+      "name": "L3_final_mps_ci_projection_matches_dense_gauge",
+      "diff": 1.2947314098277875e-15,
+      "norm_ref": 0.45311224706520753,
+      "norm_mps": 0.45311224706520625,
+      "max_overlap_before": 1.6800255185631883,
+      "max_overlap_after": 7.112366251504909e-17,
+      "tol": 1e-08,
+      "status": "pass"
+    }
+  ]
+}

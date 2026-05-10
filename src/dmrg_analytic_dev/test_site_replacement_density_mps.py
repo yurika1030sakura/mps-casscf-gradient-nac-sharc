@@ -17,18 +17,24 @@ overall phase). For DMRG = FCI this should match to ~1e-10.
 from __future__ import annotations
 
 import json
+import shutil
 import sys
+import tempfile
 import traceback
 from pathlib import Path
 
 import numpy as np
-from pyscf import ao2mo, gto, mcscf, scf
+from pyblock2.driver.core import DMRGDriver, SymmetryTypes
+from pyscf import ao2mo, fci, gto, mcscf, scf
+from pyscf.fci import cistring
 
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
 
 from dmrg_fcisolver import MPSAsFCISolver
 from site_replacement_density import (
+    _block2_trans_rdm12_to_pyscf,
+    _pyscf_to_block2_sign,
     transition_rdm_site_replacement,
     transition_rdm_site_replacement_mps,
     T_matrix_site_replacement,
@@ -136,8 +142,115 @@ def test_r2_T_matrix_matches_fci():
     }
 
 
+def _su2_mps_to_fci_local(driver, mps, ncas: int, nelec: tuple[int, int]):
+    sz_driver = DMRGDriver(
+        scratch=driver.scratch,
+        clean_scratch=False,
+        stack_mem=int(1e9),
+        n_threads=1,
+        symm_type=SymmetryTypes.SZ,
+    )
+    sz_driver.initialize_system(
+        n_sites=ncas,
+        n_elec=sum(nelec),
+        spin=int(nelec[0]) - int(nelec[1]),
+        orb_sym=[0] * ncas,
+    )
+    mps_sz = driver.mps_change_to_sz(mps, tag="R3-SZ")
+    dets, coefs = sz_driver.get_csf_coefficients(
+        mps_sz, cutoff=1e-12, iprint=0,
+    )
+    strs_a = list(cistring.make_strings(range(ncas), int(nelec[0])))
+    strs_b = list(cistring.make_strings(range(ncas), int(nelec[1])))
+    a_idx = {int(s): i for i, s in enumerate(strs_a)}
+    b_idx = {int(s): i for i, s in enumerate(strs_b)}
+    ci = np.zeros((len(strs_a), len(strs_b)))
+    for det, coeff in zip(dets, coefs):
+        sa = sb = 0
+        for site, occ in enumerate(det):
+            occ = int(occ)
+            if occ == 3:
+                sa |= 1 << site
+                sb |= 1 << site
+            elif occ == 1:
+                sa |= 1 << site
+            elif occ == 2:
+                sb |= 1 << site
+        ia = a_idx.get(sa)
+        ib = b_idx.get(sb)
+        if ia is None or ib is None:
+            continue
+        ci[ia, ib] = _pyscf_to_block2_sign(sa, sb, ncas) * float(coeff)
+    norm = np.linalg.norm(ci)
+    if norm > 1e-30:
+        ci /= norm
+    return ci
+
+
+def test_r3_su2_cas44_2rdm_convention_matches_fci():
+    mol = gto.M(
+        atom="H 0 0 0; H 0 0 1.0; H 0 0 2.0; H 0 0 3.0",
+        basis="sto-3g",
+        unit="Bohr",
+        spin=0,
+        verbose=0,
+    )
+    mf = scf.RHF(mol).run(conv_tol=1e-12)
+    cas = mcscf.CASCI(mf, 4, 4)
+    cas.kernel()
+    h1, ecore = cas.get_h1eff()
+    eri = ao2mo.restore(1, cas.get_h2eff(), 4)
+    scratch = tempfile.mkdtemp(prefix="r3_su2_cas44_")
+    try:
+        driver = DMRGDriver(
+            scratch=scratch,
+            clean_scratch=False,
+            stack_mem=int(1e9),
+            n_threads=1,
+            symm_type=SymmetryTypes.SU2,
+        )
+        driver.initialize_system(
+            n_sites=4, n_elec=4, spin=0, orb_sym=[0] * 4,
+        )
+        mpo = driver.get_qc_mpo(
+            np.asarray(h1), np.asarray(eri), ecore=float(ecore), iprint=0,
+        )
+        mps = driver.get_random_mps(tag="R3", bond_dim=64, nroots=1)
+        driver.dmrg(
+            mpo, mps,
+            n_sweeps=30,
+            bond_dims=[64] * 30,
+            noises=[1e-4] * 10 + [1e-5] * 10 + [0.0] * 10,
+            tol=1e-12,
+            iprint=0,
+        )
+        ci = _su2_mps_to_fci_local(driver, mps, 4, (2, 2))
+        if np.vdot(cas.ci.ravel(), ci.ravel()) < 0:
+            ci *= -1
+        ref1, ref2 = fci.direct_spin1.make_rdm12(ci, 4, (2, 2))
+        got1, got2 = _block2_trans_rdm12_to_pyscf(
+            np.asarray(driver.get_1pdm(mps, iprint=0)),
+            np.asarray(driver.get_2pdm(mps, iprint=0)),
+        )
+        diff1 = float(np.linalg.norm(got1 - ref1))
+        diff2 = float(np.linalg.norm(got2 - ref2))
+        return {
+            "name": "R3_su2_cas44_2rdm_convention_matches_fci",
+            "diff_dm1": diff1,
+            "diff_dm2": diff2,
+            "tol": 1e-8,
+            "status": "pass" if max(diff1, diff2) < 1e-8 else "fail",
+        }
+    finally:
+        shutil.rmtree(scratch, ignore_errors=True)
+
+
 def main():
-    cases = [test_r1_trans_rdm_matches_fci, test_r2_T_matrix_matches_fci]
+    cases = [
+        test_r1_trans_rdm_matches_fci,
+        test_r2_T_matrix_matches_fci,
+        test_r3_su2_cas44_2rdm_convention_matches_fci,
+    ]
     results = []
     for c in cases:
         try:

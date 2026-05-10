@@ -21,7 +21,8 @@ accepted wave function:
 4. Assign current roots by maximum overlap and align their phases before
    returning gradients, transition properties, or NACs.
 5. Near degeneracies, track the state subspace rather than insisting on a
-   unique single-state label.
+   unique single-state label.  The raw numerical root label is not a
+   chemically invariant observable in this limit.
 6. Check production convergence by increasing bond dimension, number of
    sweeps, and number of solved roots; use finite-difference or neighboring
    geometry consistency checks when no FCI reference exists.
@@ -40,8 +41,10 @@ Implementation notes:
   `_root_assigned_abs_overlaps`, `_root_min_overlap`, and
   `_root_min_energy_gap`.  SHARC prints warnings for low overlaps or very
   small candidate-root gaps.
-- If a new system shows root flips, increase `dmrg-root-buffer`, inspect the
-  state characters, and rerun a short static scan before starting dynamics.
+- If a new system shows root flips, use the same system-independent response:
+  increase `dmrg-root-buffer`, inspect state characters, and rerun a short
+  static scan before starting dynamics.  Do not add molecule-specific root
+  ordering rules.
 
 Minimal `PYSCF.template` block for a two-state singlet SHARC run:
 

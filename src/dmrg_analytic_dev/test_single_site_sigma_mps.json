@@ -7,24 +7,24 @@
       "results": [
         {
           "root": 0,
-          "E_dmrg": -2.8438350683375866,
-          "sigma_mps_norm": 2.8438350683375875,
-          "norm_via_overlap": 2.843835068337588,
-          "psi_MPO_psi_expectation": -2.843835068337588,
-          "abs(E_dmrg - sigma_norm)": 8.881784197001252e-16,
-          "abs(E_dmrg - <psi|MPO|psi>)": 1.3322676295501878e-15
+          "E_dmrg": -2.84383506833759,
+          "sigma_mps_norm": 2.8438350683375906,
+          "norm_via_overlap": 2.8438350683375906,
+          "psi_MPO_psi_expectation": -2.8438350683375906,
+          "abs(E_dmrg - sigma_norm)": 4.440892098500626e-16,
+          "abs(E_dmrg - <psi|MPO|psi>)": 4.440892098500626e-16
         },
         {
           "root": 1,
-          "E_dmrg": -1.7626353792565415,
-          "sigma_mps_norm": 1.7626353792565406,
-          "norm_via_overlap": 1.7626353792565406,
-          "psi_MPO_psi_expectation": -1.7626353792565403,
-          "abs(E_dmrg - sigma_norm)": 8.881784197001252e-16,
-          "abs(E_dmrg - <psi|MPO|psi>)": 1.1102230246251565e-15
+          "E_dmrg": -1.7626353792565423,
+          "sigma_mps_norm": 1.7626353792565428,
+          "norm_via_overlap": 1.7626353792565428,
+          "psi_MPO_psi_expectation": -1.7626353792565428,
+          "abs(E_dmrg - sigma_norm)": 4.440892098500626e-16,
+          "abs(E_dmrg - <psi|MPO|psi>)": 4.440892098500626e-16
         }
       ],
-      "max_abs_diff": 1.3322676295501878e-15,
+      "max_abs_diff": 4.440892098500626e-16,
       "tol": 1e-06,
       "status": "pass"
     },
@@ -34,19 +34,19 @@
         {
           "root": 0,
           "sign": 1.0,
-          "\u2016sigma_fci_direct\u2016": 4.272406496909014,
-          "\u2016sigma_fci_from_mps\u2016": 4.272406496909015,
-          "diff_after_sign_align": 1.777901156202321e-15
+          "\u2016sigma_fci_direct\u2016": 4.272406496909019,
+          "\u2016sigma_fci_from_mps\u2016": 4.272406496909019,
+          "diff_after_sign_align": 1.1485913163110961e-16
         },
         {
           "root": 1,
           "sign": 1.0,
-          "\u2016sigma_fci_direct\u2016": 3.191206807827968,
-          "\u2016sigma_fci_from_mps\u2016": 3.1912068078279687,
-          "diff_after_sign_align": 6.431871827503859e-16
+          "\u2016sigma_fci_direct\u2016": 3.1912068078279705,
+          "\u2016sigma_fci_from_mps\u2016": 3.191206807827972,
+          "diff_after_sign_align": 1.2863743655007717e-15
         }
       ],
-      "max_abs_diff": 1.777901156202321e-15,
+      "max_abs_diff": 1.2863743655007717e-15,
       "tol": 1e-05,
       "status": "pass"
     }

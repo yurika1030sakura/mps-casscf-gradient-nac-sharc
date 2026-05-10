@@ -65,6 +65,7 @@ PALETTE = {
 }
 
 CHEM_ACC_MEH = 0.1
+OVERLAP_TOL = 0.98
 BASIS_LABELS = ("STO-3G", "3-21G", "6-31G")
 BASIS_KEYS = {
     "H$_4$": ("h4", "h4_321g", "h4_631g"),
@@ -79,11 +80,29 @@ BASIS_KEYS = {
 }
 
 
-def get_curve(system: str, field: str) -> tuple[np.ndarray, np.ndarray]:
+def point_passes_qc(record: dict, field: str) -> bool:
+    """Return whether a point is suitable for convergence plots."""
+    min_overlap = abs(float(record.get(
+        "min_target_overlap",
+        min(abs(float(record.get("ci0_overlap", 0.0))),
+            abs(float(record.get("ci1_overlap", 0.0)))),
+    )))
+    if min_overlap < OVERLAP_TOL:
+        return False
+    if field == "grad_l2":
+        return bool(record.get("grad_lagrange_converged", False))
+    if field == "nac_l2":
+        return bool(record.get("nac_lagrange_converged", False))
+    return True
+
+
+def get_curve(system: str, field: str, *, qc_only: bool = True) -> tuple[np.ndarray, np.ndarray]:
     """Return sorted M values and the requested field for one system."""
     points = []
     for key, value in SUMMARY[system].items():
         if key.isdigit() and isinstance(value, dict) and field in value:
+            if qc_only and not point_passes_qc(value, field):
+                continue
             points.append((int(key), float(value[field])))
     if not points:
         return np.array([]), np.array([])
@@ -91,12 +110,16 @@ def get_curve(system: str, field: str) -> tuple[np.ndarray, np.ndarray]:
     return np.array([p[0] for p in points]), np.array([p[1] for p in points])
 
 
-def largest_m_record(system: str) -> tuple[int, dict]:
+def largest_m_record(system: str, *, qc_only: bool = True) -> tuple[int, dict]:
     """Return the largest-M record for a system."""
     points = [
         (int(key), value)
         for key, value in SUMMARY[system].items()
         if key.isdigit() and isinstance(value, dict) and "grad_l2" in value
+        and (not qc_only or (
+            point_passes_qc(value, "grad_l2")
+            and point_passes_qc(value, "nac_l2")
+        ))
     ]
     if not points:
         raise KeyError(system)
@@ -147,7 +170,8 @@ def plot_convergence() -> None:
         ("benzene_631g", "benzene / 6-31G", PALETTE["orange"], "X"),
     ]
 
-    fig, axes = plt.subplots(1, 2, figsize=(7.0, 3.15), constrained_layout=True)
+    fig, axes = plt.subplots(1, 2, figsize=(7.05, 2.78), constrained_layout=False)
+    fig.subplots_adjust(left=0.088, right=0.992, top=0.73, bottom=0.19, wspace=0.30)
     ax_g, ax_n = axes
     handles = []
     labels = []
@@ -207,17 +231,18 @@ def plot_convergence() -> None:
         color="#3B642C",
     )
     ax_g.set_ylim(bottom=8e-13)
-    ax_n.set_ylim(bottom=3e-8)
+    ax_n.set_ylim(bottom=1e-13)
 
     fig.legend(
         handles,
         labels,
-        loc="lower center",
-        bbox_to_anchor=(0.51, -0.06),
+        loc="upper center",
+        bbox_to_anchor=(0.52, 0.995),
         ncol=3,
         frameon=False,
         handlelength=1.6,
         columnspacing=1.1,
+        labelspacing=0.45,
     )
     save_figure(fig, "bvoe_phase2")
 
@@ -231,7 +256,8 @@ def plot_root_sensitive_diagnostics() -> None:
         ("lif_321g", "LiF / 3-21G", PALETTE["purple"], "P"),
         ("lif_631g", "LiF / 6-31G", PALETTE["orange"], "X"),
     ]
-    fig, axes = plt.subplots(1, 2, figsize=(7.0, 3.05), constrained_layout=True)
+    fig, axes = plt.subplots(1, 2, figsize=(7.05, 2.78), constrained_layout=False)
+    fig.subplots_adjust(left=0.088, right=0.992, top=0.73, bottom=0.19, wspace=0.30)
     ax_g, ax_n = axes
     handles = []
     labels = []
@@ -282,12 +308,13 @@ def plot_root_sensitive_diagnostics() -> None:
     fig.legend(
         handles,
         labels,
-        loc="lower center",
-        bbox_to_anchor=(0.51, -0.07),
+        loc="upper center",
+        bbox_to_anchor=(0.52, 0.995),
         ncol=3,
         frameon=False,
         handlelength=1.5,
         columnspacing=1.1,
+        labelspacing=0.45,
     )
     save_figure(fig, "bvoe_phase2_diagnostics")
 
@@ -300,7 +327,10 @@ def high_m_matrices() -> tuple[np.ndarray, np.ndarray, list[str]]:
         for col, key in enumerate(BASIS_KEYS[label]):
             if key not in SUMMARY:
                 continue
-            _, rec = largest_m_record(key)
+            try:
+                _, rec = largest_m_record(key, qc_only=True)
+            except KeyError:
+                continue
             grad[row, col] = float(rec["grad_l2"]) * 1e3
             nac[row, col] = float(rec["nac_l2"])
     return grad, nac, labels
@@ -314,6 +344,8 @@ def annotate_heatmap(ax: plt.Axes, values: np.ndarray, threshold: float | None =
     for i in range(values.shape[0]):
         for j in range(values.shape[1]):
             if not np.isfinite(values[i, j]):
+                ax.text(j, i, "QC", ha="center", va="center",
+                        color="#777777", fontsize=5.5)
                 continue
             text = f"{values[i, j]:.0e}"
             color = "white" if np.log10(max(values[i, j], 1e-15)) > -3.0 else "#222222"
@@ -350,6 +382,7 @@ def plot_highm_heatmap() -> None:
         "acs_blue_orange",
         ["#F7FBFF", "#C6DBEF", "#6BAED6", "#2171B5", "#08306B", "#D55E00"],
     )
+    cmap.set_bad("#F2F2F2")
 
     for idx, (ax, matrix, vmin, vmax, title, cbar_label, threshold) in enumerate(specs):
         image = ax.imshow(
@@ -398,8 +431,22 @@ def plot_basis_matrix() -> None:
     axes[1].set_xticks(x, row_labels, rotation=32, ha="right")
     axes[1].set_xlabel("benchmark system")
 
-    for ax in axes:
-        ax.set_yscale("log")
+    for ax, matrix in zip(axes, (grad, nac)):
+        positives = matrix[np.isfinite(matrix) & (matrix > 0)]
+        if positives.size:
+            ax.set_yscale("log")
+        else:
+            ax.set_ylim(0.0, 1.0)
+            ax.text(
+                0.5,
+                0.5,
+                "pending",
+                transform=ax.transAxes,
+                ha="center",
+                va="center",
+                color="#777777",
+                fontsize=7.0,
+            )
         ax.grid(True, axis="y", which="major", color="#D8D8D8", linewidth=0.45)
         ax.grid(True, axis="y", which="minor", color="#EFEFEF", linewidth=0.28)
         for spine in ("top", "right"):
