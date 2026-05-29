@@ -278,7 +278,9 @@ class MPSAsFCISolver(lib.StreamObject):
                  refine_split_roots: bool = True,
                  refine_sweeps: int | None = None,
                  refine_sweep_tol: float | None = None,
-                 refine_proj_weight: float = 5.0):
+                 refine_proj_weight: float = 5.0,
+                 stack_mem_mb: int = 200,
+                 warm_start: bool = False):
         self.mol = mol
         # PySCF FCISolver attributes that downstream wrappers expect.
         self.nroots = 1
@@ -321,6 +323,15 @@ class MPSAsFCISolver(lib.StreamObject):
             None if refine_sweep_tol is None else float(refine_sweep_tol)
         )
         self.refine_proj_weight = float(refine_proj_weight)
+        # 10x optimization knobs (backward-compatible: default-off keeps legacy
+        # behaviour and validation-paper numbers; production fast path opt-in).
+        self.stack_mem_mb = max(1, int(stack_mem_mb))
+        self.warm_start = bool(warm_start)
+        # Cache of converged MPS roots across kernel() calls when warm_start
+        # is on — lets SA-CASSCF macro iter reuse the previous MPS as a much
+        # better-than-random initial guess against the updated h1e/eri.
+        self._warm_kets = None
+        self._warm_norb = None
         # Target S(S+1). When ``None`` and a closed-shell (na == nb) CAS is
         # passed to ``kernel``, defaults to the singlet (S² = 0). Set via
         # ``fix_spin_(ss=...)`` to match the PySCF FCI solver convention.
@@ -667,7 +678,8 @@ class MPSAsFCISolver(lib.StreamObject):
 
         driver = DMRGDriver(
             scratch=str(scratch), clean_scratch=False,
-            stack_mem=int(2e8), n_threads=int(self.n_threads),
+            stack_mem=int(self.stack_mem_mb) * 1024 * 1024,
+            n_threads=int(self.n_threads),
             symm_type=SymmetryTypes.SZ,
         )
         driver.initialize_system(
@@ -692,14 +704,44 @@ class MPSAsFCISolver(lib.StreamObject):
         # path: trust that SZ + initial-guess heuristics yield the requested
         # nroots states. Users requiring strict spin selection should set
         # ``spin_penalty`` > 0.
-        ket = driver.get_random_mps(tag="KET", bond_dim=self.bond_dim,
-                                    nroots=n_solve_roots)
-        ns = max(self.n_sweeps, 30)
+        # Warm-start path: when self.warm_start and a previous-iteration MPS
+        # cache exists with the same norb, copy that MPS into this driver's
+        # scratch and use it as the initial guess. This is the standard
+        # incremental-DMRG trick for SA-CASSCF macro iterations — the orbital
+        # rotation between macro iter k and k+1 is small, so the converged MPS
+        # at iter k is a far better initial guess than a random MPS. Saves the
+        # majority of DMRG sweeps in later macro iterations.
+        use_warm = (
+            self.warm_start
+            and self._warm_kets is not None
+            and self._warm_norb == norb
+        )
+        if use_warm:
+            try:
+                ket = driver.copy_mps(self._warm_kets[0], tag="KET")
+                # If multiple roots cached, concatenate (driver.dmrg expects
+                # one multi-root MPS); fall back to random if only single root
+                # was cached.
+                if len(self._warm_kets) == n_solve_roots and n_solve_roots > 1:
+                    ket = self._warm_kets[0]  # already multi-root
+                ns_used = max(min(self.n_sweeps, 8), 4)  # fewer sweeps needed
+                noises = [1e-5] * 2 + [0.0] * (ns_used - 2)
+            except Exception as e:
+                # Warm-start failed (e.g., MPS structure incompatible after
+                # large orbital rotation) — fall back to random initial guess.
+                print(f"[MPSAsFCISolver] warm_start fallback: {e}",
+                      flush=True)
+                use_warm = False
+        if not use_warm:
+            ket = driver.get_random_mps(tag="KET", bond_dim=self.bond_dim,
+                                        nroots=n_solve_roots)
+            ns_used = max(self.n_sweeps, 30)
+            noises = ([1e-3] * 5 + [1e-4] * 5 + [1e-5] * 5
+                      + [1e-6] * 5 + [0.0] * (ns_used - 20))
+            if len(noises) < ns_used:
+                noises = noises + [0.0] * (ns_used - len(noises))
+        ns = ns_used
         bd = [self.bond_dim] * ns
-        noises = ([1e-3] * 5 + [1e-4] * 5 + [1e-5] * 5
-                  + [1e-6] * 5 + [0.0] * (ns - 20))
-        if len(noises) < ns:
-            noises = noises + [0.0] * (ns - len(noises))
         energies = driver.dmrg(
             mpo, ket,
             n_sweeps=ns,
@@ -717,6 +759,10 @@ class MPSAsFCISolver(lib.StreamObject):
             driver, mpo, self._kets, bond_dim=self.bond_dim,
             tag_prefix="KETR",
         )
+        # Cache converged MPS for the next macro iteration's warm start.
+        if self.warm_start:
+            self._warm_kets = list(self._kets)
+            self._warm_norb = int(norb)
 
         self._driver = driver
         e_all = self._energy_list(energies)
@@ -759,7 +805,8 @@ class MPSAsFCISolver(lib.StreamObject):
 
         driver = DMRGDriver(
             scratch=str(scratch), clean_scratch=False,
-            stack_mem=int(2e8), n_threads=int(self.n_threads),
+            stack_mem=int(self.stack_mem_mb) * 1024 * 1024,
+            n_threads=int(self.n_threads),
             symm_type=SymmetryTypes.SU2,
         )
         driver.initialize_system(

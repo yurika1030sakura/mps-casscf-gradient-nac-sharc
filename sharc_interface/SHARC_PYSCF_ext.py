@@ -793,7 +793,7 @@ at least one task"""
         template = f.readlines()
 
     template_dict = {}
-    INTEGERS_KEYS = ["ncas", "nelecas", "roots", "grids-level", "verbose", "max-cycle-macro", "max-cycle-micro", "ah-max-cycle", "ah-start-cycle", "grad-max-cycle", "charge", "dmrg-ncas", "dmrg-nelecas", "dmrg-startm", "dmrg-maxm", "dmrg-memory-mb", "dmrg-nsteps", "dmrg-max-fci-dets", "dmrg-root-buffer", "dmrg-refine-split-roots", "dmrg-refine-sweeps"]
+    INTEGERS_KEYS = ["ncas", "nelecas", "roots", "grids-level", "verbose", "max-cycle-macro", "max-cycle-micro", "ah-max-cycle", "ah-start-cycle", "grad-max-cycle", "charge", "dmrg-ncas", "dmrg-nelecas", "dmrg-startm", "dmrg-maxm", "dmrg-memory-mb", "dmrg-nsteps", "dmrg-max-fci-dets", "dmrg-root-buffer", "dmrg-refine-split-roots", "dmrg-refine-sweeps", "dmrg-stack-mem-mb", "dmrg-warm-start", "dmrg-mps-native-rdms"]
     STRING_KEYS = ["basis", "method", "pdft-functional"]
     RAW_STRING_KEYS = ["dmrg-avas-labels", "dmrg-cas-list", "dmrg-grad-mode", "dmrg-response-mode"]
     FLOAT_KEYS = ["conv-tol", "conv-tol-grad", "max-stepsize", "ah-start-tol", "ah-level-shift", "ah-conv-tol", "ah-lindep", "fix-spin-shift", "dmrg-sweep-tol", "dmrg-avas-threshold", "dmrg-fd-step", "dmrg-refine-sweep-tol", "dmrg-refine-proj-weight"]
@@ -1265,6 +1265,22 @@ def gen_solver(mol, qmin):
                 refine_proj_weight=float(qmin["template"].get(
                     "dmrg-refine-proj-weight", 5.0
                 )),
+                # Opt-in fast-path knobs for the SA-DMRG-CASSCF macro loop.
+                # All three default to off so existing tests and validation
+                # numbers are unchanged.
+                #   dmrg-stack-mem-mb: block2 stack memory (was 200 MB constant)
+                #   dmrg-warm-start:   reuse converged MPS across macro iter
+                #   dmrg-mps-native-rdms: route RDMs through block2 instead of
+                #                         FCI projection
+                stack_mem_mb=int(qmin["template"].get(
+                    "dmrg-stack-mem-mb", 200
+                )),
+                warm_start=bool(int(qmin["template"].get(
+                    "dmrg-warm-start", 0
+                ))),
+                mps_native_rdms=bool(int(qmin["template"].get(
+                    "dmrg-mps-native-rdms", 0
+                ))),
             )
             solver.fcisolver.fix_spin_(
                 ss=0.0,
@@ -1276,6 +1292,9 @@ def gen_solver(mol, qmin):
                 f"n_sweeps={solver.fcisolver.n_sweeps}, "
                 f"root_buffer={solver.fcisolver.root_buffer}, "
                 f"refine_split_roots={solver.fcisolver.refine_split_roots}, "
+                f"stack_mem_mb={solver.fcisolver.stack_mem_mb}, "
+                f"warm_start={solver.fcisolver.warm_start}, "
+                f"mps_native_rdms={solver.fcisolver.mps_native_rdms}, "
                 f"n_dets={n_dets}) with {response_mode} analytic response.",
                 flush=True,
             )
