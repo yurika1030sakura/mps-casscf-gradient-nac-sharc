@@ -1,4 +1,4 @@
-\documentclass[journal=jctcce,manuscript=article]{achemso}
+\documentclass[manuscript=article]{achemso}
 
 \usepackage[T1]{fontenc}
 \usepackage{amsmath}
@@ -10,7 +10,7 @@
 \SectionNumbersOn
 \setkeys{acs}{email=false}
 
-\title{Analytic State-Averaged DMRG-CASSCF Gradients and Nonadiabatic Couplings in a PySCF/pyblock2 Workflow}
+\title{Analytic State-Averaged DMRG-CASSCF Gradients and Nonadiabatic Couplings for SHARC-Compatible PySCF/pyblock2 Workflows}
 
 \author{Yuli Li}
 \affiliation[Harvard University]
@@ -42,9 +42,16 @@ through the interfaces expected by PySCF.  The workflow is validated against
 PySCF full-CI active-space references on public benchmark systems.  We
 further quantify finite-bond-dimension response errors by replacing FCI
 active-space vectors with block2 matrix product states at fixed
-FCI-optimized orbitals.  An ethylene interface regression test demonstrates
-that the DMRG-CASSCF backend writes the Hamiltonian, dipole, gradient, and
-derivative-coupling data blocks requested by SHARC.
+FCI-optimized orbitals.  An MPS-Krylov response backend stores active-space
+response vectors as MPS objects and is exercised in fixed-orbital
+FCI-free response endpoints, including an anthracene $\pi$-space
+CAS(14,14) benchmark whose post hoc FCI-scored strict-response errors are
+$1.57\times 10^{-3}$ m$\Eh$/Bohr for gradients and
+$9.11\times 10^{-6}$ a.u. for the derivative coupling.  Short SHARC
+trajectory smoke tests on public H$_2$ and ethylene models demonstrate that
+the DMRG-CASSCF backend can be called repeatedly by SHARC and writes the
+Hamiltonian, dipole, gradient, derivative-coupling, and phase data blocks
+requested during NACDR dynamics.
 \end{abstract}
 
 \section{Introduction}
@@ -93,8 +100,8 @@ SA-CASSCF gradient and nonadiabatic-coupling machinery.  Second, we validate
 gradients and nonadiabatic couplings against FCI active-space references and
 characterize the finite-bond-dimension response error on public benchmark
 systems.  Third, we expose the validated backend through a SHARC-compatible
-PySCF interface and demonstrate the complete output path on a public ethylene
-test case.  The contribution is therefore an implementation, validation, and
+PySCF interface and demonstrate the complete output path on public H$_2$ and
+ethylene test cases.  The contribution is therefore an implementation, validation, and
 reproducibility paper grounded in established SA-DMRG response theory and
 PySCF's CASSCF derivative infrastructure.
 
@@ -126,7 +133,7 @@ open PySCF/pyblock2 integration and NAC/interface validation. \\
 PySCF and block2\cite{Sun2018PySCF,Sun2020PySCF,Zhai2023Block2}
 & Open electronic-structure and DMRG infrastructure
 & Supplies the host CASSCF derivative code and the spin-adapted MPS backend. \\
-OpenMolcas/QCMaquis
+\shortstack[l]{OpenMolcas/\\QCMaquis}
 & Public DMRG-CI/DMRG-SCF ecosystem with state-specific and state-averaged
 DMRG-SCF capabilities\cite{Aquilante2020OpenMolcas,Szenes2025QCMaquis}
 & Provides closely related DMRG-SCF infrastructure; the present work targets
@@ -134,7 +141,7 @@ the PySCF/pyblock2 derivative-coupling and SHARC-compatible workflow. \\
 SHARC\cite{Richter2011SHARC,Mai2018SHARC}
 & Nonadiabatic dynamics driver and data interface
 & Defines the Hamiltonian, dipole, gradient, and derivative-coupling output
-contract tested in the ethylene regression case. \\
+contract tested in short DMRG-CASSCF trajectory smoke tests. \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -210,25 +217,33 @@ the MPS approximation and therefore the accuracy of energies, density
 matrices, gradients, and derivative couplings.  Following the SA-DMRG-SCF
 response strategy of Freitag et al., the present implementation evaluates the
 response quantities needed by PySCF's SA-CASSCF derivative machinery while
-using pyblock2/block2 for the MPS representation and DMRG optimization.
-\cite{Freitag2019,Zhai2023Block2}
+using pyblock2/block2 for the MPS representation and DMRG
+optimization.\cite{Freitag2019,Zhai2023Block2}
+For an active space with $L$ spatial orbitals, the active-space state is
+written as
+\begin{equation}
+  |\Psi_I(M)\rangle =
+  \sum_{\{n\}}
+  A^{n_1}_{1,I} A^{n_2}_{2,I} \cdots A^{n_L}_{L,I}
+  |n_1 n_2 \cdots n_L\rangle ,
+\end{equation}
+with the auxiliary dimensions of the tensors bounded by $M$.  The DMRG layer
+therefore replaces only the active-space eigenvector representation; the
+orbital-response equations and derivative contractions retain the standard
+PySCF SA-CASSCF structure.
 
 \subsection{Bond-Dimension Response Error}
 
-To isolate the effect of the MPS compression, we define a fixed-orbital
-bond-dimension response error.  For each benchmark system we first converge a
-standard SA-CASSCF calculation with an FCI active-space solver.  We then hold
-the converged molecular orbitals fixed and rediagonalize the singlet
-active-space Hamiltonian with PySCF \texttt{direct\_spin0} FCI.  The
-validation roots are the lowest two spin-adapted singlet roots, with
-$\langle S^2\rangle$ recorded as a diagnostic.  Spin-adapted block2 DMRG is
-then run in
-the same active-space Hamiltonian at a selected bond dimension $M$; the
-resulting MPS roots are converted into the PySCF active-space representation,
-assigned to the fixed-orbital FCI roots by maximum overlap, phase-aligned,
-and used to recompute analytic gradients and nonadiabatic couplings.  The
-error is measured against the FCI active-space derivative at identical
-orbitals,
+To isolate the effect of the MPS compression, we define a general
+fixed-orbital bond-dimension response error.  For any benchmark system where
+an exact active-space reference is available, the target electronic states are
+defined by their spin and state index, the converged SA-CASSCF orbitals are
+held fixed, and the active-space Hamiltonian is rediagonalized to obtain the
+FCI reference roots.  DMRG is then run in the same active-space Hamiltonian
+with a candidate-root buffer.  The target MPS roots are assigned to the FCI
+roots by maximum wave-function overlap, phase-aligned, and used to recompute
+analytic gradients and nonadiabatic couplings.  The error is measured against
+the FCI active-space derivative at identical orbitals,
 \begin{align}
 \Delta_g(M) &= \left\|\nabla_{\bfR} E_0(M) -
               \nabla_{\bfR} E_0^{\mathrm{FCI}}\right\|_2,\\
@@ -237,9 +252,10 @@ orbitals,
               \sigma \mathbf{d}_{01}^{\mathrm{FCI}}\right\|_2 ,
 \end{align}
 where the sign minimization removes the arbitrary global phase of the
-electronic states.  This protocol avoids mixing the MPS compression error
-with nonstationarity from orbital reoptimization on a deliberately truncated
-CI manifold.
+electronic states.  This is a validation protocol, not a molecule-specific
+correction: when FCI is available it supplies the reference target states, and
+when FCI is unavailable the same overlap machinery is applied between
+successive geometries, macroiterations, or trajectory steps.
 
 \section{Implementation}
 
@@ -249,21 +265,38 @@ satisfy the solver and response contracts used by PySCF's
 \texttt{grad.sacasscf}, \texttt{nac.sacasscf},
 \texttt{mcscf.newton\_casscf}, and \texttt{grad.lagrange} modules.
 
-Two code paths are provided.  The \texttt{MPSAsFCISolver} path exposes a
+Three code paths are provided.  The \texttt{MPSAsFCISolver} path exposes a
 PySCF-compatible active-space solver interface, allowing DMRG roots to be
 used by PySCF's CASSCF gradient and nonadiabatic-coupling infrastructure.
 This path is the main regression-test target because it permits direct
 comparison with standard FCI active-space calculations.  A native
-\texttt{CPDMRGCASSCFResponseMPS} response class is also included as an
-implementation path for MPS-routed response operations.
+\texttt{CPDMRGCASSCFResponseMPS} response class provides MPS-routed response
+operations for validation of individual Hessian blocks.  The
+\texttt{CPDMRGCASSCFResponseMPSKrylov} backend stores the active-space
+response RHS and Krylov vectors as MPS objects, uses MPS overlap and
+compression operations in an Arnoldi/GMRES iterative solve,\cite{SaadSchultz1986GMRES}
+and assembles the final
+gradient and nonadiabatic-coupling Lagrange terms from MPS transition
+density matrices.  This MPS-Krylov path is the production response mode for
+active spaces where the response vector should not be represented as a dense
+CI array.
+
+For large fixed-orbital response calculations, the code also provides an
+MPS-only root store used by the SHARC-facing interface when
+\texttt{dmrg-fixed-orbitals} is requested together with the
+\texttt{mps-krylov} response mode.  In this mode the runtime electronic roots
+are block2 MPS objects;
+the placeholder \texttt{mc.ci} entries are not determinant-space CI roots.
+State and transition one-particle density matrices for dipoles are contracted
+from the MPS roots, and gradients and derivative couplings are evaluated by
+the MPS-Krylov response backend.
 
 The workflow used in the public benchmarks is:
 \begin{enumerate}
 \item converge an SA(2)-CASSCF reference with PySCF and an FCI active-space
 solver;
-\item freeze the converged orbitals, rediagonalize the singlet active-space
-Hamiltonian with PySCF \texttt{direct\_spin0} FCI, and use the lowest two
-spin-adapted singlet roots;
+\item freeze the converged orbitals and rediagonalize the active-space
+Hamiltonian to define target FCI roots by the chosen spin and state index;
 \item optimize the target spin-adapted block2 MPS roots, optionally with a
 small buffer of additional candidate roots, at the selected bond dimension;
 \item select and phase-align isolated target MPS roots by maximum overlap with
@@ -284,14 +317,26 @@ or trajectory step by maximizing the absolute wave-function overlap, and each
 matched root is phase-aligned to that reference.  No FCI reference is
 required for this production root following.  The FCI references used below
 enter only the public validation protocol, where an absolute error relative
-to the exact active-space result is being measured.
+to the exact active-space result is being measured.  A separate endpoint
+check runs the DMRG derivative evaluation without loading FCI CI vectors for
+runtime root selection; the FCI data are loaded only afterward to score the
+result.
+Because the implementation returns analytic state gradients through the PySCF
+gradient interface, the same backend can be called by geometry optimizers and
+crossing-point optimizers that consume PySCF gradient and derivative-coupling
+objects.
 
 The SHARC-facing interface adds a PySCF template method,
 \texttt{dmrg-casscf}.  When requested, the interface constructs a PySCF
 CASSCF object, installs the DMRG-backed active-space solver, evaluates the
 requested Hamiltonian, dipole, gradient, and derivative-coupling quantities,
-and writes them in SHARC \texttt{QM.out} format.  The ethylene example in
-this work is used as an end-to-end interface regression test.
+and writes them in SHARC \texttt{QM.out} format.  During SHARC NACDR
+trajectories, the interface also writes the phase block requested by SHARC;
+root and phase continuity are handled by the DMRG solver's previous-step
+overlap tracking.  The H$_2$ and ethylene examples in this work are used as
+end-to-end DMRG-SHARC trajectory smoke tests.  A separate fixed-orbital
+MPS-only SHARC facade test verifies the Hamiltonian, dipole, gradient, and
+NAC data path without dense active-space CI roots.
 
 \begin{figure}[t]
 \centering
@@ -306,6 +351,11 @@ steps.}
 \end{figure}
 
 \section{Computational Details}
+
+Calculations were performed with Python 3.11.14, PySCF 2.12.1, block2
+0.5.3 through the pyblock2 Python interface, and SHARC 3.0.  The
+SHARC-facing PySCF interface used in the trajectory smoke tests is included
+with the code release.
 
 All benchmark calculations used singlet state averaging over two roots with
 equal weights.  The public systems are listed in Table~\ref{tab:systems}.
@@ -339,16 +389,34 @@ $10^{-4}$~$E_h$ threshold, and fixed-orbital residuals were recorded as QC
 diagnostics.  The bond-dimension
 scan used up to 100 DMRG sweeps, a DMRG
 sweep tolerance of $10^{-14}$, and a Davidson threshold of $10^{-14}$ unless
-noted otherwise.  The ethylene SHARC-interface regression test used an
-SA(2)-DMRG-CASSCF(2,2)/STO-3G model with $M=60$, ten DMRG sweeps, a DMRG
-sweep tolerance of $10^{-8}$, CASSCF energy convergence of $10^{-8}$, and
-CASSCF gradient convergence of $10^{-5}$.  These settings are intentionally
-small enough for a public regression test and are not used to make a
-mechanistic chemistry claim.
+noted otherwise.
+
+The DMRG-SHARC trajectory smoke tests used NACDR coupling, two singlet
+states, a 0.5 fs nuclear time step, and a 1.0 fs total propagation time.
+The H$_2$ trajectory used SA(2)-DMRG-CASSCF(2,2)/STO-3G with $M=40$, eight
+DMRG sweeps, and a DMRG sweep tolerance of $10^{-7}$.  The ethylene
+trajectory used SA(2)-DMRG-CASSCF(2,2)/STO-3G with $M=60$, ten DMRG sweeps,
+and a DMRG sweep tolerance of $10^{-8}$.  Both used CASSCF energy
+convergence of $10^{-8}$ and CASSCF gradient convergence of $10^{-5}$.
+These settings are intentionally small enough for public interface regression
+tests and are not used to make mechanistic chemistry claims.
+
+The large-active-space MPS-Krylov response benchmark used planar anthracene
+with an AVAS-selected $\pi$ active space, CAS(14,14)/STO-3G, and the same
+fixed-orbital reference protocol.  The validation FCI space contains
+11,778,624 singlet determinants.  The runtime DMRG calculation selected
+spin-adapted MPS roots without using FCI CI vectors; the cached FCI reference
+was loaded only after the MPS response calculation to score the errors.  The
+production row reported below used Boys-localized active orbitals\cite{Boys1960}
+ordered by the principal molecular axis, $M=512$, response tolerance $10^{-8}$, MPS fit
+tolerance $10^{-8}$, and 120 MPS-Krylov iterations for each response
+right-hand side.  The gradient and derivative-coupling right-hand sides were
+run as independent jobs and then combined for the final error analysis.
 
 \begin{table}[h]
 \centering
-\small
+\scriptsize
+\setlength{\tabcolsep}{3pt}
 \caption{Public validation and benchmark systems.}
 \label{tab:systems}
 \begin{tabular}{P{0.18\textwidth}P{0.23\textwidth}P{0.18\textwidth}P{0.31\textwidth}}
@@ -359,6 +427,7 @@ H$_4$ chain & STO-3G, 3-21G, 6-31G & CAS(4,4) & Small-system response validation
 H$_2$O & STO-3G, 3-21G, 6-31G & CAS(4,4)/CAS(6,6) & Small polar molecule benchmark \\
 N$_2$ & STO-3G, 3-21G, 6-31G & CAS(6,6) & Medium-active-space response validation \\
 C$_2$ & STO-3G, 3-21G, 6-31G & CAS(8,8) & Larger active-space/root-tracking benchmark \\
+Anthracene & STO-3G & CAS(14,14) & Large-active-space MPS-Krylov response benchmark \\
 LiF & STO-3G, 3-21G, 6-31G & CAS(4,4) & Nonzero-NAC avoided-crossing benchmark \\
 Ethylene & STO-3G, 3-21G, 6-31G & CAS(2,2) & SHARC-interface and $\pi/\pi^\ast$ benchmark \\
 Butadiene & STO-3G, 3-21G, 6-31G & CAS(4,4) & Conjugated $\pi$-system benchmark \\
@@ -375,8 +444,8 @@ Benzene & STO-3G, 3-21G, 6-31G & CAS(6,6) & Aromatic $\pi$-space benchmark \\
 The implementation is covered by unit and integration tests for DMRG/FCI
 energies, one- and transition-density matrices, MPS-to-FCI conversion,
 analytic gradients, analytic derivative couplings, and SHARC output
-formatting.  The current regression suite contains 46 passing tests across
-14 test files.  These tests verify both direct numerical agreement with FCI
+formatting.  The current regression suite contains the public tests listed in
+21 test files.  These tests verify both direct numerical agreement with FCI
 active-space references in small active spaces and consistency between the
 native MPS and PySCF-compatible solver paths.
 
@@ -400,17 +469,87 @@ Response linear algebra
 & Coupled-perturbed response tests
 & Hermiticity, linearity, response-vector solves, and agreement between MPS
 and FCI response operations in exactly recoverable cases. \\
+MPS-Krylov response
+& MPS-only response-vector tests
+& Gradient and NAC RHS construction, MPS Krylov solves, MPS-only
+initialization without dense CI roots, and MPS Lagrange nuclear assembly. \\
+Fixed-orbital MPS-only SHARC path
+& SHARC facade regression test
+& Energies, dipoles, gradients, and NACs are evaluated from MPS roots with
+only small \texttt{mc.ci} placeholders present at runtime. \\
 Gradient and NAC derivatives
 & Derivative regression tests
 & Analytic gradients and derivative couplings against PySCF FCI active-space
 references. \\
+FCI-free runtime endpoint
+& 27 public molecule/basis endpoint checks
+& DMRG root selection and derivative evaluation run without FCI CI vectors;
+FCI is loaded only afterward for error scoring. \\
 SHARC interface
-& Ethylene interface regression
-& Presence of \texttt{H}, \texttt{DM}, \texttt{GRAD}, and \texttt{NACDR}
-blocks in \texttt{QM.out} with SHARC master error code 0. \\
+& H$_2$/ethylene trajectory smoke tests and MPS-Krylov SHARC-interface tests
+& Repeated SHARC calls write \texttt{H}, \texttt{DM}, \texttt{GRAD},
+\texttt{NACDR}, and \texttt{PHASES} blocks in \texttt{QM.out}; the
+MPS-Krylov gradient/NAC path matches the projected-CI interface path in the
+exact validation case. \\
 \bottomrule
 \end{tabular}
 \end{table}
+
+The FCI-free endpoint check was run for every molecule/basis entry in
+Table~\ref{tab:systems}.  In all 27 cases, the DMRG endpoint selected roots and
+evaluated gradients and derivative couplings without loading FCI CI vectors at
+runtime; FCI data were loaded only after the endpoint calculation to score the
+errors.  All gradient and derivative-coupling response solves converged.  The
+largest post hoc FCI-scored gradient error was
+$1.25\times10^{-6}$~m$\Eh$/Bohr for N$_2$/6-31G, and the largest derivative
+coupling error was $3.79\times10^{-7}$~a.u. for LiF/6-31G.
+
+The MPS-only response endpoint was additionally exercised on systems where
+the active-space response vector is never represented as a dense CI array.
+Hydrogen-chain calculations provide compact endpoint and timing checks, while
+the anthracene CAS(14,14) calculation tests the same path in an active space
+with an 11.8-million-determinant FCI validation target.  At $M=512$, the
+strict MPS-Krylov response calculation gives maximum state-wise energy,
+gradient, and derivative-coupling errors of $6.41\times 10^{-5}$ m$\Eh$,
+$1.57\times 10^{-3}$ m$\Eh$/Bohr, and $9.11\times 10^{-6}$ a.u.,
+respectively.  The strict response scan is monotonic over the completed
+$M=64,128,256,512$ sequence: the maximum gradient error decreases from
+$3.39$ to $0.368$, $0.0356$, and $1.57\times10^{-3}$ m$\Eh$/Bohr, while the
+derivative-coupling error decreases from $2.22\times10^{-2}$ to
+$2.52\times10^{-3}$, $1.68\times10^{-4}$, and $9.11\times10^{-6}$ a.u.
+
+\begin{table}[t]
+\centering
+\scriptsize
+\setlength{\tabcolsep}{3pt}
+\caption{Fixed-orbital MPS-only response endpoint timings and large-active-space
+accuracy.  No FCI reference or dense active-space response vector is used
+during these runtime calculations; FCI data are used only for post hoc scoring
+when a reference is available.}
+\label{tab:mps-only-response}
+\begin{tabular}{P{0.18\textwidth}P{0.13\textwidth}P{0.06\textwidth}P{0.12\textwidth}P{0.13\textwidth}P{0.25\textwidth}}
+\toprule
+System & Active space & $M$ & DMRG time (s) & Response wall time (s) & Post hoc validation \\
+\midrule
+H$_4$ chain/STO-3G & CAS(4,4) & 50 & 0.017 & 7.16 & exact-space endpoint \\
+H$_{10}$ chain/STO-3G & CAS(10,10) & 200 & 3.81 & 751 & timing endpoint \\
+Anthracene/STO-3G & CAS(14,14) & 512 & 848 & $3.67\times10^4$ &
+$\Delta_g=1.57\times10^{-3}$ m$\Eh$/Bohr; $\Delta_d=9.11\times10^{-6}$ a.u. \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\textwidth]{figures/anthracene_mps_krylov_response.pdf}
+\caption{Anthracene CAS(14,14)/STO-3G fixed-orbital MPS-Krylov response
+validation.  Circles show the standard 20-iteration response setting used to
+scan bond dimension, and triangles show the strict response setting used for
+production derivative validation.  Increasing $M$ converges the electronic
+energies, while tightening the response solve reduces the gradient and
+derivative-coupling errors to the FCI-scored strict-response values.}
+\label{fig:anthracene-response}
+\end{figure}
 
 \subsection{Finite-Bond-Dimension Response Error}
 
@@ -427,11 +566,19 @@ below the $0.1$ m$\Eh$/Bohr reference line in Figure~\ref{fig:bvoe}.  The NAC
 column is an absolute vector error and is interpreted together with the
 benchmark matrix in Figure~\ref{fig:highm}.  The full scan, including low-$M$
 points excluded from accuracy claims by the overlap or Lagrange-response QC
-criteria, is provided with the benchmark data.
+criteria, is provided with the benchmark data.  In the N$_2$ scans, the
+homonuclear geometry gives a symmetry-suppressed derivative coupling and a
+root-labeling problem for low-rank truncated CI spaces: several low- and
+intermediate-$M$ DMRG roots are accurate enough energetically to be nearby
+states but do not satisfy the root-overlap criterion for a root-by-root FCI
+derivative comparison.  The high-$M$ points recover unit overlap with the FCI
+reference, sub-$10^{-6}$ $\Eh$/Bohr gradient errors, and NAC errors near
+$10^{-8}$ a.u.
 
 \begin{table}[t]
 \centering
-\small
+\scriptsize
+\setlength{\tabcolsep}{3pt}
 \caption{Representative largest-$M$ fixed-orbital response errors from the
 public benchmark scan.  The full molecule/basis matrix is summarized in
 Figure~\ref{fig:highm}.}
@@ -440,33 +587,30 @@ Figure~\ref{fig:highm}.}
 \toprule
 System & Active space & $M$ & $\Delta_g$ (m$\Eh$/Bohr) & $\Delta_d$ & Role \\
 \midrule
-H$_4$/STO-3G & CAS(4,4) & 200 & $1.10\times10^{-10}$ & $2.03\times10^{-7}$ & High-$M$ exact-rank check \\
-H$_2$O/6-31G & CAS(6,6) & 200 & $7.60\times10^{-6}$ & $7.42\times10^{-7}$ & Polar molecule benchmark \\
-N$_2$/6-31G & CAS(6,6) & 200 & $5.52\times10^{-6}$ & $9.24\times10^{-7}$ & Medium CAS benchmark \\
-C$_2$/6-31G & CAS(8,8) & 200 & $3.76\times10^{-4}$ & $6.40\times10^{-5}$ & Larger active-space benchmark \\
-LiF/6-31G & CAS(4,4) & 200 & $1.92\times10^{-6}$ & $6.16\times10^{-6}$ & Avoided-crossing benchmark \\
-Ethylene/6-31G & CAS(2,2) & 200 & $5.63\times10^{-6}$ & $7.46\times10^{-7}$ & SHARC-interface benchmark \\
-Butadiene/6-31G & CAS(4,4) & 200 & $2.28\times10^{-4}$ & $1.02\times10^{-4}$ & Conjugated $\pi$ benchmark \\
-Formaldehyde/6-31G & CAS(4,4) & 200 & $3.19\times10^{-6}$ & $1.16\times10^{-6}$ & Carbonyl benchmark \\
-Benzene/6-31G & CAS(6,6) & 200 & $1.45\times10^{-5}$ & $8.17\times10^{-7}$ & Aromatic $\pi$ benchmark \\
+\input{largest_m_table_rows.tex}
 \bottomrule
 \end{tabular}
 \end{table}
 
 \begin{figure}[tbp]
 \centering
-\includegraphics[width=\textwidth]{../benchmarks/bvoe_convergence_study/figures/bvoe_phase2.pdf}
+\includegraphics[width=\textwidth]{figures/bvoe_phase2.pdf}
 \caption{Fixed-orbital bond-dimension response-error convergence for public
 benchmark systems.  Gradient errors are reported in m$\Eh$/Bohr and
-nonadiabatic coupling errors in atomic units.  Points use the same fixed
-spin-adapted FCI reference protocol; near-degenerate reference clusters are
-compared after the uniform subspace-alignment step described in the text.}
+nonadiabatic coupling errors in atomic units.  Filled symbols connected by
+lines pass the uniform benchmark QC: minimum assigned root overlap with the
+FCI reference of at least 0.98 and converged gradient and NAC response
+equations.  Pale open triangles mark computed N$_2$/6-31G points that fail
+one of these QC filters and are not used for convergence claims.  Points use
+the same fixed spin-adapted FCI reference protocol; near-degenerate reference
+clusters are compared after the uniform subspace-alignment step described in
+the text.}
 \label{fig:bvoe}
 \end{figure}
 
 \begin{figure}[tbp]
 \centering
-\includegraphics[width=0.96\textwidth]{../benchmarks/bvoe_convergence_study/figures/bvoe_highm_heatmap.pdf}
+\includegraphics[width=0.96\textwidth]{figures/bvoe_highm_heatmap.pdf}
 \caption{Largest-$M$ derivative errors across the public molecule/basis
 matrix.  Color encodes the base-10 logarithm of the error, while each cell
 reports the corresponding gradient error in m$\Eh$/Bohr or NAC error in
@@ -476,14 +620,31 @@ atomic units.}
 
 \clearpage
 
-\subsection{SHARC Interface Regression Test}
+\subsection{DMRG-SHARC Trajectory Smoke Tests}
 
-The public ethylene test requests the Hamiltonian, dipole matrices,
-gradients for both singlet states, and the $S_0/S_1$ derivative coupling.
-The calculation completes with SHARC master error code 0 and writes all
-requested data blocks to \texttt{QM.out}.  This confirms that the DMRG-backed
-PySCF object satisfies the data contract expected by the SHARC interface for
-energies, dipoles, gradients, and derivative couplings.
+The public H$_2$ and ethylene tests request the Hamiltonian, dipole matrices,
+gradients for both singlet states, and derivative couplings in SHARC NACDR
+mode.  Each trajectory completed three SHARC frames, corresponding to steps
+0, 1, and 2, and the final \texttt{QM.out} file contained all data blocks
+requested by SHARC.  These tests confirm that the DMRG-backed PySCF object
+satisfies the repeated-call data contract expected by SHARC for energies,
+dipoles, gradients, derivative couplings, and phase bookkeeping.
+
+\begin{table}[t]
+\centering
+\scriptsize
+\setlength{\tabcolsep}{3pt}
+\caption{Short public DMRG-CASSCF SHARC trajectory smoke tests.}
+\label{tab:sharc-smoke}
+\begin{tabular}{P{0.14\textwidth}P{0.28\textwidth}P{0.08\textwidth}P{0.15\textwidth}P{0.25\textwidth}}
+\toprule
+System & Electronic-structure model & $M$ & Trajectory frames & Final \texttt{QM.out} blocks \\
+\midrule
+H$_2$ & SA(2)-DMRG-CASSCF(2,2)/STO-3G & 40 & 3 (steps 0--2) & \texttt{H}, \texttt{DM}, \texttt{GRAD}, \texttt{NACDR}, \texttt{PHASES} \\
+Ethylene & SA(2)-DMRG-CASSCF(2,2)/STO-3G & 60 & 3 (steps 0--2) & \texttt{H}, \texttt{DM}, \texttt{GRAD}, \texttt{NACDR}, \texttt{PHASES} \\
+\bottomrule
+\end{tabular}
+\end{table}
 
 \section{Conclusions}
 
@@ -492,24 +653,31 @@ couplings in a PySCF/pyblock2 workflow and exposed the backend through a
 SHARC-compatible PySCF interface.  The implementation is validated against
 FCI active-space references, and public benchmark data quantify how gradient
 and derivative-coupling errors decay with DMRG bond dimension at fixed
-FCI-optimized orbitals.  The results provide a reproducible open-source
-platform for testing DMRG-based multireference response quantities and for
-connecting them to nonadiabatic dynamics interfaces.
+FCI-optimized orbitals.  The MPS-Krylov response backend and fixed-orbital
+MPS-only SHARC facade provide a runtime path that does not store the
+active-space response vector as a dense determinant array; in a CAS(14,14)
+anthracene endpoint it reproduces FCI-scored gradients to
+$1.57\times10^{-3}$ m$\Eh$/Bohr and derivative couplings to
+$9.11\times10^{-6}$ a.u. with no runtime FCI root selection.  Short
+DMRG-SHARC trajectory smoke tests verify that the same backend can be called
+repeatedly by SHARC in NACDR mode.  The
+results provide a reproducible software platform for testing DMRG-based
+multireference response quantities and for connecting them to nonadiabatic
+dynamics interfaces.
 
 \section*{Supporting Information}
 
 Supporting Information: benchmark inputs, full convergence tables,
-regression-test summary, and SHARC ethylene interface example files.
+regression-test summary, and SHARC DMRG-CASSCF trajectory smoke-test files.
 
 \section*{Data and Code Availability}
 
 The public code bundle contains the response implementation, tests, benchmark
 drivers, benchmark summaries, plotting scripts, and the ethylene SHARC
-interface regression example.  The repository is available at
-\url{https://github.com/yurika1030sakura/mps-casscf-gradient-nac-sharc}.  All input files,
-generated benchmark summaries, and plotting scripts needed to reproduce the
-public figures and tables are included in the repository.  A versioned
-archival DOI will be supplied for the submitted version.
+interface regression and trajectory smoke-test examples.  The repository is:
+{\small\url{https://github.com/yurika1030sakura/mps-casscf-gradient-nac-sharc}.}
+All input files, generated benchmark summaries, and plotting scripts needed to
+reproduce the public figures and tables are included in the repository.
 
 \section*{Acknowledgments}
 

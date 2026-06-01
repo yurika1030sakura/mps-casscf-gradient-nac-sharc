@@ -1,0 +1,337 @@
+\documentclass[manuscript=suppinfo]{achemso}
+
+\usepackage[T1]{fontenc}
+\usepackage{amsmath}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{longtable}
+\usepackage{pdflscape}
+\usepackage{url}
+
+\setkeys{acs}{email=false}
+
+\title{Supporting Information for: Analytic State-Averaged DMRG-CASSCF Gradients and Nonadiabatic Couplings in a PySCF/pyblock2 Workflow}
+
+\author{Yuli Li}
+\affiliation[Harvard University]
+{Department of Chemistry and Chemical Biology, Harvard University, Cambridge,
+Massachusetts 02138, United States}
+
+\newcommand{\Eh}{E_{\mathrm{h}}}
+\newcolumntype{P}[1]{>{\raggedright\arraybackslash}p{#1}}
+
+\begin{document}
+\maketitle
+
+\section{Contents}
+
+This Supporting Information gives the public benchmark definitions, fixed-orbital
+FCI reference protocol, complete high-$M$ benchmark matrix, FCI-free endpoint
+validation table, and SHARC trajectory smoke-test output checks.  All data in
+this document are from public benchmark systems.
+
+\section{Error Definitions and QC Criteria}
+
+For a two-state benchmark, the reported gradient error is the Euclidean norm
+over both electronic states and all nuclear Cartesian components,
+\begin{equation}
+\Delta_g =
+10^3
+\left[
+\sum_{I=0}^{1}\sum_A\sum_{\alpha=x,y,z}
+\left(
+g^{\mathrm{DMRG}}_{I,A\alpha}
+-g^{\mathrm{FCI}}_{I,A\alpha}
+\right)^2
+\right]^{1/2},
+\end{equation}
+with units of m$\Eh$/Bohr.  The derivative-coupling error is the corresponding
+phase-aware norm,
+\begin{equation}
+\Delta_d =
+\min_{s=\pm 1}
+\left[
+\sum_A\sum_{\alpha=x,y,z}
+\left(
+d^{\mathrm{DMRG}}_{01,A\alpha}
+-s\,d^{\mathrm{FCI}}_{01,A\alpha}
+\right)^2
+\right]^{1/2},
+\end{equation}
+reported in atomic units.  Before the errors are evaluated, roots are assigned
+and phase-aligned using the protocol described below.  For exact or
+near-degenerate same-energy target clusters, the comparison is made after
+projecting the DMRG candidate-root subspace onto the fixed FCI gauge.
+
+Convergence plots and largest-$M$ accuracy claims use points satisfying both
+conditions: (1) the minimum assigned absolute CI overlap with the FCI reference
+is at least 0.98; and (2) the corresponding gradient and derivative-coupling
+Lagrange response solves are converged.  All attempted points, including
+low-$M$ points excluded by these numerical QC criteria, are retained in the
+machine-readable JSON output.
+
+\section{Benchmark Systems}
+
+Table~\ref{tab:si-systems} summarizes the public molecule set.  The exact
+Cartesian coordinates are encoded in the public benchmark driver
+\texttt{benchmarks/bvoe\_convergence\_study/run\_bvoe\_phase2.py}.
+
+\begin{table}[htbp]
+\centering
+\scriptsize
+\setlength{\tabcolsep}{3pt}
+\caption{Public benchmark system definitions.}
+\label{tab:si-systems}
+\begin{tabular}{P{0.13\textwidth}P{0.20\textwidth}P{0.14\textwidth}P{0.45\textwidth}}
+\toprule
+System & Basis sets & Active space & Geometry definition \\
+\midrule
+H$_4$ chain & STO-3G, 3-21G, 6-31G & CAS(4,4) & Linear H$_4$ chain with adjacent H--H distance 1.5 Bohr. \\
+H$_2$O & STO-3G, 3-21G, 6-31G & CAS(4,4) or CAS(6,6) & Bent water; O at the origin, H atoms at $(0,\pm0.7572,0.5868)$ \AA. \\
+N$_2$ & STO-3G, 3-21G, 6-31G & CAS(6,6) & Linear N--N distance 1.4 \AA. \\
+C$_2$ & STO-3G, 3-21G, 6-31G & CAS(8,8) & Linear C--C distance 1.25 \AA. \\
+LiF & STO-3G, 3-21G, 6-31G & CAS(4,4) & Linear Li--F distance 6.5 Bohr near the ionic/covalent avoided-crossing region. \\
+Ethylene & STO-3G, 3-21G, 6-31G & CAS(2,2) & Planar ethylene $\pi/\pi^\ast$ active-space benchmark. \\
+Butadiene & STO-3G, 3-21G, 6-31G & CAS(4,4) & Approximate trans-1,3-butadiene $\pi$-space benchmark. \\
+Formaldehyde & STO-3G, 3-21G, 6-31G & CAS(4,4) & Planar carbonyl benchmark with C--O distance 1.208 \AA. \\
+Benzene & STO-3G, 3-21G, 6-31G & CAS(6,6) & Regular hexagon benzene $\pi$-space benchmark. \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Fixed-Orbital FCI Reference Protocol}
+
+For each molecule/basis benchmark, the reference was generated as follows.
+First, RHF was converged.  Second, equal-weight SA(2)-CASSCF was converged with
+the PySCF FCI active-space solver.  Third, the final SA-CASSCF orbitals were
+frozen.  Fourth, the fixed-orbital singlet active-space Hamiltonian was
+rediagonalized with PySCF \texttt{direct\_spin0} FCI for multiple roots.  The
+two lowest spin-adapted singlet roots were selected and used to compute
+reference energies, gradients, and derivative couplings.  The FCI root scan,
+$\langle S^2\rangle$ diagnostics, same-energy clusters, and residual norms were
+recorded as QC metadata.
+
+DMRG calculations were then run at the selected bond dimensions in the same
+frozen orbital basis.  Candidate DMRG roots were converted to PySCF-compatible
+CI arrays for benchmark scoring.  Isolated target roots were assigned by maximum
+absolute CI overlap with the FCI references and phase-aligned.  If the FCI scan
+identified a same-energy singlet cluster within $10^{-4}$~$\Eh$, the DMRG
+candidate subspace spanning that cluster was projected onto the fixed FCI gauge
+before derivative errors were evaluated.
+
+\begin{landscape}
+\begingroup
+\tiny
+\setlength{\tabcolsep}{2pt}
+\begin{longtable}{P{0.08\linewidth}P{0.07\linewidth}P{0.08\linewidth}P{0.23\linewidth}P{0.13\linewidth}P{0.13\linewidth}P{0.07\linewidth}P{0.13\linewidth}}
+\caption{Bond-dimension scan summary.  ``Pass M'' lists points passing the
+uniform overlap and response-convergence QC filters.}
+\label{tab:si-scan-summary}\\
+\toprule
+System & Basis & Active & Attempted $M$ & Pass $M$ & Largest $M$ & $\Delta_g$ & $\Delta_d$ \\
+\midrule
+\endfirsthead
+\toprule
+System & Basis & Active & Attempted $M$ & Pass $M$ & Largest $M$ & $\Delta_g$ & $\Delta_d$ \\
+\midrule
+\endhead
+\input{si_scan_summary_rows.tex}
+\bottomrule
+\end{longtable}
+\endgroup
+\end{landscape}
+
+\begin{landscape}
+\begingroup
+\tiny
+\setlength{\tabcolsep}{2pt}
+\begin{longtable}{P{0.07\linewidth}P{0.06\linewidth}P{0.07\linewidth}P{0.12\linewidth}P{0.10\linewidth}P{0.11\linewidth}P{0.05\linewidth}P{0.10\linewidth}P{0.10\linewidth}P{0.10\linewidth}}
+\caption{Fixed-orbital FCI reference audit and largest-$M$ derivative errors.
+Gradient errors are reported in m$\Eh$/Bohr; derivative-coupling errors are in
+atomic units.}
+\label{tab:si-reference-audit}\\
+\toprule
+System & Basis & Active & FCI clusters & max $|S^2|$ & max FCI residual & $M$ & $\Delta_g$ & $\Delta_d$ & min overlap \\
+\midrule
+\endfirsthead
+\toprule
+System & Basis & Active & FCI clusters & max $|S^2|$ & max FCI residual & $M$ & $\Delta_g$ & $\Delta_d$ & min overlap \\
+\midrule
+\endhead
+\input{si_reference_rows.tex}
+\bottomrule
+\end{longtable}
+\endgroup
+\end{landscape}
+
+\section{Diagnostic Figures}
+
+\begin{figure}[!tbp]
+\centering
+\includegraphics[width=0.82\textwidth]{figures/bvoe_phase2_diagnostics.pdf}
+\vspace{-0.5em}
+\caption{Diagnostic view of the fixed-orbital bond-dimension response-error
+scan.  The plotted QC metadata are the root-overlap and response-convergence
+filters used for the main text convergence claims.}
+\label{fig:si-diagnostics}
+\end{figure}
+
+\begin{figure}[!tbp]
+\centering
+\includegraphics[width=0.82\textwidth]{figures/bvoe_basis_matrix.pdf}
+\vspace{-0.5em}
+\caption{Basis-set matrix view of the public fixed-orbital response-error
+benchmark.}
+\label{fig:si-basis-matrix}
+\end{figure}
+
+\clearpage
+
+\section{FCI-Free Endpoint Check}
+
+The production-style endpoint check evaluates DMRG roots, gradients, and
+derivative couplings without loading FCI CI vectors at runtime.  The endpoint
+uses energy ordering at the first point and previous-step DMRG overlap when a
+previous DMRG reference is available.  For the public benchmark endpoint,
+FCI data were loaded only after the DMRG calculation to score the error against
+the fixed-orbital FCI references.
+
+\begin{landscape}
+\begingroup
+\tiny
+\setlength{\tabcolsep}{2pt}
+\begin{longtable}{P{0.07\linewidth}P{0.06\linewidth}P{0.07\linewidth}P{0.05\linewidth}P{0.06\linewidth}P{0.12\linewidth}P{0.08\linewidth}P{0.08\linewidth}P{0.11\linewidth}P{0.11\linewidth}P{0.10\linewidth}}
+\caption{FCI-free endpoint checks for all public molecule/basis entries.
+``No runtime FCI'' indicates that FCI CI vectors were not used for root
+selection or derivative evaluation.}
+\label{tab:si-endpoint}\\
+\toprule
+System & Basis & Active & $M$ & roots & Root policy & No runtime FCI & Response ok & $\Delta_g$ & $\Delta_d$ & min overlap \\
+\midrule
+\endfirsthead
+\toprule
+System & Basis & Active & $M$ & roots & Root policy & No runtime FCI & Response ok & $\Delta_g$ & $\Delta_d$ & min overlap \\
+\midrule
+\endhead
+\input{si_endpoint_rows.tex}
+\bottomrule
+\end{longtable}
+\endgroup
+\end{landscape}
+
+\section{MPS-Only Response Endpoint}
+
+The MPS-Krylov response endpoint starts from block2 MPS roots and stores the
+active-space response RHS, Krylov vectors, and Lagrange transition-density
+contractions as MPS quantities.  Table~\ref{tab:si-mps-only-response}
+summarizes public fixed-orbital endpoint checks.  These runs do not load FCI
+CI vectors during the runtime DMRG root selection and do not store the
+active-space response vector as a dense determinant array.  For anthracene,
+the FCI reference is loaded only after the MPS calculation to score the
+reported errors.
+
+\begin{table}[htbp]
+\centering
+\scriptsize
+\setlength{\tabcolsep}{3pt}
+\caption{Fixed-orbital MPS-only response endpoint timings and post hoc
+FCI-scored errors.}
+\label{tab:si-mps-only-response}
+\begin{tabular}{P{0.17\textwidth}P{0.13\textwidth}P{0.06\textwidth}P{0.10\textwidth}P{0.11\textwidth}P{0.27\textwidth}}
+\toprule
+System & Active space & $M$ & DMRG (s) & Response wall (s) & Post hoc validation \\
+\midrule
+H$_4$ chain/STO-3G & CAS(4,4) & 50 & 0.017 & 7.16 & exact-space endpoint \\
+H$_{10}$ chain/STO-3G & CAS(10,10) & 200 & 3.81 & 751 & timing endpoint \\
+Anthracene/STO-3G & CAS(14,14) & 512 & 848 & $3.67\times10^4$ &
+$\Delta_g=1.57\times10^{-3}$ m$\Eh$/Bohr; $\Delta_d=9.11\times10^{-6}$ a.u. \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Table~\ref{tab:si-anth-response} compares the loose and strict anthracene
+MPS-Krylov response settings.  Increasing the response iteration budget and
+tightening the MPS fit tolerance leaves the already converged energy unchanged
+but lowers the derivative errors by approximately two orders of magnitude at
+$M=512$.  The completed strict scan also gives a smooth finite-$M$ convergence
+sequence for the energy, gradient, and derivative-coupling errors.
+The repeated MPS root energies from the independently run gradient and
+derivative-coupling right-hand sides agree to within $1.2\times10^{-9}$
+m$\Eh$.
+
+\begin{table}[htbp]
+\centering
+\scriptsize
+\setlength{\tabcolsep}{3pt}
+\caption{Anthracene CAS(14,14)/STO-3G fixed-orbital MPS-Krylov response
+diagnostic.  Errors are scored post hoc against the fixed-orbital
+spin-adapted FCI reference.}
+\label{tab:si-anth-response}
+\begin{tabular}{P{0.13\textwidth}P{0.08\textwidth}P{0.08\textwidth}P{0.10\textwidth}P{0.12\textwidth}P{0.12\textwidth}P{0.13\textwidth}P{0.13\textwidth}}
+\toprule
+Setting & $M$ & Max iter. & Max residual & $\max|\Delta E|$ (m$\Eh$) & $\max\Delta_g$ (m$\Eh$/Bohr) & $\Delta_d$ (a.u.) & Response wall (s) \\
+\midrule
+Loose & 512 & 20 & $9.54\times10^{-5}$ & $6.41\times10^{-5}$ & $3.55\times10^{-2}$ & $9.55\times10^{-4}$ & 9386 \\
+Loose & 1024 & 20 & $9.54\times10^{-5}$ & $4.64\times10^{-7}$ & $3.45\times10^{-2}$ & $9.53\times10^{-4}$ & 16215 \\
+Strict & 64 & 120 & $9.41\times10^{-7}$ & $1.15$ & $3.39$ & $2.22\times10^{-2}$ & 5214 \\
+Strict & 128 & 120 & $1.33\times10^{-6}$ & $8.83\times10^{-2}$ & $3.68\times10^{-1}$ & $2.52\times10^{-3}$ & 8183 \\
+Strict & 256 & 120 & $1.21\times10^{-6}$ & $3.20\times10^{-3}$ & $3.56\times10^{-2}$ & $1.68\times10^{-4}$ & 15892 \\
+Strict & 512 & 120 & $3.81\times10^{-7}$ & $6.41\times10^{-5}$ & $1.57\times10^{-3}$ & $9.11\times10^{-6}$ & 36669 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The SHARC-facing fixed-orbital MPS-only facade was tested on H$_2$/STO-3G.  In
+that test the runtime CASSCF object contains only one-element \texttt{mc.ci}
+placeholders, while energies, dipoles, gradients, and NACs are evaluated from
+the stored MPS roots.
+
+\section{DMRG-SHARC Trajectory Smoke Tests}
+
+The public SHARC smoke tests use the \texttt{dmrg-casscf} template method and
+request NACDR coupling.  Each run completed three SHARC frames, corresponding to
+steps 0, 1, and 2, and the final \texttt{QM.out} file contained the requested
+Hamiltonian, dipole, gradient, derivative-coupling, phase, and runtime blocks.
+These tests check the repeated-call data contract between SHARC and the
+DMRG-backed PySCF object; they are not used as mechanistic photochemistry
+simulations.
+
+\begin{table}[htbp]
+\centering
+\scriptsize
+\setlength{\tabcolsep}{3pt}
+\caption{Public DMRG-CASSCF SHARC trajectory smoke tests.}
+\label{tab:si-sharc}
+\begin{tabular}{P{0.16\textwidth}P{0.25\textwidth}P{0.08\textwidth}P{0.12\textwidth}P{0.30\textwidth}}
+\toprule
+System & Electronic-structure model & $M$ & Frames & Final \texttt{QM.out} blocks \\
+\midrule
+H$_2$ & SA(2)-DMRG-CASSCF(2,2)/STO-3G & 40 & 3 & \texttt{H}, \texttt{DM}, \texttt{GRAD}, \texttt{NACDR}, \texttt{PHASES}, \texttt{RUNTIME} \\
+Ethylene & SA(2)-DMRG-CASSCF(2,2)/STO-3G & 60 & 3 & \texttt{H}, \texttt{DM}, \texttt{GRAD}, \texttt{NACDR}, \texttt{PHASES}, \texttt{RUNTIME} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Reproducibility Notes}
+
+The public repository contains the implementation, tests, benchmark drivers,
+machine-readable JSON summaries, and plotting scripts.  The main files used to
+generate the tables and figures in this Supporting Information are:
+\begin{itemize}
+\small
+\item \texttt{benchmarks/bvoe\_convergence\_study/run\_bvoe\_phase2.py};
+\item \texttt{benchmarks/bvoe\_convergence\_study/run\_fci\_free\_endpoint\_check.py};
+\item \texttt{benchmarks/bvoe\_convergence\_study/summary\_phase2.json};
+\item \texttt{benchmarks/bvoe\_convergence\_study/data\_fci\_free\_endpoint/}\\
+\texttt{endpoint\_check\_all\_public\_systems.json};
+\item \texttt{benchmarks/bvoe\_convergence\_study/plot\_bvoe\_phase2.py};
+\item \texttt{benchmarks/large\_active\_space/run\_anthracene\_pi14\_gradnac.py};
+\item \texttt{benchmarks/large\_active\_space/combine\_partial\_derivatives.py};
+\item \texttt{benchmarks/large\_active\_space/run\_mps\_only\_hchain\_response.py};
+\item \texttt{methods\_manuscript/make\_anthracene\_response\_figure.py};
+\item \texttt{src/dmrg\_analytic\_dev/test\_mps\_only\_fixed\_orbital\_sharc.py};
+\item \texttt{sharc\_interface/SHARC\_PYSCF\_ext.py}.
+\end{itemize}
+
+\end{document}

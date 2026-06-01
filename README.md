@@ -30,10 +30,11 @@ runs without changing the converged result.
 | `benchmarks/large_active_space/` | Fixed-orbital MPS-only response benchmarks. |
 | `benchmarks/bvoe_convergence_study/` | Convergence study driver + summary figure. |
 | `benchmarks/response_timing/` | Per-component wall-time benchmarks. |
-| `docs/manuscript_skeleton.tex`, `docs/references.bib` | Submitted-manuscript skeleton + bibliography. |
+| `docs/manuscript.tex` + `manuscript.bbl`, `docs/references.bib` | Submitted manuscript source and bibliography. |
+| `docs/supporting_information.tex` + `supporting_information.bbl` | Submitted Supporting Information source. |
 | `docs/figures/anthracene_mps_krylov_response.pdf` | Manuscript figure for the anthracene CAS(14,14) strict MPS-Krylov response convergence. |
 | `docs/figures/workflow_architecture.pdf` | Manuscript figure for the SA-DMRG-CASSCF response workflow. |
-| `docs/si/largest_m_table_rows.tex`, `docs/si/si_endpoint_rows.tex`, `docs/si/si_reference_rows.tex` | Supplementary-information row data for the manuscript's largest-M, endpoint, and FCI-reference tables. |
+| `docs/si/largest_m_table_rows.tex`, `si_endpoint_rows.tex`, `si_reference_rows.tex`, `si_scan_summary_rows.tex` | SI row data for the largest-M response, fixed-orbital endpoint, FCI reference, and scan summary tables. |
 | `docs/FCI_REFERENCE_PROTOCOL.md`, `docs/ROOT_MATCHING_PROTOCOL.md`, `docs/PRODUCTION_ROOT_TRACKING.md` | Numerical protocols used by the benchmarks. |
 | `docs/ARCHITECTURE.md` | One-page map of the modules and how they call each other. |
 
