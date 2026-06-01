@@ -131,13 +131,33 @@ dmrg-stack-mem-mb            8000
 
 ## Validation against PySCF FCI
 
+Spin-pure small-system checks (every fast-path flag on, FCI reference is
+PySCF `fcisolver`):
+
 | System | Active space | Test | max |dE| vs FCI |
 |---|---|---|---|
 | H4 chain, sto-3g | (4,4), SA(2 singlets) | `src/dmrg_analytic_dev/test_v9_skip_fci_vs_fci.py` | 2.5e-13 Ha |
 | H4 chain, sto-3g | (4,4), triplet GS via SU2 | `src/dmrg_analytic_dev/test_v10_su2_triplet.py` | 8.9e-16 Ha |
-| Anthracene π, sto-3g | (14,14), SA(2 singlets) | `benchmarks/large_active_space/` cached FCI ref | E₀ = −529.7030437 Ha, E₁ = −529.5556316 Ha |
 
 Matching transition 1-RDMs and 2-RDMs agree at the 1e-7 level.
+
+Large-active-space convergence: planar anthracene CAS(14,14)/STO-3G,
+SA(2 singlets), fixed-orbital DMRG-CASCI vs the manuscript's cached FCI
+reference E₀ = −529.7030437 Ha, E₁ = −529.5556316 Ha. Produced by
+`benchmarks/large_active_space/run_anthracene_pi14_fastpath_mscan.py`
+on 4 CPU cores; raw output in `results_anthracene_pi14_fastpath_mscan.txt`.
+
+| M | E₀ (Ha) | E₁ (Ha) | \|dE₀\| (mHa) | \|dE₁\| (mHa) | wall (s) |
+|---|---|---|---|---|---|
+|   64 | −529.6581689 | −529.4823392 | 44.87 | 73.29 |   8.4 |
+|  128 | −529.6832931 | −529.5167555 | 19.75 | 38.88 |  15.5 |
+|  256 | −529.6951117 | −529.5377081 |  7.93 | 17.92 |  31.0 |
+|  512 | −529.7006909 | −529.5508136 |  2.35 |  4.82 | 136.0 |
+| 1024 | −529.7025280 | −529.5543807 |  0.52 |  1.25 | 397.9 |
+
+Monotonic convergence in both states, sub-mHa accuracy on the ground
+state by M = 1024, ≈1.3 mHa on the first excited state — well inside
+chemical accuracy on this active space.
 
 ## Citation
 
