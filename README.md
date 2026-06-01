@@ -87,48 +87,6 @@ cd benchmarks/bvoe_convergence_study
 python plot_bvoe_phase2.py
 ```
 
-## Fast-path flags (production mode)
-
-All flags default off. With every flag off the code path is the submitted
-version. Enabling them changes performance, not the converged energy.
-
-| `MPSAsFCISolver` kwarg | SHARC template key | What it does |
-|---|---|---|
-| `stack_mem_mb=8000` | `dmrg-stack-mem-mb 8000` | Override the 200 MB block2 stack allocation. Required on large-memory nodes. |
-| `mps_native_rdms=True` | `dmrg-mps-native-rdms 1` | Compute `make_rdm12` / `trans_rdm12` / `contract_2e` via block2 NPDM kernels instead of the FCI-projected path. |
-| `warm_start=True` | `dmrg-warm-start 1` | Cache the converged MPS from the previous macro iteration and reuse it as the initial guess. Cuts later-iter DMRG sweeps from ~30 to ~4–8. |
-| `first_iter_warmup=True` | `dmrg-first-iter-warmup 1` | HF-occupation-biased initial MPS + bond-dim ramp 50→100→M with 12 sweeps on macro iter 1 (whose orbitals are still poor). |
-| `skip_kernel_fci_conversion=True` | `dmrg-skip-fci-conversion 1` | Skip the O(n_dets) MPS→FCI ndarray conversion at the end of every kernel call — the dominant cost at CAS(14,12) and above. Requires `mps_native_rdms=1`. |
-| `dmrg_symm_su2=True` | `dmrg-symm-su2 1` | Use `SymmetryTypes.SU2` (spin-adapted) instead of `SZ`. Targets the requested 2S sector by construction so the energy-sort root selection cannot accidentally pick a contaminating sector. Recommended for any spin-pure ground state. |
-| `timing_log=True` | `dmrg-timing-log 1` | Per-section wall-time print at every kernel / RDM call. Diagnostic only. |
-
-Production preset (CAS(14,12) and above, both spin sectors safe):
-
-```python
-mc.fcisolver = MPSAsFCISolver(
-    mol,
-    bond_dim=512, n_sweeps=30, n_threads=4,
-    mps_native_rdms=True,
-    warm_start=True,
-    first_iter_warmup=True,
-    skip_kernel_fci_conversion=True,
-    dmrg_symm_su2=True,
-    stack_mem_mb=8000,
-)
-```
-
-SHARC template equivalent:
-
-```
-method                       dmrg-casscf
-dmrg-mps-native-rdms         1
-dmrg-warm-start              1
-dmrg-first-iter-warmup       1
-dmrg-skip-fci-conversion     1
-dmrg-symm-su2                1
-dmrg-stack-mem-mb            8000
-```
-
 ## Numerical checks
 
 ### Manuscript benchmark, small-to-medium CAS — fixed-orbital response at M = 200
@@ -207,17 +165,90 @@ tests verify that the placeholder-`ci` machinery, the SU2 spin sector,
 the NPDM bypass, and the warm-start path produce bitwise the same
 physics as the legacy FCI-projection path.
 
-### Fast-path knobs at CAS(14,14): wall-time demonstration
+## Production fast path
 
-The opt-in flags listed earlier let the same active space be reached
-without Boys localization or the MPS-Krylov response solver, by running
-DMRG-CASCI directly on AVAS-canonical orbitals. This path is faster per
-M but converges more slowly in M because AVAS-canonical orbitals carry
-more entanglement than Boys-localized orbitals — useful as a
-fast-path-knob smoke test, not a substitute for the strict-response
-benchmark above. Produced by
-`benchmarks/large_active_space/run_anthracene_pi14_fastpath_mscan.py`
-on 4–8 CPU cores; raw output in `results_anthracene_pi14_fastpath_mscan.txt`.
+The manuscript benchmarks above run **fixed-orbital** strict MPS-Krylov
+response: the active orbital basis is fixed up front (Boys-localized in
+the CAS(14,14) row), and only a single MPS-Krylov solve is performed per
+gradient / NAC right-hand side. That is what produces the 10⁻⁶ E_h/Bohr
+gradient and 10⁻⁶ a.u. NAC accuracy at large CAS. **The fast-path flags
+below do not affect that benchmark** — they target a different workload.
+
+The fast path exists for **SA-DMRG-CASSCF orbital optimization** at
+large CAS, and for surface-hopping dynamics where that loop repeats per
+nuclear step. In the macro-iteration loop the same DMRG kernel is called
+many times with updated `h1e` / `eri` until orbital convergence. On the
+original code path, every kernel call ended with an
+O(n_determinants) `mps_to_fci_generic` call that converted the converged
+MPS back into a dense FCI ndarray for the next macro iteration. At
+CAS(14,12) (≈ 0.85×10⁶ determinants) this conversion measured **~24 h
+per kernel call** on a sapphire CPU node, while the underlying DMRG
+sweep took ~3 s — making SA-DMRG-CASSCF macro iteration effectively
+impossible at sizes the manuscript's fixed-orbital benchmark holds
+constant. The flags below bypass that path while preserving the
+converged physics; H₄ CAS(4,4) regressions
+(`src/dmrg_analytic_dev/test_v9_skip_fci_vs_fci.py`,
+`test_v10_su2_triplet.py`) pin them against PySCF FCI to machine
+precision.
+
+All flags default off. With every flag off the code path is the
+manuscript-submitted version; enable them only when the macro loop or a
+dynamics driver is doing the calling.
+
+| `MPSAsFCISolver` kwarg | SHARC template key | What it does |
+|---|---|---|
+| `skip_kernel_fci_conversion=True` | `dmrg-skip-fci-conversion 1` | Skip the O(n_dets) MPS→FCI ndarray conversion at the end of every kernel call — the 24 h bottleneck at CAS(14,12)+. Requires `mps_native_rdms=1`. |
+| `mps_native_rdms=True` | `dmrg-mps-native-rdms 1` | Compute `make_rdm12` / `trans_rdm12` / `contract_2e` via block2 NPDM kernels directly on the MPS instead of the FCI-projected path. |
+| `warm_start=True` | `dmrg-warm-start 1` | Cache the converged MPS from the previous macro iteration and reuse it as the initial guess against the updated Hamiltonian. Cuts later-iter DMRG sweeps from ~30 to ~4–8. |
+| `first_iter_warmup=True` | `dmrg-first-iter-warmup 1` | HF-occupation-biased initial MPS + bond-dim ramp 50→100→M with 12 sweeps on macro iter 1 — orbitals are still poor on the first macro, so do not pay for full convergence there. |
+| `dmrg_symm_su2=True` | `dmrg-symm-su2 1` | Use `SymmetryTypes.SU2` (spin-adapted) instead of `SZ`. Targets the requested 2S sector by construction so the energy-sort root selection cannot accidentally pick a contaminating triplet below the target singlet. Recommended for any spin-pure ground state. |
+| `stack_mem_mb=8000` | `dmrg-stack-mem-mb 8000` | Override the 200 MB block2 stack allocation. Required on large-memory nodes. |
+| `timing_log=True` | `dmrg-timing-log 1` | Per-section wall-time print at every kernel / RDM call. Diagnostic only. |
+
+Production preset for SA-DMRG-CASSCF at CAS(14,12) and above (both spin
+sectors safe):
+
+```python
+mc.fcisolver = MPSAsFCISolver(
+    mol,
+    bond_dim=512, n_sweeps=30, n_threads=4,
+    mps_native_rdms=True,
+    warm_start=True,
+    first_iter_warmup=True,
+    skip_kernel_fci_conversion=True,
+    dmrg_symm_su2=True,
+    stack_mem_mb=8000,
+)
+```
+
+SHARC template equivalent for surface-hopping dynamics with full
+SA-DMRG-CASSCF at every step:
+
+```
+method                       dmrg-casscf
+dmrg-mps-native-rdms         1
+dmrg-warm-start              1
+dmrg-first-iter-warmup       1
+dmrg-skip-fci-conversion     1
+dmrg-symm-su2                1
+dmrg-stack-mem-mb            8000
+```
+
+### Wall-time demonstration at CAS(14,14)
+
+To show the fast path actually executes at large CAS, the same anthracene
+π14 active space is run with fixed AVAS-canonical orbitals (no Boys
+localization, no strict response — a pure DMRG-CASCI smoke test of the
+kernel + RDM path with every flag on). The point of this table is
+wall-time, not accuracy: AVAS-canonical orbitals carry more entanglement
+than the Boys-localized orbitals used in the strict-response benchmark
+above, so the M needed for the same accuracy is far larger here, and the
+state-energy error halves per doubling of M rather than collapsing. The
+manuscript's accuracy on this system is the row in the previous section,
+not these numbers. Produced by
+`benchmarks/large_active_space/run_anthracene_pi14_fastpath_mscan.py` on
+4–8 CPU cores; raw output in
+`results_anthracene_pi14_fastpath_mscan.txt`.
 
 | M | \|dE₀\| (Ha) | \|dE₁\| (Ha) | wall (s) |
 |---|---|---|---|
@@ -229,9 +260,12 @@ on 4–8 CPU cores; raw output in `results_anthracene_pi14_fastpath_mscan.txt`.
 | 2048 | 3.95e−04 | 8.49e−04 |  391.5 |
 | 4096 | 1.49e−04 | 3.69e−04 |  677.3 |
 
-The state-energy error halves per doubling of M on AVAS orbitals — the
-1000-fold reduction that Boys localization delivers in the strict-response
-table is the entanglement-structure win, not a code win.
+What this proves: `skip_kernel_fci_conversion + mps_native_rdms +
+first_iter_warmup + warm_start + dmrg_symm_su2` together complete a
+single CAS(14,14) DMRG-CASCI kernel call at M=4096 in 11 minutes on
+8 cores, including the NPDM evaluation a macro iteration would
+subsequently need. The same kernel on the legacy code path would have
+hit the 24 h `mps_to_fci_generic` bottleneck regardless of M.
 
 ## Citation
 
