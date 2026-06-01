@@ -36,9 +36,27 @@ from pyscf.fci import cistring, spin_op
 
 
 ROOT = Path(__file__).resolve().parent
-PROJECT_ROOT = ROOT.parent
-SHARC_ROOT = PROJECT_ROOT / "sharc_pyscf_casscf"
-DEV_ROOT = SHARC_ROOT / "dmrg_analytic_dev"
+# Resolve sharc-interface + dev-module paths for both the public repo
+# layout (`sharc_interface/`, `src/dmrg_analytic_dev/`) and the private
+# project layout (`sharc_pyscf_casscf/`, `sharc_pyscf_casscf/dmrg_analytic_dev/`).
+_CANDIDATES = [
+    # public layout: repo-root/{sharc_interface, src/dmrg_analytic_dev}
+    (ROOT.parent.parent / "sharc_interface",
+     ROOT.parent.parent / "src" / "dmrg_analytic_dev"),
+    # private layout: benchmarks/../sharc_pyscf_casscf/{., dmrg_analytic_dev}
+    (ROOT.parent / "sharc_pyscf_casscf",
+     ROOT.parent / "sharc_pyscf_casscf" / "dmrg_analytic_dev"),
+]
+for SHARC_ROOT, DEV_ROOT in _CANDIDATES:
+    if SHARC_ROOT.exists() and DEV_ROOT.exists():
+        break
+else:
+    raise RuntimeError(
+        "Could not locate sharc interface + dmrg_analytic_dev modules "
+        "next to this script. Expected either the public-repo layout "
+        "(sharc_interface/, src/dmrg_analytic_dev/) or the private "
+        "layout (sharc_pyscf_casscf/, sharc_pyscf_casscf/dmrg_analytic_dev/)."
+    )
 for _path in (SHARC_ROOT, DEV_ROOT):
     if str(_path) not in sys.path:
         sys.path.insert(0, str(_path))
