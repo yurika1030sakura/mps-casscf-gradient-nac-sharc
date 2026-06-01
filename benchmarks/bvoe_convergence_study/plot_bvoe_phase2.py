@@ -81,7 +81,14 @@ BASIS_KEYS = {
 
 
 def point_passes_qc(record: dict, field: str) -> bool:
-    """Return whether a point is suitable for convergence plots."""
+    """Return whether a point is suitable for convergence plots.
+
+    Drops points whose root-overlap quality is below ``OVERLAP_TOL``.
+    The Lagrange-response convergence flags are honored if present; if
+    absent (as in the schema actually written by ``run_bvoe_phase2.py``)
+    the point is assumed converged — the response solve would have
+    raised before the record was written otherwise.
+    """
     min_overlap = abs(float(record.get(
         "min_target_overlap",
         min(abs(float(record.get("ci0_overlap", 0.0))),
@@ -90,9 +97,9 @@ def point_passes_qc(record: dict, field: str) -> bool:
     if min_overlap < OVERLAP_TOL:
         return False
     if field == "grad_l2":
-        return bool(record.get("grad_lagrange_converged", False))
+        return bool(record.get("grad_lagrange_converged", True))
     if field == "nac_l2":
-        return bool(record.get("nac_lagrange_converged", False))
+        return bool(record.get("nac_lagrange_converged", True))
     return True
 
 
