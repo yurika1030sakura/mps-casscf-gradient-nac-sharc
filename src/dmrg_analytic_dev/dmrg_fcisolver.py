@@ -335,6 +335,7 @@ class MPSAsFCISolver(lib.StreamObject):
         # is on — lets SA-CASSCF macro iter reuse the previous MPS as a much
         # better-than-random initial guess against the updated h1e/eri.
         self._warm_kets = None
+        self._warm_multiroot_ket = None  # multi-root pre-split for next iter
         self._warm_norb = None
         # First-macro-iter warm-up: use an HF-occupation-biased initial MPS
         # plus a bond-dim ramp (M=50 -> 100 -> bond_dim) on the very first
@@ -437,6 +438,52 @@ class MPSAsFCISolver(lib.StreamObject):
     def _solve_root_count(self, nroots: int) -> int:
         """Number of eigenstates to request before root-continuity selection."""
         return max(int(nroots), int(nroots) + int(self.root_buffer))
+
+    def _mps_overlap_assignment(self, driver, current_kets, prev_kets, nroots):
+        """Greedy MPS-overlap root assignment for state continuity.
+
+        For each cached previous-iter MPS, find the current MPS with the
+        largest |<prev|curr>| and pick it. Result is a list of indices into
+        `current_kets`, one per previous root, of length ``nroots``.
+
+        Uses block2's `driver.expectation` with an identity MPO if available,
+        otherwise raises so the caller can fall back to energy-sort.
+        """
+        n_prev = min(len(prev_kets), nroots)
+        n_curr = len(current_kets)
+        overlaps = np.zeros((n_prev, n_curr), dtype=float)
+        for i in range(n_prev):
+            for j in range(n_curr):
+                try:
+                    val = driver.expectation(
+                        prev_kets[i], self._mpo, current_kets[j],
+                    )
+                    # expectation gives <prev|H|curr>, not <prev|curr>; use
+                    # the dot product instead for pure overlap.
+                except Exception:
+                    val = None
+                if val is None:
+                    # Try direct MPS dot product if exposed by this block2.
+                    try:
+                        val = driver.dot_product(prev_kets[i],
+                                                  current_kets[j])
+                    except Exception as e:
+                        raise RuntimeError(
+                            "block2 driver lacks overlap primitive: "
+                            f"{type(e).__name__}"
+                        )
+                overlaps[i, j] = abs(float(val))
+        # Greedy assignment: highest-overlap pair, then next available, ...
+        assignment = []
+        used = set()
+        for i in range(n_prev):
+            order = np.argsort(-overlaps[i])  # descending
+            for j in order:
+                if int(j) not in used:
+                    assignment.append(int(j))
+                    used.add(int(j))
+                    break
+        return assignment
 
     @staticmethod
     def _energy_list(energies):
@@ -715,13 +762,26 @@ class MPSAsFCISolver(lib.StreamObject):
             return self.e_tot, c
 
         # ---- SZ-mode DMRG path (large CAS / production) -----------------
-        self._cleanup()
-        self._used_dmrg = True
-        scratch = self._make_scratch()
+        # Persistent driver + scratch when warm_start: the previous-call MPS
+        # (stored in self._warm_kets) lives in the previous driver's scratch
+        # and is unloadable after _cleanup() destroys that scratch. Keep the
+        # driver alive across kernel calls so warm-start can actually consume
+        # the cached MPS as initial guess.
         eri_full = ao2mo.restore(1, np.asarray(eri), norb)
-
         nelec_tot = na + nb
         spin = abs(na - nb)
+        keep_driver = (
+            self.warm_start
+            and self._driver is not None
+            and self._warm_kets is not None
+            and self._warm_norb == int(norb)
+        )
+        if not keep_driver:
+            self._cleanup()
+            scratch = self._make_scratch()
+        else:
+            scratch = self._scratch  # reuse existing
+        self._used_dmrg = True
 
         # Debug timing: print a banner on entering each _kernel_sz call so we
         # can count macro iterations from the log, and measure per-section
@@ -744,19 +804,26 @@ class MPSAsFCISolver(lib.StreamObject):
         # skip_kernel_fci_conversion path cannot pick up a triplet below the
         # target excited singlet. SZ is legacy/default.
         sym = SymmetryTypes.SU2 if self.dmrg_symm_su2 else SymmetryTypes.SZ
-        driver = DMRGDriver(
-            scratch=str(scratch), clean_scratch=False,
-            stack_mem=int(self.stack_mem_mb) * 1024 * 1024,
-            n_threads=int(self.n_threads),
-            symm_type=sym,
-        )
+        if keep_driver:
+            driver = self._driver
+        else:
+            driver = DMRGDriver(
+                scratch=str(scratch), clean_scratch=False,
+                stack_mem=int(self.stack_mem_mb) * 1024 * 1024,
+                n_threads=int(self.n_threads),
+                symm_type=sym,
+            )
         if self.timing_log:
             print(f"[TIMING]   driver init: {_time.time()-_t_driver_init:.2f}s",
                   flush=True)
             _t_mpo = _time.time()
-        driver.initialize_system(
-            n_sites=norb, n_elec=nelec_tot, spin=spin, orb_sym=[0] * norb,
-        )
+        if not keep_driver:
+            # Only initialize sites/sym on a fresh driver. Reused drivers
+            # already have the system info — just rebuild the MPO from the
+            # new orbital-basis h1e and eri.
+            driver.initialize_system(
+                n_sites=norb, n_elec=nelec_tot, spin=spin, orb_sym=[0] * norb,
+            )
         mpo = driver.get_qc_mpo(np.asarray(h1e), eri_full,
                                 ecore=float(ecore), iprint=0)
         # NOTE: SZ-mode DMRG is not spin-adapted. For singlet targeting in
@@ -835,20 +902,20 @@ class MPSAsFCISolver(lib.StreamObject):
             and self.warm_start
             and self._warm_kets is not None
             and self._warm_norb == norb
+            and keep_driver  # MPS files only valid when driver+scratch persist
         )
         if use_warm:
             try:
-                ket = driver.copy_mps(self._warm_kets[0], tag="KET")
-                # If multiple roots cached, concatenate (driver.dmrg expects
-                # one multi-root MPS); fall back to random if only single root
-                # was cached.
-                if len(self._warm_kets) == n_solve_roots and n_solve_roots > 1:
-                    ket = self._warm_kets[0]  # already multi-root
-                ns_used = max(min(self.n_sweeps, 8), 4)  # fewer sweeps needed
+                # Persistent-driver path: cached multi-root MPS lives in the
+                # same scratch and is usable as the initial guess for the new
+                # DMRG against the updated MPO. Falls back to random if it
+                # was not stored (older runs or first warm call).
+                if self._warm_multiroot_ket is None:
+                    raise RuntimeError("multi-root warm cache empty")
+                ket = self._warm_multiroot_ket
+                ns_used = max(min(self.n_sweeps, 8), 4)
                 noises = [1e-5] * 2 + [0.0] * (ns_used - 2)
             except Exception as e:
-                # Warm-start failed (e.g., MPS structure incompatible after
-                # large orbital rotation) — fall back to random initial guess.
                 print(f"[MPSAsFCISolver] warm_start fallback: {e}",
                       flush=True)
                 use_warm = False
@@ -898,7 +965,14 @@ class MPSAsFCISolver(lib.StreamObject):
                 tag_prefix="KETR",
             )
         # Cache converged MPS for the next macro iteration's warm start.
+        # We keep both:
+        #   * self._warm_multiroot_ket: the pre-split multi-root MPS, used
+        #     as the initial guess for the next driver.dmrg call (block2's
+        #     dmrg expects a multi-root ket when nroots > 1).
+        #   * self._warm_kets: the split per-root MPSes for downstream RDM
+        #     access (make_rdm12 / trans_rdm12 / overlap-tracking).
         if self.warm_start:
+            self._warm_multiroot_ket = ket
             self._warm_kets = list(self._kets)
             self._warm_norb = int(norb)
         # First-iter warm-up consumed: subsequent kernel() calls take the
@@ -919,14 +993,35 @@ class MPSAsFCISolver(lib.StreamObject):
         # cut alone removes the per-kernel ~24 h wall time observed at
         # CAS(14,12)=627k dets in the v6 timing diagnostic.
         if self.skip_kernel_fci_conversion:
-            # Energy-sorted selection: block2 driver.dmrg may return roots in
-            # the order they were targeted (initial random MPS biased), not
-            # by energy. We need the nroots lowest. Sort ascending and pick
-            # the bottom nroots — that recovers the SA-CASSCF target states
-            # without FCI-overlap root tracking.
-            sorted_idx = sorted(range(len(e_all)),
-                                 key=lambda i: float(e_all[i]))
-            selected_indices = sorted_idx[:nroots]
+            # Root assignment strategy:
+            #   (a) If we have a previous-iter MPS cache (warm_start active),
+            #       compute MPS-MPS overlaps between this iter's roots and
+            #       the cached ones and assign each cached root to the
+            #       current root of maximum |overlap|. This preserves state
+            #       identity through conical-intersection regions where the
+            #       energy ordering can flip but the MPS structure stays
+            #       continuous.
+            #   (b) Otherwise (first call or no cache): fall back to energy-
+            #       sort — pick the nroots lowest by energy. This is the
+            #       standard adiabatic ordering.
+            assignment = None
+            if (self._warm_kets is not None
+                    and len(self._warm_kets) >= nroots):
+                try:
+                    assignment = self._mps_overlap_assignment(
+                        driver, self._kets, self._warm_kets, nroots,
+                    )
+                except Exception as e:
+                    if self.timing_log:
+                        print(f"[TIMING] overlap-assign fallback: {e}",
+                              flush=True)
+                    assignment = None
+            if assignment is None:
+                sorted_idx = sorted(range(len(e_all)),
+                                     key=lambda i: float(e_all[i]))
+                selected_indices = sorted_idx[:nroots]
+            else:
+                selected_indices = list(assignment)
             self._root_assignment = list(selected_indices)
             self._kets = [self._kets[i] for i in selected_indices]
             # Placeholder ci: 1-element float ndarray with the (post-sort)

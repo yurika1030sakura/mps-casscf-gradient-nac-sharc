@@ -270,8 +270,6 @@ def test_m9_gmres_recycle_initial_guess_matches_fci():
         mps_fit_tol=1.0e-12,
         initial_guess="gmres-recycle",
     )
-    # First solve populates the recycled Arnoldi subspace; the second solve
-    # uses it as an initial guess and then converges normally.
     recycle.solve_mps(0, tol=1.0e-8, max_iter=20, verbose=False)
     k_fci, _v_fci, info_fci = fci_resp.solve(1, tol=1.0e-8, max_iter=100)
     k_mps, _v_mps, info_mps, meta = recycle.solve_mps(

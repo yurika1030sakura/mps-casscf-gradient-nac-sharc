@@ -8,7 +8,7 @@ Tests cover:
   T5. Identity check on overlap matrix for SA-CASSCF roots at same geometry.
   T6. Single excitation in CAS(2,2) with random orbital rotation.
 
-Run with a Python environment containing PySCF and block2.
+Run with /n/holylabs/woo_lab/Lab/yulili_pyscf/env/bin/python3.11.
 """
 
 from __future__ import annotations

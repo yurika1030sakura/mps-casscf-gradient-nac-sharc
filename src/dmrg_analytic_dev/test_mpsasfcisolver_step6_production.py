@@ -13,7 +13,8 @@ P4: Integration with `cp_casscf_response.CPCASSCFResponseFCI` — the CP
     `mc.fcisolver = MPSAsFCISolver(M=full_rank)` match the FCI baseline.
 
 Run with:
-    python test_mpsasfcisolver_step6_production.py
+    /n/home04/yulili/.conda/envs/pyscf_dmrg/bin/python \
+      test_mpsasfcisolver_step6_production.py
 """
 
 from __future__ import annotations

@@ -17,7 +17,7 @@ Architectural decisions
    Converting trial vectors to MPSes on-the-fly (and back) for every Krylov
    iteration is expensive; we use the FCI ndarray as the "currency" of the
    GMRES vector and convert FCI → SZ-mode MPS only when a primitive needs
-   to apply MPO·|trial⟩. This keeps the memory tradeoff explicit:
+   to apply MPO·|trial⟩. This is honest about the memory advantage:
 
        * **State storage**: MPS-only ⇒ scales with bond dim, not Hilbert space.
        * **Operator application**: MPS-mediated ⇒ MPO·MPS sweeps, no full FCI.
@@ -194,8 +194,8 @@ class CPDMRGCASSCFResponseMPS(CPCASSCFResponseFCI):
         # ``DMRGDriver(symm_type=SZ)`` overwrites ``block2.Global.frame``
         # (the active scratch / data-frame singleton), invalidating the
         # SU2 driver's frame state. Subsequent SU2 ops (e.g. ``mc.ao2mo``,
-        # ``newton_casscf.gen_g_hop`` inside ``build_rhs``) require the SU2
-        # frame to be restored. To enforce this we save the SU2
+        # ``newton_casscf.gen_g_hop`` inside ``build_rhs``) then segfault
+        # with the SZ frame still active. To avoid this we save the SU2
         # frame BEFORE creating the SZ driver, and use ``_use_sz_frame()``
         # to bracket every SZ-driver call so the SU2 frame is the default
         # state of the global singleton outside MPS-routed primitives.
@@ -220,8 +220,11 @@ class CPDMRGCASSCFResponseMPS(CPCASSCFResponseFCI):
         # MPS scratch tags (trial vectors, sigma vectors, det-overlap auxiliary
         # MPSes) are decorated with this counter so block2 never sees two
         # different objects sharing a scratch tag across GMRES iterations.
-        # Unique tags keep block2 scratch objects independent across repeated
-        # ``driver.multiply`` calls inside ``single_site_sigma_mps_native``.
+        # Without unique tags, ``driver.multiply`` (called inside
+        # ``single_site_sigma_mps_native``) writes its bra MPS to scratch
+        # using the same name on every iteration, which corrupts MPS objects
+        # still being read by other in-flight calls and triggers a core dump
+        # after dozens of GMRES iterations on M4.
         self._call_counter = 0
 
     def __del__(self):
@@ -298,7 +301,9 @@ class CPDMRGCASSCFResponseMPS(CPCASSCFResponseFCI):
         Tag uniqueness: every call decorates ``tag`` with the current value
         of ``self._call_counter`` and a random suffix so that the trial,
         sigma, and per-determinant overlap MPSes never collide across GMRES
-        iterations.
+        iterations. This is required to avoid block2 scratch-file overwrites
+        that produce a core dump after many iterations (root cause of the
+        M4 crash before this fix).
         """
         # Identically-zero trial vectors are common in GMRES Krylov
         # iterations (e.g. the CI block at non-target SA states on the very
@@ -312,8 +317,9 @@ class CPDMRGCASSCFResponseMPS(CPCASSCFResponseFCI):
         ctr = self._call_counter
         utag = f"{tag}-c{ctr}"
         # ALL SZ-driver block2 calls in this method must happen with the SZ
-        # data frame active. After the block exits the SU2 frame is restored
-        # automatically.
+        # data frame active; otherwise block2 dereferences the SU2 frame's
+        # scratch with SZ-mode tensor shapes and segfaults. After the block
+        # exits the SU2 frame is restored automatically.
         with self._use_sz_frame():
             trial_mps = fci_to_mps_generic(
                 self._driver_sz, ci_v, self.ncas, self.nelec,
@@ -518,8 +524,8 @@ class CPDMRGCASSCFResponseMPS(CPCASSCFResponseFCI):
 
         out = []
         for I, (c0, w_I) in enumerate(zip(ci0, self.weights)):
-            # H_CO uses the *perturbed* active H (h1aa, aaaa), which changes at
-            # every GMRES iteration; each application builds its own MPO.
+            # H_CO uses the *perturbed* active H (h1aa, aaaa) — different
+            # for every GMRES iteration, so do not cache the MPO.
             kc0 = self._sigma_mps_via_native(
                 c0, h1aa, aaaa, tag=f"HCO-{I}", cache_key=None,
             )

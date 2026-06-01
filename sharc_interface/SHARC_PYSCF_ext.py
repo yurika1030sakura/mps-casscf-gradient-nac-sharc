@@ -794,7 +794,13 @@ at least one task"""
 
     template_dict = {}
     INTEGERS_KEYS = ["ncas", "nelecas", "roots", "grids-level", "verbose", "max-cycle-macro", "max-cycle-micro", "ah-max-cycle", "ah-start-cycle", "grad-max-cycle", "charge", "dmrg-ncas", "dmrg-nelecas", "dmrg-startm", "dmrg-maxm", "dmrg-memory-mb", "dmrg-nsteps", "dmrg-max-fci-dets", "dmrg-root-buffer", "dmrg-refine-split-roots", "dmrg-refine-sweeps", "dmrg-stack-mem-mb", "dmrg-warm-start", "dmrg-mps-native-rdms", "dmrg-first-iter-warmup", "dmrg-timing-log", "dmrg-skip-fci-conversion", "dmrg-symm-su2"]
-    STRING_KEYS = ["basis", "method", "pdft-functional"]
+    STRING_KEYS = [
+        "basis",
+        "method",
+        "pdft-functional",
+        "dmrg-active-localization",
+        "dmrg-active-order",
+    ]
     RAW_STRING_KEYS = ["dmrg-avas-labels", "dmrg-cas-list", "dmrg-grad-mode", "dmrg-response-mode"]
     FLOAT_KEYS = ["conv-tol", "conv-tol-grad", "max-stepsize", "ah-start-tol", "ah-level-shift", "ah-conv-tol", "ah-lindep", "fix-spin-shift", "dmrg-sweep-tol", "dmrg-avas-threshold", "dmrg-fd-step", "dmrg-refine-sweep-tol", "dmrg-refine-proj-weight"]
     BOOL_KEYS = ["analytic-nac", "dmrg-fixed-orbitals", "dmrg-fixed-orbital"]
@@ -847,6 +853,8 @@ at least one task"""
     # overlap with the previous accepted CI vectors.  This is system-agnostic
     # root following; it is not tied to FCI references or benchmark labels.
     template_dict["dmrg-root-buffer"] = 4
+    template_dict["dmrg-active-localization"] = "none"
+    template_dict["dmrg-active-order"] = "none"
     # After splitting a multi-root MPS, refine each candidate root
     # state-specifically before projection to PySCF CI arrays.
     template_dict["dmrg-refine-split-roots"] = 1
@@ -867,7 +875,7 @@ at least one task"""
         if key.startswith("spin"):
             template_dict["roots"][int(line[0]) - 1] = int(line[2])
 
-        elif "roots" in key:
+        elif key == "roots":
             for i, n in enumerate(line):
                 template_dict["roots"][i] = int(n)
 
@@ -1265,13 +1273,10 @@ def gen_solver(mol, qmin):
                 refine_proj_weight=float(qmin["template"].get(
                     "dmrg-refine-proj-weight", 5.0
                 )),
-                # Opt-in fast-path knobs for the SA-DMRG-CASSCF macro loop.
-                # All three default to off so existing tests and validation
-                # numbers are unchanged.
-                #   dmrg-stack-mem-mb: block2 stack memory (was 200 MB constant)
-                #   dmrg-warm-start:   reuse converged MPS across macro iter
-                #   dmrg-mps-native-rdms: route RDMs through block2 instead of
-                #                         FCI projection
+                # 10x optimization knobs (opt-in via template flags):
+                #   dmrg-stack-mem-mb: block2 stack memory (was hardcoded 200 MB)
+                #   dmrg-warm-start:  reuse converged MPS between macro iter
+                #   dmrg-mps-native-rdms: skip FCI projection in RDM eval
                 stack_mem_mb=int(qmin["template"].get(
                     "dmrg-stack-mem-mb", 200
                 )),
@@ -1281,26 +1286,32 @@ def gen_solver(mol, qmin):
                 mps_native_rdms=bool(int(qmin["template"].get(
                     "dmrg-mps-native-rdms", 0
                 ))),
-                # v7-v10 fast-path additions (all opt-in, defaults preserve
-                # the v3 path so existing tests/benchmarks are unchanged):
-                #   first-iter-warmup: HF-biased init + M ramp + no buffer
-                #                       + no refine on macro iter 1
-                #   timing-log:        per-section wall-time print to log
-                #   skip-fci-conversion: kernel returns placeholder ci, no
-                #                       O(n_dets) mps_to_fci_generic loop
-                #                       (requires mps-native-rdms=1)
-                #   symm-su2:          SU2 spin-adapted block2 DMRG; required
-                #                       when energy-sort selection (in skip-
-                #                       fci-conversion) must be spin-pure
+                # First DMRG kernel call uses HF-occupation initial MPS +
+                # bond-dim ramp + no root buffer + skip refine. Standard
+                # DMRG warm-up; ~10-20x cheaper than 30 sweeps at full M
+                # from random with full root buffer.
                 first_iter_warmup=bool(int(qmin["template"].get(
                     "dmrg-first-iter-warmup", 0
                 ))),
+                # debug instrumentation — prints per-section wall times
+                # (driver init, mpo build, dmrg sweeps, mps<->fci convert,
+                # rdm path) so the actual hot spot can be pinpointed.
                 timing_log=bool(int(qmin["template"].get(
                     "dmrg-timing-log", 0
                 ))),
+                # When on, kernel skips the O(n_dets) MPS->FCI conversion at
+                # call end and returns 1-element placeholder ndarrays whose
+                # value encodes the root index; make_rdm12 / trans_rdm12
+                # detect the placeholder and use self._kets[root_idx] via
+                # block2 NPDM. Requires dmrg-mps-native-rdms=1.
                 skip_kernel_fci_conversion=bool(int(qmin["template"].get(
                     "dmrg-skip-fci-conversion", 0
                 ))),
+                # SU2 (spin-adapted) mode for block2 DMRG. Targets requested
+                # spin sector by construction; required to make energy-sort
+                # selection in the skip_fci path safe against triplet
+                # contamination on systems where the lowest triplet sits
+                # below the target excited singlet.
                 dmrg_symm_su2=bool(int(qmin["template"].get(
                     "dmrg-symm-su2", 0
                 ))),
@@ -1319,9 +1330,6 @@ def gen_solver(mol, qmin):
                 f"warm_start={solver.fcisolver.warm_start}, "
                 f"mps_native_rdms={solver.fcisolver.mps_native_rdms}, "
                 f"first_iter_warmup={solver.fcisolver.first_iter_warmup}, "
-                f"skip_kernel_fci_conversion="
-                f"{solver.fcisolver.skip_kernel_fci_conversion}, "
-                f"dmrg_symm_su2={solver.fcisolver.dmrg_symm_su2}, "
                 f"n_dets={n_dets}) with {response_mode} analytic response.",
                 flush=True,
             )
@@ -1401,13 +1409,7 @@ def gen_solver(mol, qmin):
 
 
 class MPSOnlyRootStore:
-    """Small PySCF-compatible root store for fixed-orbital MPS-only SHARC.
-
-    The object intentionally stores block2 MPS roots, not determinant CI
-    arrays.  It provides the state and transition 1-RDM helpers needed for
-    SHARC dipoles; gradients and NACs are evaluated by
-    ``CPDMRGCASSCFResponseMPSKrylov`` through ``analytic_cp_sharc``.
-    """
+    """Small PySCF-compatible root store for fixed-orbital MPS-only SHARC."""
 
     def __init__(self, driver, mpo, kets, *, bond_dim, nroots, nelec,
                  weights=None):
@@ -1468,6 +1470,68 @@ def _refine_fixed_mps_roots(driver, mpo, kets, *, bond_dim, n_sweeps,
     return refined, energies
 
 
+def _active_orbital_centers(mol, mo):
+    r_ints = mol.intor_symmetric("int1e_r", comp=3)
+    s = mol.intor_symmetric("int1e_ovlp")
+    centers = []
+    for i in range(mo.shape[1]):
+        c = np.asarray(mo[:, i])
+        norm = float(c @ s @ c)
+        if abs(norm) < 1.0e-14:
+            centers.append(np.zeros(3))
+        else:
+            centers.append(np.array([float(c @ r_ints[k] @ c) / norm for k in range(3)]))
+    return np.asarray(centers)
+
+
+def _principal_axis_active_order(mol, centers):
+    coords = np.asarray(mol.atom_coords(), dtype=float)
+    coords = coords - coords.mean(axis=0)
+    _, _, vh = np.linalg.svd(coords, full_matrices=False)
+    projections = np.asarray(centers, dtype=float) @ vh.T
+    rounded = np.round(projections, decimals=10)
+    keys = [np.arange(rounded.shape[0], dtype=int)]
+    keys.extend(rounded[:, i] for i in range(rounded.shape[1] - 1, -1, -1))
+    return [int(i) for i in np.lexsort(tuple(keys))]
+
+
+def _apply_fixed_mps_active_transform(mol, mo_coeff, ncore, ncas, template):
+    localization = str(template.get("dmrg-active-localization", "none")).lower()
+    ordering = str(template.get("dmrg-active-order", "none")).lower()
+    if localization == "none" and ordering == "none":
+        return mo_coeff, None
+
+    active = np.asarray(mo_coeff[:, ncore:ncore + ncas]).copy()
+    if localization == "boys":
+        from pyscf import lo
+
+        active = lo.Boys(mol, active).kernel()
+    elif localization == "pipek":
+        from pyscf import lo
+
+        active = lo.PM(mol, active).kernel()
+    elif localization != "none":
+        raise ValueError(f"Unsupported dmrg-active-localization={localization!r}")
+
+    centers = _active_orbital_centers(mol, active)
+    permutation = list(range(ncas))
+    if ordering == "principal-axis":
+        permutation = _principal_axis_active_order(mol, centers)
+        active = active[:, permutation]
+        centers = centers[permutation]
+    elif ordering != "none":
+        raise ValueError(f"Unsupported dmrg-active-order={ordering!r}")
+
+    out = np.asarray(mo_coeff).copy()
+    out[:, ncore:ncore + ncas] = active
+    return out, {
+        "active_localization": localization,
+        "active_order": ordering,
+        "active_permutation": [int(x) for x in permutation],
+        "active_orbital_centers_bohr": centers.tolist(),
+    }
+
+
 def gen_fixed_orbital_mps_solver(mf, qmin):
     """Build a fixed-orbital MPS-only SA-CASSCF-like object for SHARC calls."""
     from pyblock2.driver.core import DMRGDriver, SymmetryTypes
@@ -1475,6 +1539,24 @@ def gen_fixed_orbital_mps_solver(mf, qmin):
     _ensure_dmrg_dev_path()
     ncas = int(qmin["template"]["ncas"])
     nelecas = qmin["template"]["nelecas"]
+    mo_coeff = np.asarray(mf.mo_coeff)
+    avas_labels = str(qmin["template"].get("dmrg-avas-labels", "")).strip()
+    if avas_labels:
+        from pyscf.mcscf import avas
+
+        labels = [label.strip() for label in avas_labels.split(",") if label.strip()]
+        ncas, nelecas, mo_coeff = avas.avas(
+            mf,
+            labels,
+            threshold=float(qmin["template"].get("dmrg-avas-threshold", 0.20)),
+            canonicalize=True,
+        )
+        ncas = int(ncas)
+        print(
+            "[SHARC_PYSCF_ext] fixed-orbital MPS AVAS selected "
+            f"CAS({nelecas},{ncas}) from labels {labels}.",
+            flush=True,
+        )
     if isinstance(nelecas, (tuple, list)):
         neleca, nelecb = int(nelecas[0]), int(nelecas[1])
     else:
@@ -1492,7 +1574,17 @@ def gen_fixed_orbital_mps_solver(mf, qmin):
     weights = [1.0 / nroots] * nroots
     mc = mcscf.CASSCF(mf, ncas, (neleca, nelecb))
     mc.state_average_(weights)
-    mc.mo_coeff = np.asarray(mf.mo_coeff)
+    mo_coeff, transform = _apply_fixed_mps_active_transform(
+        mf.mol, mo_coeff, int(mc.ncore), int(ncas), qmin["template"],
+    )
+    if transform is not None:
+        print(
+            "[SHARC_PYSCF_ext] fixed-orbital MPS active transform "
+            f"localization={transform['active_localization']} "
+            f"order={transform['active_order']}.",
+            flush=True,
+        )
+    mc.mo_coeff = np.asarray(mo_coeff)
 
     h1_act, ecore = mc.get_h1eff(mc.mo_coeff)
     eri_act = ao2mo.restore(1, np.asarray(mc.get_h2eff(mc.mo_coeff)), ncas)

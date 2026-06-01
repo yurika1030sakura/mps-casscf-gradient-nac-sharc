@@ -11,7 +11,7 @@ coefficients.
 
 This is **Milestone 1** of `ANALYTIC_DMRG_NAC_BACKEND_PLAN.md`. It is a
 reference implementation against which the MPS/DMRG cross-geometry overlap
-implementation must agree to numerical precision in small CAS
+prototype (later milestone) must agree to numerical precision in small CAS
 spaces.
 
 Math

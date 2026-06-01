@@ -215,12 +215,7 @@ class CPDMRGCASSCFResponseMPSKrylov(CPDMRGCASSCFResponseMPS):
 
         def add_two(ca, ma, cb, mb, out_tag):
             bra = self._copy_mps(ma, out_tag)
-            bd = max(
-                int(ma.info.bond_dim),
-                int(mb.info.bond_dim),
-                int(bra.info.bond_dim),
-                int(self._m_compress),
-            )
+            bd = max(int(ma.info.bond_dim), int(mb.info.bond_dim), int(bra.info.bond_dim))
             with self._use_su2_frame():
                 self._driver_su2.addition(
                     bra, ma, mb,
