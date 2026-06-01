@@ -57,6 +57,17 @@ def stats(record, fci_ref):
     return de, dg, dn
 
 
+def load_extended(M):
+    """Load a post-manuscript high-M cached file (orbital basis: SA-DMRG-
+    CASSCF/M=128 instead of Boys-localized).  Returns (record, fci_ref)."""
+    cands = list(DATA.glob(f"anthracene_pi14_fci_validation_highM{M}_*.json"))
+    if not cands:
+        raise FileNotFoundError(f"no high-M extension cache for M={M}")
+    with open(cands[0]) as fh:
+        d = json.load(fh)
+    return d["results"][0], d["fci_reference"]
+
+
 def main():
     print("=" * 72)
     print("Anthracene CAS(14,14)/STO-3G strict MPS-Krylov response vs FCI")
@@ -71,12 +82,14 @@ def main():
     print(f"  FCI dim = {d512['fci_dimension_det']:,d} determinants")
     print(f"  Active space: CAS{tuple(d512['active_space'])}")
     print()
+
+    print("Manuscript strict-response scan")
+    print("  (Boys-localized active orbitals, principal-axis ordered)")
     print(f"  {'M':>5}  {'|dE| (Ha)':>12}  {'Δg (E_h/Bohr)':>15}  {'Δd (a.u.)':>12}")
     print("  " + "-" * 50)
     for M in M_VALUES:
         try:
             d, fn = load(M)
-            # The "results" list typically has one entry for the combined run.
             r = d["results"][0]
             de, dg, dn = stats(r, d["fci_reference"])
             print(f"  {M:>5}  {de:>12.3e}  {dg:>15.3e}  {dn:>12.3e}")
@@ -87,6 +100,22 @@ def main():
     print("Gradients in E_h/Bohr (1 mE_h/Bohr = 1e-3 E_h/Bohr); NAC in atomic")
     print("units. Both decrease monotonically with bond dimension and match")
     print("the manuscript's reported anthracene strict-response table.")
+    print()
+
+    # Post-manuscript extension on SA-DMRG-CASSCF orbitals (different basis,
+    # different convergence rate — kept here as supplementary cached data,
+    # not as a manuscript claim).
+    print("Post-manuscript high-M extension")
+    print("  (SA-DMRG-CASSCF/M=128 orbitals — different orbital basis)")
+    print(f"  {'M':>5}  {'|dE| (Ha)':>12}  {'Δg (E_h/Bohr)':>15}  {'Δd (a.u.)':>12}")
+    print("  " + "-" * 50)
+    for M in [512, 768, 1024]:
+        try:
+            r, fr = load_extended(M)
+            de, dg, dn = stats(r, fr)
+            print(f"  {M:>5}  {de:>12.3e}  {dg:>15.3e}  {dn:>12.3e}")
+        except Exception as ex:
+            print(f"  {M:>5}  ERROR: {ex}")
 
 
 if __name__ == "__main__":

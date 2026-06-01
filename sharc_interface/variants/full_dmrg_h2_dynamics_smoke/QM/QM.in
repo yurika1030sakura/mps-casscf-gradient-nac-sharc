@@ -1,0 +1,17 @@
+     2
+           1745691248
+H    0.0000000    0.0000000   -0.4952140       0.0000000    0.0000000   -0.0057236
+H    0.0000000    0.0000000    0.4952140       0.0000000    0.0000000    0.0057236
+unit angstrom
+states   2
+dt    20.670687
+step       2
+savedir /n/home04/yulili/daisuan/prebiotic_sutherland/sharc_pyscf_casscf/variants/full_dmrg_h2_dynamics_smoke/restart
+H
+DM
+GRAD   2
+PHASES
+NACDR SELECT
+  2   2
+END
+

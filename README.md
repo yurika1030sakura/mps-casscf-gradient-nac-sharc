@@ -25,10 +25,15 @@ runs without changing the converged result.
 | `src/dmrg_analytic_dev/fci_sacasscf_nac_baseline.py` | FCI baseline NAC reference. |
 | `sharc_interface/SHARC_PYSCF_ext.py` | SHARC-PySCF method bridge — reads SHARC templates and dispatches `method dmrg-casscf`. |
 | `sharc_interface/variants/full_dmrg_ethylene_regression/` | Runnable ethylene SHARC-interface regression test. |
+| `sharc_interface/variants/full_dmrg_h2_smoke/` | H₂ single-point SHARC smoke test (template, QM input/output, submit script). |
+| `sharc_interface/variants/full_dmrg_h2_dynamics_smoke/` | H₂ short DMRG-CASSCF trajectory smoke test. |
 | `benchmarks/large_active_space/` | Fixed-orbital MPS-only response benchmarks. |
 | `benchmarks/bvoe_convergence_study/` | Convergence study driver + summary figure. |
 | `benchmarks/response_timing/` | Per-component wall-time benchmarks. |
 | `docs/manuscript_skeleton.tex`, `docs/references.bib` | Submitted-manuscript skeleton + bibliography. |
+| `docs/figures/anthracene_mps_krylov_response.pdf` | Manuscript figure for the anthracene CAS(14,14) strict MPS-Krylov response convergence. |
+| `docs/figures/workflow_architecture.pdf` | Manuscript figure for the SA-DMRG-CASSCF response workflow. |
+| `docs/si/largest_m_table_rows.tex`, `docs/si/si_endpoint_rows.tex`, `docs/si/si_reference_rows.tex` | Supplementary-information row data for the manuscript's largest-M, endpoint, and FCI-reference tables. |
 | `docs/FCI_REFERENCE_PROTOCOL.md`, `docs/ROOT_MATCHING_PROTOCOL.md`, `docs/PRODUCTION_ROOT_TRACKING.md` | Numerical protocols used by the benchmarks. |
 | `docs/ARCHITECTURE.md` | One-page map of the modules and how they call each other. |
 

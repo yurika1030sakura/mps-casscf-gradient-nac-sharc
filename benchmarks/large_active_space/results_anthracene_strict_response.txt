@@ -8,6 +8,8 @@ FCI reference (post-AVAS, gauge-fixed):
   FCI dim = 11,778,624 determinants
   Active space: CAS(14, 14)
 
+Manuscript strict-response scan
+  (Boys-localized active orbitals, principal-axis ordered)
       M     |dE| (Ha)    Δg (E_h/Bohr)     Δd (a.u.)
   --------------------------------------------------
      64     1.154e-03        1.112e-03     9.520e-03
@@ -19,3 +21,11 @@ Errors are max absolute over (states, atoms, Cartesian components).
 Gradients in E_h/Bohr (1 mE_h/Bohr = 1e-3 E_h/Bohr); NAC in atomic
 units. Both decrease monotonically with bond dimension and match
 the manuscript's reported anthracene strict-response table.
+
+Post-manuscript high-M extension
+  (SA-DMRG-CASSCF/M=128 orbitals — different orbital basis)
+      M     |dE| (Ha)    Δg (E_h/Bohr)     Δd (a.u.)
+  --------------------------------------------------
+    512     3.201e-02        2.483e-03     5.253e-02
+    768     2.023e-02        1.514e-03     2.770e-02
+   1024     1.343e-02        1.021e-03     1.713e-02
