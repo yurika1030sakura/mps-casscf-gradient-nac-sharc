@@ -1,0 +1,306 @@
+\providecommand{\latin}[1]{#1}
+\makeatletter
+\providecommand{\doi}
+  {\begingroup\let\do\@makeother\dospecials
+  \catcode`\{=1 \catcode`\}=2 \doi@aux}
+\providecommand{\doi@aux}[1]{\endgroup\texttt{#1}}
+\makeatother
+\providecommand*\mcitethebibliography{\thebibliography}
+\csname @ifundefined\endcsname{endmcitethebibliography}
+  {\let\endmcitethebibliography\endthebibliography}{}
+\begin{mcitethebibliography}{30}
+\providecommand*\natexlab[1]{#1}
+\providecommand*\mciteSetBstSublistMode[1]{}
+\providecommand*\mciteSetBstMaxWidthForm[2]{}
+\providecommand*\mciteBstWouldAddEndPuncttrue
+  {\def\EndOfBibitem{\unskip.}}
+\providecommand*\mciteBstWouldAddEndPunctfalse
+  {\let\EndOfBibitem\relax}
+\providecommand*\mciteSetBstMidEndSepPunct[3]{}
+\providecommand*\mciteSetBstSublistLabelBeginEnd[3]{}
+\providecommand*\EndOfBibitem{}
+\mciteSetBstSublistMode{f}
+\mciteSetBstMaxWidthForm{subitem}{(\alph{mcitesubitemcount})}
+\mciteSetBstSublistLabelBeginEnd
+  {\mcitemaxwidthsubitemform\space}
+  {\relax}
+  {\relax}
+
+\bibitem[Tully(1990)]{Tully1990}
+Tully,~J.~C. Molecular dynamics with electronic transitions. \emph{Journal of
+  Chemical Physics} \textbf{1990}, \emph{93}, 1061--1071\relax
+\mciteBstWouldAddEndPuncttrue
+\mciteSetBstMidEndSepPunct{\mcitedefaultmidpunct}
+{\mcitedefaultendpunct}{\mcitedefaultseppunct}\relax
+\EndOfBibitem
+\bibitem[Richter \latin{et~al.}(2011)Richter, Marquetand,
+  Gonz{\'a}lez-V{\'a}zquez, Sola, and Gonz{\'a}lez]{Richter2011SHARC}
+Richter,~M.; Marquetand,~P.; Gonz{\'a}lez-V{\'a}zquez,~J.; Sola,~I.;
+  Gonz{\'a}lez,~L. {SHARC}: ab Initio Molecular Dynamics with Surface Hopping
+  in the Adiabatic Representation Including Arbitrary Couplings. \emph{Journal
+  of Chemical Theory and Computation} \textbf{2011}, \emph{7}, 1253--1258\relax
+\mciteBstWouldAddEndPuncttrue
+\mciteSetBstMidEndSepPunct{\mcitedefaultmidpunct}
+{\mcitedefaultendpunct}{\mcitedefaultseppunct}\relax
+\EndOfBibitem
+\bibitem[Mai \latin{et~al.}(2018)Mai, Marquetand, and
+  Gonz{\'a}lez]{Mai2018SHARC}
+Mai,~S.; Marquetand,~P.; Gonz{\'a}lez,~L. Nonadiabatic dynamics: The {SHARC}
+  approach. \emph{WIREs Computational Molecular Science} \textbf{2018},
+  \emph{8}, e1370\relax
+\mciteBstWouldAddEndPuncttrue
+\mciteSetBstMidEndSepPunct{\mcitedefaultmidpunct}
+{\mcitedefaultendpunct}{\mcitedefaultseppunct}\relax
+\EndOfBibitem
+\bibitem[Fdez.~Galv{\'a}n \latin{et~al.}(2016)Fdez.~Galv{\'a}n, Delcey,
+  Pedersen, Aquilante, and Lindh]{FdezGalvan2016}
+Fdez.~Galv{\'a}n,~I.; Delcey,~M.~G.; Pedersen,~T.~B.; Aquilante,~F.; Lindh,~R.
+  Analytical State-Average Complete-Active-Space Self-Consistent Field
+  Nonadiabatic Coupling Vectors: Implementation with Density-Fitted
+  Two-Electron Integrals and Application to Conical Intersections.
+  \emph{Journal of Chemical Theory and Computation} \textbf{2016}, \emph{12},
+  3636--3653\relax
+\mciteBstWouldAddEndPuncttrue
+\mciteSetBstMidEndSepPunct{\mcitedefaultmidpunct}
+{\mcitedefaultendpunct}{\mcitedefaultseppunct}\relax
+\EndOfBibitem
+\bibitem[Yarkony(1996)]{Yarkony1996}
+Yarkony,~D.~R. Diabolical conical intersections. \emph{Reviews of Modern
+  Physics} \textbf{1996}, \emph{68}, 985--1013\relax
+\mciteBstWouldAddEndPuncttrue
+\mciteSetBstMidEndSepPunct{\mcitedefaultmidpunct}
+{\mcitedefaultendpunct}{\mcitedefaultseppunct}\relax
+\EndOfBibitem
+\bibitem[Bernardi \latin{et~al.}(1996)Bernardi, Olivucci, and
+  Robb]{Bernardi1996}
+Bernardi,~F.; Olivucci,~M.; Robb,~M.~A. Potential energy surface crossings in
+  organic photochemistry. \emph{Chemical Society Reviews} \textbf{1996},
+  \emph{25}, 321--328\relax
+\mciteBstWouldAddEndPuncttrue
+\mciteSetBstMidEndSepPunct{\mcitedefaultmidpunct}
+{\mcitedefaultendpunct}{\mcitedefaultseppunct}\relax
+\EndOfBibitem
+\bibitem[Bearpark \latin{et~al.}(1994)Bearpark, Robb, and
+  Schlegel]{Bearpark1994}
+Bearpark,~M.~J.; Robb,~M.~A.; Schlegel,~H.~B. A direct method for the location
+  of the lowest energy point on a potential surface crossing. \emph{Chemical
+  Physics Letters} \textbf{1994}, \emph{223}, 269--274\relax
+\mciteBstWouldAddEndPuncttrue
+\mciteSetBstMidEndSepPunct{\mcitedefaultmidpunct}
+{\mcitedefaultendpunct}{\mcitedefaultseppunct}\relax
+\EndOfBibitem
+\bibitem[Roos \latin{et~al.}(1980)Roos, Taylor, and Siegbahn]{Roos1980CASSCF}
+Roos,~B.~O.; Taylor,~P.~R.; Siegbahn,~P. E.~M. A complete active space {SCF}
+  method ({CASSCF}) using a density matrix formulated super-{CI} approach.
+  \emph{Chemical Physics} \textbf{1980}, \emph{48}, 157--173\relax
+\mciteBstWouldAddEndPuncttrue
+\mciteSetBstMidEndSepPunct{\mcitedefaultmidpunct}
+{\mcitedefaultendpunct}{\mcitedefaultseppunct}\relax
+\EndOfBibitem
+\bibitem[Knowles and Werner(1985)Knowles, and Werner]{KnowlesWerner1985MCSCF}
+Knowles,~P.~J.; Werner,~H.-J. An efficient second-order {MC SCF} method for
+  long configuration expansions. \emph{Chemical Physics Letters} \textbf{1985},
+  \emph{115}, 259--267\relax
+\mciteBstWouldAddEndPuncttrue
+\mciteSetBstMidEndSepPunct{\mcitedefaultmidpunct}
+{\mcitedefaultendpunct}{\mcitedefaultseppunct}\relax
+\EndOfBibitem
+\bibitem[White(1992)]{White1992DMRG}
+White,~S.~R. Density matrix formulation for quantum renormalization groups.
+  \emph{Physical Review Letters} \textbf{1992}, \emph{69}, 2863--2866\relax
+\mciteBstWouldAddEndPuncttrue
+\mciteSetBstMidEndSepPunct{\mcitedefaultmidpunct}
+{\mcitedefaultendpunct}{\mcitedefaultseppunct}\relax
+\EndOfBibitem
+\bibitem[White and Martin(1999)White, and Martin]{WhiteMartin1999DMRG}
+White,~S.~R.; Martin,~R.~L. Ab initio quantum chemistry using the density
+  matrix renormalization group. \emph{Journal of Chemical Physics}
+  \textbf{1999}, \emph{110}, 4127--4130\relax
+\mciteBstWouldAddEndPuncttrue
+\mciteSetBstMidEndSepPunct{\mcitedefaultmidpunct}
+{\mcitedefaultendpunct}{\mcitedefaultseppunct}\relax
+\EndOfBibitem
+\bibitem[Rommer and {\"O}stlund(1997)Rommer, and
+  {\"O}stlund]{RommerOstlund1997MPS}
+Rommer,~S.; {\"O}stlund,~S. Class of ansatz wave functions for one-dimensional
+  spin systems and their relation to the density matrix renormalization group.
+  \emph{Physical Review B} \textbf{1997}, \emph{55}, 2164--2181\relax
+\mciteBstWouldAddEndPuncttrue
+\mciteSetBstMidEndSepPunct{\mcitedefaultmidpunct}
+{\mcitedefaultendpunct}{\mcitedefaultseppunct}\relax
+\EndOfBibitem
+\bibitem[Chan and Head-Gordon(2002)Chan, and Head-Gordon]{ChanHeadGordon2002}
+Chan,~G. K.-L.; Head-Gordon,~M. Highly correlated calculations with a
+  polynomial cost algorithm: A study of the density matrix renormalization
+  group. \emph{Journal of Chemical Physics} \textbf{2002}, \emph{116},
+  4462--4476\relax
+\mciteBstWouldAddEndPuncttrue
+\mciteSetBstMidEndSepPunct{\mcitedefaultmidpunct}
+{\mcitedefaultendpunct}{\mcitedefaultseppunct}\relax
+\EndOfBibitem
+\bibitem[Chan and Sharma(2011)Chan, and Sharma]{ChanSharma2011}
+Chan,~G. K.-L.; Sharma,~S. The Density Matrix Renormalization Group in Quantum
+  Chemistry. \emph{Annual Review of Physical Chemistry} \textbf{2011},
+  \emph{62}, 465--481\relax
+\mciteBstWouldAddEndPuncttrue
+\mciteSetBstMidEndSepPunct{\mcitedefaultmidpunct}
+{\mcitedefaultendpunct}{\mcitedefaultseppunct}\relax
+\EndOfBibitem
+\bibitem[Sharma and Chan(2012)Sharma, and Chan]{SharmaChan2012}
+Sharma,~S.; Chan,~G. K.-L. Spin-adapted density matrix renormalization group
+  algorithms for quantum chemistry. \emph{Journal of Chemical Physics}
+  \textbf{2012}, \emph{136}, 124121\relax
+\mciteBstWouldAddEndPuncttrue
+\mciteSetBstMidEndSepPunct{\mcitedefaultmidpunct}
+{\mcitedefaultendpunct}{\mcitedefaultseppunct}\relax
+\EndOfBibitem
+\bibitem[Wouters and Van~Neck(2014)Wouters, and
+  Van~Neck]{Wouters2014DMRGReview}
+Wouters,~S.; Van~Neck,~D. The density matrix renormalization group for ab
+  initio quantum chemistry. \emph{European Physical Journal D} \textbf{2014},
+  \emph{68}, 272\relax
+\mciteBstWouldAddEndPuncttrue
+\mciteSetBstMidEndSepPunct{\mcitedefaultmidpunct}
+{\mcitedefaultendpunct}{\mcitedefaultseppunct}\relax
+\EndOfBibitem
+\bibitem[Olivares-Amaya \latin{et~al.}(2015)Olivares-Amaya, Hu, Nakatani,
+  Sharma, Yang, and Chan]{OlivaresAmaya2015DMRGPractice}
+Olivares-Amaya,~R.; Hu,~W.; Nakatani,~N.; Sharma,~S.; Yang,~J.; Chan,~G. K.-L.
+  The ab-initio density matrix renormalization group in practice. \emph{Journal
+  of Chemical Physics} \textbf{2015}, \emph{142}, 034102\relax
+\mciteBstWouldAddEndPuncttrue
+\mciteSetBstMidEndSepPunct{\mcitedefaultmidpunct}
+{\mcitedefaultendpunct}{\mcitedefaultseppunct}\relax
+\EndOfBibitem
+\bibitem[Wouters \latin{et~al.}(2014)Wouters, Poelmans, Ayers, and
+  Van~Neck]{Wouters2014CheMPS2}
+Wouters,~S.; Poelmans,~W.; Ayers,~P.~W.; Van~Neck,~D. {CheMPS2}: A free
+  open-source spin-adapted implementation of the density matrix renormalization
+  group for ab initio quantum chemistry. \emph{Computer Physics Communications}
+  \textbf{2014}, \emph{185}, 1501--1514\relax
+\mciteBstWouldAddEndPuncttrue
+\mciteSetBstMidEndSepPunct{\mcitedefaultmidpunct}
+{\mcitedefaultendpunct}{\mcitedefaultseppunct}\relax
+\EndOfBibitem
+\bibitem[Zgid and Nooijen(2008)Zgid, and Nooijen]{ZgidNooijen2008}
+Zgid,~D.; Nooijen,~M. The density matrix renormalization group self-consistent
+  field method: Orbital optimization with the density matrix renormalization
+  group method in the active space. \emph{Journal of Chemical Physics}
+  \textbf{2008}, \emph{128}, 144116\relax
+\mciteBstWouldAddEndPuncttrue
+\mciteSetBstMidEndSepPunct{\mcitedefaultmidpunct}
+{\mcitedefaultendpunct}{\mcitedefaultseppunct}\relax
+\EndOfBibitem
+\bibitem[Ghosh \latin{et~al.}(2008)Ghosh, Hachmann, Yanai, and Chan]{Ghosh2008}
+Ghosh,~D.; Hachmann,~J.; Yanai,~T.; Chan,~G. K.-L. Orbital optimization in the
+  density matrix renormalization group, with applications to polyenes and
+  beta-carotene. \emph{Journal of Chemical Physics} \textbf{2008}, \emph{128},
+  144117\relax
+\mciteBstWouldAddEndPuncttrue
+\mciteSetBstMidEndSepPunct{\mcitedefaultmidpunct}
+{\mcitedefaultendpunct}{\mcitedefaultseppunct}\relax
+\EndOfBibitem
+\bibitem[Freitag \latin{et~al.}(2019)Freitag, Ma, Baiardi, Knecht, and
+  Reiher]{Freitag2019}
+Freitag,~L.; Ma,~Y.; Baiardi,~A.; Knecht,~S.; Reiher,~M. Approximate Analytical
+  Gradients and Nonadiabatic Couplings for the State-Average Density Matrix
+  Renormalization Group Self-Consistent-Field Method. \emph{Journal of Chemical
+  Theory and Computation} \textbf{2019}, \emph{15}, 6724--6737\relax
+\mciteBstWouldAddEndPuncttrue
+\mciteSetBstMidEndSepPunct{\mcitedefaultmidpunct}
+{\mcitedefaultendpunct}{\mcitedefaultseppunct}\relax
+\EndOfBibitem
+\bibitem[Iino \latin{et~al.}(2023)Iino, Shiozaki, and Yanai]{Iino2023}
+Iino,~T.; Shiozaki,~T.; Yanai,~T. Algorithm for analytic nuclear energy
+  gradients of state averaged {DMRG-CASSCF} theory with newly derived
+  coupled-perturbed equations. \emph{Journal of Chemical Physics}
+  \textbf{2023}, \emph{158}, 054107\relax
+\mciteBstWouldAddEndPuncttrue
+\mciteSetBstMidEndSepPunct{\mcitedefaultmidpunct}
+{\mcitedefaultendpunct}{\mcitedefaultseppunct}\relax
+\EndOfBibitem
+\bibitem[Sun \latin{et~al.}(2018)Sun, Berkelbach, Blunt, Booth, Guo, Li, Liu,
+  McClain, Sayfutyarova, Sharma, Wouters, and Chan]{Sun2018PySCF}
+Sun,~Q.; Berkelbach,~T.~C.; Blunt,~N.~S.; Booth,~G.~H.; Guo,~S.; Li,~Z.;
+  Liu,~J.; McClain,~J.~D.; Sayfutyarova,~E.~R.; Sharma,~S.; Wouters,~S.;
+  Chan,~G. K.-L. {PySCF}: the Python-based simulations of chemistry framework.
+  \emph{WIREs Computational Molecular Science} \textbf{2018}, \emph{8},
+  e1340\relax
+\mciteBstWouldAddEndPuncttrue
+\mciteSetBstMidEndSepPunct{\mcitedefaultmidpunct}
+{\mcitedefaultendpunct}{\mcitedefaultseppunct}\relax
+\EndOfBibitem
+\bibitem[Sun \latin{et~al.}(2020)Sun, Zhang, Banerjee, Bao, Barbry, Blunt,
+  Bogdanov, Booth, Chen, Cui, Eriksen, Gao, Guo, Hermann, Hermes, Koh, Koval,
+  Lehtola, Li, Liu, Mardirossian, McClain, Motta, Mussard, Pham, Pulkin,
+  Purwanto, Robinson, Ronca, Sayfutyarova, Scheurer, Schurkus, Smith, Sun, Sun,
+  Upadhyay, Wagner, Wang, White, Whitfield, Williamson, Wouters, Yang, Yu, Zhu,
+  Berkelbach, Sharma, Sokolov, and Chan]{Sun2020PySCF}
+Sun,~Q.; Zhang,~X.; Banerjee,~S.; Bao,~P.; Barbry,~M.; Blunt,~N.~S.;
+  Bogdanov,~N.~A.; Booth,~G.~H.; Chen,~J.; Cui,~Z.-H.; Eriksen,~J.~J.; Gao,~Y.;
+  Guo,~S.; Hermann,~J.; Hermes,~M.~R.; Koh,~K.; Koval,~P.; Lehtola,~S.; Li,~Z.;
+  Liu,~J.; Mardirossian,~N.; McClain,~J.~D.; Motta,~M.; Mussard,~B.;
+  Pham,~H.~Q.; Pulkin,~A.; Purwanto,~W.; Robinson,~P.~J.; Ronca,~E.;
+  Sayfutyarova,~E.~R.; Scheurer,~M.; Schurkus,~H.~F.; Smith,~J. E.~T.; Sun,~C.;
+  Sun,~S.-N.; Upadhyay,~S.; Wagner,~L.~K.; Wang,~X.; White,~A.;
+  Whitfield,~J.~D.; Williamson,~M.~J.; Wouters,~S.; Yang,~J.; Yu,~J.~M.;
+  Zhu,~T.; Berkelbach,~T.~C.; Sharma,~S.; Sokolov,~A.~Y.; Chan,~G. K.-L. Recent
+  developments in the {PySCF} program package. \emph{Journal of Chemical
+  Physics} \textbf{2020}, \emph{153}, 024109\relax
+\mciteBstWouldAddEndPuncttrue
+\mciteSetBstMidEndSepPunct{\mcitedefaultmidpunct}
+{\mcitedefaultendpunct}{\mcitedefaultseppunct}\relax
+\EndOfBibitem
+\bibitem[Zhai \latin{et~al.}(2023)Zhai, Larsson, Lee, Cui, Zhu, Sun, Peng,
+  Peng, Liao, T{\"o}lle, Yang, Li, and Chan]{Zhai2023Block2}
+Zhai,~H.; Larsson,~H.~R.; Lee,~S.; Cui,~Z.-H.; Zhu,~T.; Sun,~C.; Peng,~L.;
+  Peng,~R.; Liao,~K.; T{\"o}lle,~J.; Yang,~J.; Li,~S.; Chan,~G. K.-L. {Block2}:
+  a comprehensive open source framework to develop and apply state-of-the-art
+  {DMRG} algorithms in electronic structure and beyond. \emph{Journal of
+  Chemical Physics} \textbf{2023}, \emph{159}, 234801\relax
+\mciteBstWouldAddEndPuncttrue
+\mciteSetBstMidEndSepPunct{\mcitedefaultmidpunct}
+{\mcitedefaultendpunct}{\mcitedefaultseppunct}\relax
+\EndOfBibitem
+\bibitem[Aquilante \latin{et~al.}(2020)Aquilante, Autschbach, Baiardi,
+  Battaglia, Borin, Chibotaru, Conti, De~Vico, Delcey, Fdez.~Galv{\'a}n,
+  Ferr{\'e}, Freitag, Garavelli, Gong, Knecht, Larsson, Lindh, Lundberg,
+  Malmqvist, \latin{et~al.} others]{Aquilante2020OpenMolcas}
+Aquilante,~F.; Autschbach,~J.; Baiardi,~A.; Battaglia,~S.; Borin,~V.~A.;
+  Chibotaru,~L.~F.; Conti,~I.; De~Vico,~L.; Delcey,~M.~G.;
+  Fdez.~Galv{\'a}n,~I.; Ferr{\'e},~N.; Freitag,~L.; Garavelli,~M.; Gong,~X.;
+  Knecht,~S.; Larsson,~E.~D.; Lindh,~R.; Lundberg,~M.; Malmqvist,~P.~{\AA}.;
+  others Modern quantum chemistry with {[Open]Molcas}. \emph{Journal of
+  Chemical Physics} \textbf{2020}, \emph{152}, 214117\relax
+\mciteBstWouldAddEndPuncttrue
+\mciteSetBstMidEndSepPunct{\mcitedefaultmidpunct}
+{\mcitedefaultendpunct}{\mcitedefaultseppunct}\relax
+\EndOfBibitem
+\bibitem[Szenes \latin{et~al.}(2025)Szenes, Glaser, Erakovic, Barandun,
+  M{\"o}rchen, Feldmann, Battaglia, Baiardi, and Reiher]{Szenes2025QCMaquis}
+Szenes,~K.; Glaser,~N.; Erakovic,~M.; Barandun,~V.; M{\"o}rchen,~M.;
+  Feldmann,~R.; Battaglia,~S.; Baiardi,~A.; Reiher,~M. {QCMaquis} 4.0:
+  Multipurpose Electronic, Vibrational, and Vibronic Structure and Dynamics
+  Calculations with the Density Matrix Renormalization Group. \emph{Journal of
+  Physical Chemistry A} \textbf{2025}, \emph{129}, 7549\relax
+\mciteBstWouldAddEndPuncttrue
+\mciteSetBstMidEndSepPunct{\mcitedefaultmidpunct}
+{\mcitedefaultendpunct}{\mcitedefaultseppunct}\relax
+\EndOfBibitem
+\bibitem[Saad and Schultz(1986)Saad, and Schultz]{SaadSchultz1986GMRES}
+Saad,~Y.; Schultz,~M.~H. {GMRES}: A generalized minimal residual algorithm for
+  solving nonsymmetric linear systems. \emph{SIAM Journal on Scientific and
+  Statistical Computing} \textbf{1986}, \emph{7}, 856--869\relax
+\mciteBstWouldAddEndPuncttrue
+\mciteSetBstMidEndSepPunct{\mcitedefaultmidpunct}
+{\mcitedefaultendpunct}{\mcitedefaultseppunct}\relax
+\EndOfBibitem
+\bibitem[Boys(1960)]{Boys1960}
+Boys,~S.~F. Construction of Some Molecular Orbitals to Be Approximately
+  Invariant for Changes from One Molecule to Another. \emph{Reviews of Modern
+  Physics} \textbf{1960}, \emph{32}, 296--299\relax
+\mciteBstWouldAddEndPuncttrue
+\mciteSetBstMidEndSepPunct{\mcitedefaultmidpunct}
+{\mcitedefaultendpunct}{\mcitedefaultseppunct}\relax
+\EndOfBibitem
+\end{mcitethebibliography}
