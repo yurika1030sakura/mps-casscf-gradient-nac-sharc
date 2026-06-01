@@ -1,0 +1,21 @@
+========================================================================
+Anthracene CAS(14,14)/STO-3G strict MPS-Krylov response vs FCI
+========================================================================
+
+FCI reference (post-AVAS, gauge-fixed):
+  E0 = -529.7030437226 Ha
+  E1 = -529.5556316123 Ha
+  FCI dim = 11,778,624 determinants
+  Active space: CAS(14, 14)
+
+      M     |dE| (Ha)    Δg (E_h/Bohr)     Δd (a.u.)
+  --------------------------------------------------
+     64     1.154e-03        1.112e-03     9.520e-03
+    128     8.835e-05        1.128e-04     1.126e-03
+    256     3.196e-06        1.072e-05     7.385e-05
+    512     6.406e-08        4.851e-07     3.806e-06
+
+Errors are max absolute over (states, atoms, Cartesian components).
+Gradients in E_h/Bohr (1 mE_h/Bohr = 1e-3 E_h/Bohr); NAC in atomic
+units. Both decrease monotonically with bond dimension and match
+the manuscript's reported anthracene strict-response table.

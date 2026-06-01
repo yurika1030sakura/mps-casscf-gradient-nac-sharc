@@ -23,3 +23,12 @@ At M=1024 the error is sub-mHa for the ground state and ~1.3 mHa for the
 first excited state, well inside chemical accuracy on this active space.
 
 Produced by: run_anthracene_pi14_fastpath_mscan.py
+
+High-M tail (8 CPU cores, sapphire node, follow-up job):
+   2048   -529.7026483703   -529.5547824019   3.954e-04   8.492e-04      391.5
+   4096   -529.7028943446   -529.5552631175   1.494e-04   3.685e-04      677.3
+
+The state-energy error halves per doubling of M, consistent with DMRG
+convergence on AVAS-canonical orbitals (which carry more entanglement
+than the Boys-localized orbitals used by the strict MPS-Krylov response
+benchmark).

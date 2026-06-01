@@ -131,12 +131,12 @@ dmrg-stack-mem-mb            8000
 
 ## Numerical checks
 
-### Manuscript benchmark — fixed-orbital response at M = 200
+### Manuscript benchmark, small-to-medium CAS — fixed-orbital response at M = 200
 
-The companion methods manuscript validates the analytic SA-DMRG-CASSCF
-gradient and derivative-coupling pipeline against fixed-orbital FCI
-references on nine public benchmark systems. The cached single-point
-JSONs in `benchmarks/bvoe_convergence_study/data_phase2/` reproduce the
+The methods manuscript validates the analytic SA-DMRG-CASSCF gradient
+and derivative-coupling pipeline against fixed-orbital FCI references on
+nine public benchmark systems. The cached single-point JSONs in
+`benchmarks/bvoe_convergence_study/data_phase2/` reproduce the
 manuscript's largest-M table directly:
 
 | System | Active space | Δg (mE_h / Bohr) | Δd (a.u.) |
@@ -155,15 +155,41 @@ manuscript's largest-M table directly:
 fixed-orbital FCI reference; `Δd` is the analytic derivative-coupling
 vector error between roots (0, 1). H₄ is an exact-rank check (M ≥ full
 bipartite rank ⇒ DMRG = FCI to machine precision). Across the rest the
-error sits at 10⁻⁶ to 10⁻⁴ E_h/Bohr — i.e. well below the 0.1 mE_h/Bohr
+error sits at 10⁻⁶ to 10⁻⁴ E_h/Bohr — well below the 0.1 mE_h/Bohr
 reference line used in the convergence-plot figure.
 
-Reproduce the figure from cached data:
+### Manuscript benchmark, large CAS — anthracene CAS(14,14) strict MPS-Krylov response
+
+The same response pipeline is exercised at large active space on planar
+anthracene with the AVAS-selected π active space: CAS(14,14) / STO-3G,
+FCI dimension 11,778,624 determinants. The runtime DMRG calculation
+selects spin-adapted MPS roots without using FCI CI vectors; the cached
+FCI reference is loaded only after the response solve, for post hoc
+scoring. The production rows use Boys-localized active orbitals ordered
+by the principal molecular axis (the orbital ordering matters for
+entanglement on this aromatic π system), response tolerance 10⁻⁸, and
+120 MPS-Krylov iterations per right-hand side.
+
+Reproduce from the cached strict-response JSONs:
 
 ```bash
-cd benchmarks/bvoe_convergence_study
-python plot_bvoe_phase2.py
+cd benchmarks/large_active_space
+python report_anthracene_strict_response.py
 ```
+
+| M | \|dE\| (Ha) | Δg (E_h / Bohr) | Δd (a.u.) |
+|---|---|---|---|
+|  64 | 1.15e−03 | 1.11e−03 | 9.52e−03 |
+| 128 | 8.83e−05 | 1.13e−04 | 1.13e−03 |
+| 256 | 3.20e−06 | 1.07e−05 | 7.39e−05 |
+| 512 | **6.41e−08** | **4.85e−07** | **3.81e−06** |
+
+All three error channels are monotonic over the M ∈ {64, 128, 256, 512}
+scan. At M = 512 the strict-response gradient error sits at
+5×10⁻⁷ E_h/Bohr and the derivative-coupling error at 4×10⁻⁶ a.u. — the
+same accuracy regime as the small-CAS benchmark table above, on a FCI
+space three orders of magnitude larger. This is the headline
+large-active-space response result of the manuscript.
 
 ### Spin-pure DMRG-vs-FCI equivalence on H₄
 
@@ -181,35 +207,31 @@ tests verify that the placeholder-`ci` machinery, the SU2 spin sector,
 the NPDM bypass, and the warm-start path produce bitwise the same
 physics as the legacy FCI-projection path.
 
-### Beyond the manuscript: CAS(14,14) bond-dimension scan
+### Fast-path knobs at CAS(14,14): wall-time demonstration
 
-A separate convergence demonstration on planar anthracene with the AVAS
-π14 active space — CAS(14,14)/STO-3G, FCI dimension ≈ 1.18×10⁷
-determinants per spin channel — illustrates fast-path behaviour above the
-manuscript benchmark sizes. State-averaged singlet pair, fixed-orbital
-DMRG-CASCI against a cached FCI reference
-E₀ = −529.7030437 Ha, E₁ = −529.5556316 Ha.
-Produced by `benchmarks/large_active_space/run_anthracene_pi14_fastpath_mscan.py`
-on 4 CPU cores; raw output in `results_anthracene_pi14_fastpath_mscan.txt`.
+The opt-in flags listed earlier let the same active space be reached
+without Boys localization or the MPS-Krylov response solver, by running
+DMRG-CASCI directly on AVAS-canonical orbitals. This path is faster per
+M but converges more slowly in M because AVAS-canonical orbitals carry
+more entanglement than Boys-localized orbitals — useful as a
+fast-path-knob smoke test, not a substitute for the strict-response
+benchmark above. Produced by
+`benchmarks/large_active_space/run_anthracene_pi14_fastpath_mscan.py`
+on 4–8 CPU cores; raw output in `results_anthracene_pi14_fastpath_mscan.txt`.
 
-| M | E₀ (Ha) | E₁ (Ha) | \|dE₀\| (Ha) | \|dE₁\| (Ha) | wall (s) |
-|---|---|---|---|---|---|
-|   64 | −529.6581689 | −529.4823392 | 4.49e−2 | 7.33e−2 |   8.4 |
-|  128 | −529.6832931 | −529.5167555 | 1.97e−2 | 3.89e−2 |  15.5 |
-|  256 | −529.6951117 | −529.5377081 | 7.93e−3 | 1.79e−2 |  31.0 |
-|  512 | −529.7006909 | −529.5508136 | 2.35e−3 | 4.82e−3 | 136.0 |
-| 1024 | −529.7025280 | −529.5543807 | 5.16e−4 | 1.25e−3 | 397.9 |
+| M | \|dE₀\| (Ha) | \|dE₁\| (Ha) | wall (s) |
+|---|---|---|---|
+|   64 | 4.49e−02 | 7.33e−02 |    8.4 |
+|  128 | 1.97e−02 | 3.89e−02 |   15.5 |
+|  256 | 7.93e−03 | 1.79e−02 |   31.0 |
+|  512 | 2.35e−03 | 4.82e−03 |  136.0 |
+| 1024 | 5.16e−04 | 1.25e−03 |  397.9 |
+| 2048 | 3.95e−04 | 8.49e−04 |  391.5 |
+| 4096 | 1.49e−04 | 3.69e−04 |  677.3 |
 
-The error decreases monotonically with M. On this active space (FCI
-dimension ≈ 10⁷) M = 1024 is still well below DMRG saturation: the
-ground-state energy is converged to ≈ 5×10⁻⁴ Ha (sub-mHa, chemical
-accuracy), and the excited state to ≈ 1.3 mHa. This is the operating
-regime for surface-hopping dynamics on this size of active space; tighter
-agreement with FCI at the 10⁻⁶ Ha level requires substantially larger
-M (a high-M extension at M = 2048, 4096 is included as a separate
-benchmark driver). The CAS(14,14) anthracene set is not part of the
-manuscript benchmark table above; it is provided here only as a fast-path
-demonstration on a large active space.
+The state-energy error halves per doubling of M on AVAS orbitals — the
+1000-fold reduction that Boys localization delivers in the strict-response
+table is the entanglement-structure win, not a code win.
 
 ## Citation
 
