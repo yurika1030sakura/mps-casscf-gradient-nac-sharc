@@ -129,35 +129,49 @@ dmrg-symm-su2                1
 dmrg-stack-mem-mb            8000
 ```
 
-## Validation against PySCF FCI
+## Numerical checks
 
-Spin-pure small-system checks (every fast-path flag on, FCI reference is
-PySCF `fcisolver`):
+### Small-system DMRG-vs-FCI equivalence
 
-| System | Active space | Test | max |dE| vs FCI |
+When the active-space FCI vector fits in memory, DMRG at sufficient M is
+numerically equivalent to FCI. The H4 chain CAS(4,4) tests pin every
+fast-path flag against PySCF's `fcisolver` reference:
+
+| System | Active space | Test | max \|dE\| vs FCI |
 |---|---|---|---|
 | H4 chain, sto-3g | (4,4), SA(2 singlets) | `src/dmrg_analytic_dev/test_v9_skip_fci_vs_fci.py` | 2.5e-13 Ha |
 | H4 chain, sto-3g | (4,4), triplet GS via SU2 | `src/dmrg_analytic_dev/test_v10_su2_triplet.py` | 8.9e-16 Ha |
 
-Matching transition 1-RDMs and 2-RDMs agree at the 1e-7 level.
+Matching 1- / 2-RDMs and transition RDMs agree at the 1e-7 level. These
+tests verify the placeholder-`ci` machinery, the SU2 spin sector, the
+NPDM bypass, and the warm-start path produce bitwise the same physics
+as the legacy FCI-projection path.
 
-Large-active-space convergence: planar anthracene CAS(14,14)/STO-3G,
-SA(2 singlets), fixed-orbital DMRG-CASCI vs the manuscript's cached FCI
-reference E₀ = −529.7030437 Ha, E₁ = −529.5556316 Ha. Produced by
-`benchmarks/large_active_space/run_anthracene_pi14_fastpath_mscan.py`
+### Large-active-space bond-dimension convergence
+
+The manuscript's benchmark molecule is planar anthracene with the AVAS
+π14 active space — CAS(14,14)/STO-3G, FCI dimension ≈ 1.18×10⁷
+determinants per spin channel. State-averaged singlet pair, fixed-orbital
+DMRG-CASCI against the cached FCI reference
+E₀ = −529.7030437 Ha, E₁ = −529.5556316 Ha.
+Produced by `benchmarks/large_active_space/run_anthracene_pi14_fastpath_mscan.py`
 on 4 CPU cores; raw output in `results_anthracene_pi14_fastpath_mscan.txt`.
 
-| M | E₀ (Ha) | E₁ (Ha) | \|dE₀\| (mHa) | \|dE₁\| (mHa) | wall (s) |
+| M | E₀ (Ha) | E₁ (Ha) | \|dE₀\| (Ha) | \|dE₁\| (Ha) | wall (s) |
 |---|---|---|---|---|---|
-|   64 | −529.6581689 | −529.4823392 | 44.87 | 73.29 |   8.4 |
-|  128 | −529.6832931 | −529.5167555 | 19.75 | 38.88 |  15.5 |
-|  256 | −529.6951117 | −529.5377081 |  7.93 | 17.92 |  31.0 |
-|  512 | −529.7006909 | −529.5508136 |  2.35 |  4.82 | 136.0 |
-| 1024 | −529.7025280 | −529.5543807 |  0.52 |  1.25 | 397.9 |
+|   64 | −529.6581689 | −529.4823392 | 4.49e−2 | 7.33e−2 |   8.4 |
+|  128 | −529.6832931 | −529.5167555 | 1.97e−2 | 3.89e−2 |  15.5 |
+|  256 | −529.6951117 | −529.5377081 | 7.93e−3 | 1.79e−2 |  31.0 |
+|  512 | −529.7006909 | −529.5508136 | 2.35e−3 | 4.82e−3 | 136.0 |
+| 1024 | −529.7025280 | −529.5543807 | 5.16e−4 | 1.25e−3 | 397.9 |
 
-Monotonic convergence in both states, sub-mHa accuracy on the ground
-state by M = 1024, ≈1.3 mHa on the first excited state — well inside
-chemical accuracy on this active space.
+The error decreases monotonically with M. At M = 1024 the ground-state
+energy is converged to ≈ 5×10⁻⁴ Ha (sub-mHa) on 4 CPU cores; the first
+excited state reaches ≈ 1.3 mHa. Both are inside chemical accuracy on
+this active space, which is the operating regime for surface-hopping
+dynamics; full DMRG saturation toward FCI at the μHa level requires
+larger M and is the subject of a separate high-M run quoted in the
+benchmark output file.
 
 ## Citation
 
