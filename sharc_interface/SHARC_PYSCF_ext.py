@@ -793,7 +793,7 @@ at least one task"""
         template = f.readlines()
 
     template_dict = {}
-    INTEGERS_KEYS = ["ncas", "nelecas", "roots", "grids-level", "verbose", "max-cycle-macro", "max-cycle-micro", "ah-max-cycle", "ah-start-cycle", "grad-max-cycle", "charge", "dmrg-ncas", "dmrg-nelecas", "dmrg-startm", "dmrg-maxm", "dmrg-memory-mb", "dmrg-nsteps", "dmrg-max-fci-dets", "dmrg-root-buffer", "dmrg-refine-split-roots", "dmrg-refine-sweeps", "dmrg-stack-mem-mb", "dmrg-warm-start", "dmrg-mps-native-rdms"]
+    INTEGERS_KEYS = ["ncas", "nelecas", "roots", "grids-level", "verbose", "max-cycle-macro", "max-cycle-micro", "ah-max-cycle", "ah-start-cycle", "grad-max-cycle", "charge", "dmrg-ncas", "dmrg-nelecas", "dmrg-startm", "dmrg-maxm", "dmrg-memory-mb", "dmrg-nsteps", "dmrg-max-fci-dets", "dmrg-root-buffer", "dmrg-refine-split-roots", "dmrg-refine-sweeps", "dmrg-stack-mem-mb", "dmrg-warm-start", "dmrg-mps-native-rdms", "dmrg-first-iter-warmup", "dmrg-timing-log", "dmrg-skip-fci-conversion", "dmrg-symm-su2"]
     STRING_KEYS = ["basis", "method", "pdft-functional"]
     RAW_STRING_KEYS = ["dmrg-avas-labels", "dmrg-cas-list", "dmrg-grad-mode", "dmrg-response-mode"]
     FLOAT_KEYS = ["conv-tol", "conv-tol-grad", "max-stepsize", "ah-start-tol", "ah-level-shift", "ah-conv-tol", "ah-lindep", "fix-spin-shift", "dmrg-sweep-tol", "dmrg-avas-threshold", "dmrg-fd-step", "dmrg-refine-sweep-tol", "dmrg-refine-proj-weight"]
@@ -1281,6 +1281,29 @@ def gen_solver(mol, qmin):
                 mps_native_rdms=bool(int(qmin["template"].get(
                     "dmrg-mps-native-rdms", 0
                 ))),
+                # v7-v10 fast-path additions (all opt-in, defaults preserve
+                # the v3 path so existing tests/benchmarks are unchanged):
+                #   first-iter-warmup: HF-biased init + M ramp + no buffer
+                #                       + no refine on macro iter 1
+                #   timing-log:        per-section wall-time print to log
+                #   skip-fci-conversion: kernel returns placeholder ci, no
+                #                       O(n_dets) mps_to_fci_generic loop
+                #                       (requires mps-native-rdms=1)
+                #   symm-su2:          SU2 spin-adapted block2 DMRG; required
+                #                       when energy-sort selection (in skip-
+                #                       fci-conversion) must be spin-pure
+                first_iter_warmup=bool(int(qmin["template"].get(
+                    "dmrg-first-iter-warmup", 0
+                ))),
+                timing_log=bool(int(qmin["template"].get(
+                    "dmrg-timing-log", 0
+                ))),
+                skip_kernel_fci_conversion=bool(int(qmin["template"].get(
+                    "dmrg-skip-fci-conversion", 0
+                ))),
+                dmrg_symm_su2=bool(int(qmin["template"].get(
+                    "dmrg-symm-su2", 0
+                ))),
             )
             solver.fcisolver.fix_spin_(
                 ss=0.0,
@@ -1295,6 +1318,10 @@ def gen_solver(mol, qmin):
                 f"stack_mem_mb={solver.fcisolver.stack_mem_mb}, "
                 f"warm_start={solver.fcisolver.warm_start}, "
                 f"mps_native_rdms={solver.fcisolver.mps_native_rdms}, "
+                f"first_iter_warmup={solver.fcisolver.first_iter_warmup}, "
+                f"skip_kernel_fci_conversion="
+                f"{solver.fcisolver.skip_kernel_fci_conversion}, "
+                f"dmrg_symm_su2={solver.fcisolver.dmrg_symm_su2}, "
                 f"n_dets={n_dets}) with {response_mode} analytic response.",
                 flush=True,
             )
