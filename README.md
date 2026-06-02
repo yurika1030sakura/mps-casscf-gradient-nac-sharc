@@ -155,21 +155,26 @@ same accuracy regime as the small-CAS benchmark table above, on a FCI
 space three orders of magnitude larger. This is the headline
 large-active-space response result of the manuscript.
 
-### Spin-pure DMRG-vs-FCI equivalence on H₄
+### Supplementary fast-path regression tests
 
-When the active-space FCI vector fits in memory, DMRG at sufficient M is
-numerically equivalent to FCI. The H₄ CAS(4,4) tests pin every fast-path
-flag against PySCF's `fcisolver` reference:
+The production fast-path knobs described later under [Production fast
+path](#production-fast-path) are pinned against PySCF FCI on a small
+in-memory system by two supplementary tests, kept under
+`src/dmrg_analytic_dev/supplementary/` to make clear they are
+infrastructure regressions rather than manuscript benchmarks:
 
 | System | Active space | Test | max \|dE\| vs FCI |
 |---|---|---|---|
-| H₄ chain, sto-3g | (4,4), SA(2 singlets) | `src/dmrg_analytic_dev/test_v9_skip_fci_vs_fci.py` | 2.5e−13 Ha |
-| H₄ chain, sto-3g | (4,4), triplet GS via SU2 | `src/dmrg_analytic_dev/test_v10_su2_triplet.py` | 8.9e−16 Ha |
+| H₄ chain, sto-3g | (4,4), SA(2 singlets) | `src/dmrg_analytic_dev/supplementary/test_skip_fci_conversion_vs_fci.py` | 2.5e−13 Ha |
+| H₄ chain, sto-3g | (4,4), triplet GS via SU2 | `src/dmrg_analytic_dev/supplementary/test_su2_mode_triplet.py` | 8.9e−16 Ha |
 
 Matching 1- / 2-RDMs and transition RDMs agree at the 1e−7 level. These
-tests verify that the placeholder-`ci` machinery, the SU2 spin sector,
-the NPDM bypass, and the warm-start path produce bitwise the same
-physics as the legacy FCI-projection path.
+tests are **not** part of the manuscript validation table; their job is
+to keep the placeholder-`ci` path, the SU2 spin sector, and the NPDM
+bypass numerically equivalent to the legacy FCI-projection path so the
+fast-path knobs do not silently drift under future code changes. See
+[`src/dmrg_analytic_dev/supplementary/README.md`](src/dmrg_analytic_dev/supplementary/README.md)
+for the full description.
 
 ## Production fast path
 

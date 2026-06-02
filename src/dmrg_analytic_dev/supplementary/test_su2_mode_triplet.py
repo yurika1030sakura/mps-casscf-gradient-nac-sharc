@@ -22,7 +22,7 @@ import numpy as np
 from pyscf import gto, scf, mcscf, fci
 
 ROOT = Path(__file__).resolve().parent
-sys.path.insert(0, str(ROOT))
+sys.path.insert(0, str(ROOT.parent))
 from dmrg_fcisolver import MPSAsFCISolver
 
 
