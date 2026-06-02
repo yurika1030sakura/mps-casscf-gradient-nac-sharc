@@ -13,7 +13,7 @@ sharc_interface.py — that path does not call PySCF contract_2e and is
 unaffected by the skip_kernel_fci_conversion changes.
 
 Run:
-    /n/holylabs/woo_lab/Lab/yulili_pyscf/env/bin/python3.11 test_v9_skip_fci_vs_fci.py
+    /n/holylabs/woo_lab/Lab/yulili_pyscf/env/bin/python3.11 test_skip_fci_conversion_vs_fci.py
 """
 from __future__ import annotations
 import sys
