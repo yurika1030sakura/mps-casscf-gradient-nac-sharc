@@ -793,7 +793,7 @@ at least one task"""
         template = f.readlines()
 
     template_dict = {}
-    INTEGERS_KEYS = ["ncas", "nelecas", "roots", "grids-level", "verbose", "max-cycle-macro", "max-cycle-micro", "ah-max-cycle", "ah-start-cycle", "grad-max-cycle", "charge", "dmrg-ncas", "dmrg-nelecas", "dmrg-startm", "dmrg-maxm", "dmrg-memory-mb", "dmrg-nsteps", "dmrg-max-fci-dets", "dmrg-root-buffer", "dmrg-refine-split-roots", "dmrg-refine-sweeps", "dmrg-stack-mem-mb", "dmrg-warm-start", "dmrg-mps-native-rdms", "dmrg-first-iter-warmup", "dmrg-timing-log", "dmrg-skip-fci-conversion", "dmrg-symm-su2"]
+    INTEGERS_KEYS = ["ncas", "nelecas", "roots", "grids-level", "verbose", "max-cycle-macro", "max-cycle-micro", "ah-max-cycle", "ah-start-cycle", "grad-max-cycle", "charge", "dmrg-ncas", "dmrg-nelecas", "dmrg-startm", "dmrg-maxm", "dmrg-memory-mb", "dmrg-nsteps", "dmrg-max-fci-dets", "dmrg-root-buffer", "dmrg-refine-split-roots", "dmrg-refine-sweeps", "dmrg-stack-mem-mb", "dmrg-warm-start", "dmrg-mps-native-rdms", "dmrg-first-iter-warmup", "dmrg-timing-log", "dmrg-skip-fci-conversion", "dmrg-symm-su2", "dmrg-response-max-iter"]
     STRING_KEYS = [
         "basis",
         "method",
@@ -801,8 +801,8 @@ at least one task"""
         "dmrg-active-localization",
         "dmrg-active-order",
     ]
-    RAW_STRING_KEYS = ["dmrg-avas-labels", "dmrg-cas-list", "dmrg-grad-mode", "dmrg-response-mode"]
-    FLOAT_KEYS = ["conv-tol", "conv-tol-grad", "max-stepsize", "ah-start-tol", "ah-level-shift", "ah-conv-tol", "ah-lindep", "fix-spin-shift", "dmrg-sweep-tol", "dmrg-avas-threshold", "dmrg-fd-step", "dmrg-refine-sweep-tol", "dmrg-refine-proj-weight"]
+    RAW_STRING_KEYS = ["dmrg-avas-labels", "dmrg-cas-list", "dmrg-grad-mode", "dmrg-response-mode", "dmrg-mps-persistent-dir"]
+    FLOAT_KEYS = ["conv-tol", "conv-tol-grad", "max-stepsize", "ah-start-tol", "ah-level-shift", "ah-conv-tol", "ah-lindep", "fix-spin-shift", "dmrg-sweep-tol", "dmrg-avas-threshold", "dmrg-fd-step", "dmrg-refine-sweep-tol", "dmrg-refine-proj-weight", "dmrg-response-tol"]
     BOOL_KEYS = ["analytic-nac", "dmrg-fixed-orbitals", "dmrg-fixed-orbital"]
 
     template_dict["roots"] = [0 for _ in range(8)]
@@ -1315,6 +1315,16 @@ def gen_solver(mol, qmin):
                 dmrg_symm_su2=bool(int(qmin["template"].get(
                     "dmrg-symm-su2", 0
                 ))),
+                # Cross-step persistent MPS cache. When set to a directory
+                # path (typically ``${SAVEDIR}/dmrg_mps_xstep``), block2
+                # scratch lives there across SHARC nuclear steps; the
+                # converged multi-root MPS saved at step N is loaded as the
+                # warm-start initial guess at step N+1. Cuts macro iter
+                # counts from cold ~30 to warm ~2-4. Required for
+                # CAS(20+,16+) geometry optimization / NACMD to be tractable.
+                mps_persistent_dir=qmin["template"].get(
+                    "dmrg-mps-persistent-dir"
+                ) or None,
             )
             solver.fcisolver.fix_spin_(
                 ss=0.0,
@@ -1853,6 +1863,22 @@ def run_calc(qmin):
         if isinstance(solver, HybridDMRGSharcSolver):
             mc_for_cp = getattr(solver, "mc", solver)
 
+        # Response solver tol + max_iter: defaults of 1e-8 / 500 inside
+        # cp_dmrg_response_mps_krylov are way too tight for production
+        # SHARC runs (residual stagnates at the MPS/RDM noise floor and
+        # GMRES loops to max_iter, taking ~hours per RHS without printing).
+        # Expose template-level knobs with production-reasonable defaults.
+        _resp_tol = float(qmin.get("template", {}).get(
+            "dmrg-response-tol", 1.0e-5,
+        ))
+        _resp_max_iter = int(qmin.get("template", {}).get(
+            "dmrg-response-max-iter", 50,
+        ))
+        print(
+            f"[SHARC_PYSCF_ext] analytic-cp dispatch: tol={_resp_tol:.1e}, "
+            f"max_iter={_resp_max_iter}",
+            flush=True,
+        )
         cp_results = compute_grad_nac_analytic_cp(
             mc_for_cp,
             gradient_states=grad_zb,
@@ -1860,6 +1886,8 @@ def run_calc(qmin):
             backend=str(qmin.get("template", {}).get(
                 "dmrg-response-mode", "newton_casscf",
             )),
+            tol=_resp_tol,
+            max_iter=_resp_max_iter,
         )
         grad_list, nac_arr, e = fill_grad_nac_arrays(solver, qmin, cp_results)
         if qmin["gradmap"]:
