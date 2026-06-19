@@ -181,6 +181,19 @@ def run_one(n_carbon, *, basis="sto-3g", bond_dim=800, threads=8,
 
     cfg = beyond_fci_solver_cfg(ncas, bond_dim, threads, stack_mem_mb)
 
+    # Hard guard: above the FCI threshold the determinant space cannot be formed,
+    # so a dense MPS->FCI conversion or an FCI-overlap root tracker would either
+    # exhaust memory or silently fall back to a wrong answer.  Make that
+    # impossible rather than improbable -- the JSON below records these flags and
+    # the rebuttal relies on them being true for the beyond-FCI rows.
+    if beyond_fci:
+        assert cfg["skip_kernel_fci_conversion"] is True, \
+            f"det_dim={ddim:.3e} > {FCI_THRESHOLD:.1e} but FCI conversion is on"
+        assert cfg["mps_native_rdms"] is True, \
+            f"det_dim={ddim:.3e} > {FCI_THRESHOLD:.1e} but RDMs are not MPS-native"
+        assert track in ("gap_guard", "mps_subspace"), \
+            f"det_dim={ddim:.3e} > {FCI_THRESHOLD:.1e} requires FCI-free root tracking"
+
     t0 = time.perf_counter()
     _mol, _mf, mc, solver = fdv.build_sa_dmrg_casscf(
         symbols, coords_bohr, basis=basis, charge=0, spin=0,
