@@ -202,9 +202,9 @@ sweep took ~3 s — making SA-DMRG-CASSCF macro iteration effectively
 impossible at sizes the manuscript's fixed-orbital benchmark holds
 constant. The flags below bypass that path while preserving the
 converged physics; H₄ CAS(4,4) regressions
-(`src/dmrg_analytic_dev/test_v9_skip_fci_vs_fci.py`,
-`test_v10_su2_triplet.py`) pin them against PySCF FCI to machine
-precision.
+(`src/dmrg_analytic_dev/supplementary/test_skip_fci_conversion_vs_fci.py`,
+`supplementary/test_su2_mode_triplet.py`) pin them against PySCF FCI to
+machine precision.
 
 All flags default off. With every flag off the code path is the draft
 benchmark configuration; enable them only when the macro loop or a

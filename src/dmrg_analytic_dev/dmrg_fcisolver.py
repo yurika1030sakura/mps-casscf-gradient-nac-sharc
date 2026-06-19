@@ -876,6 +876,26 @@ class MPSAsFCISolver(lib.StreamObject):
                     self._xstep_tag_prefix + "MULTIROOT",
                     nroots=n_solve_roots,
                 )
+                # Verify the loaded MPS targets the current orbital count.
+                # AVAS can pick a different active-space size at a perturbed
+                # geometry (e.g. CAS(16,12) at step 0, CAS(16,11) at step 1),
+                # in which case the saved MPS's bond/site dimensions are
+                # incompatible with the new MPO and driver.dmrg() segfaults.
+                # Probe loaded[0].n_sites (multi-root list) or loaded.n_sites
+                # (single MPS) and bail out cleanly on mismatch.
+                try:
+                    probe = loaded[0] if hasattr(loaded, "__getitem__") else loaded
+                    loaded_nsites = int(getattr(probe, "n_sites"))
+                except Exception:
+                    loaded_nsites = None
+                if loaded_nsites is not None and loaded_nsites != norb:
+                    print(
+                        f"[MPSAsFCISolver] cross-step warm: MPS norb mismatch "
+                        f"({loaded_nsites} loaded vs {norb} current); "
+                        f"discarding warm-load and using fresh init.",
+                        flush=True,
+                    )
+                    raise ValueError(f"MPS norb mismatch: {loaded_nsites} != {norb}")
                 self._warm_multiroot_ket = loaded
                 self._warm_kets = None  # force re-split after DMRG
                 self._warm_norb = norb
@@ -893,8 +913,9 @@ class MPSAsFCISolver(lib.StreamObject):
                     flush=True,
                 )
             except Exception as e:
-                # First call after a fresh persistent_dir, or no prior MPS
-                # was saved yet — silently fall through to standard init.
+                # First call after a fresh persistent_dir, no prior MPS was
+                # saved yet, or a norb mismatch detected above — silently fall
+                # through to standard init.
                 if self.timing_log:
                     print(
                         f"[MPSAsFCISolver] cross-step warm: load failed "
