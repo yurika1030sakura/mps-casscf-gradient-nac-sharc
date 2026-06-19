@@ -1,0 +1,23 @@
+{
+  "benchmark": "sweep_schur_vs_global_mps_krylov_scaling",
+  "results": [
+    {
+      "system": "heh_cas22",
+      "ncas": 2,
+      "nelecas": 2,
+      "basis": "3-21G",
+      "bond_dim": 400,
+      "global_wall_s": 1.0891316790002747,
+      "schur_wall_s": 0.5255254309995507,
+      "speedup_global_over_schur": 2.072462367670283,
+      "global_niter": 6,
+      "schur_applies": 5,
+      "schur_orb_dim": 4,
+      "global_residual": 1.7883123216940776e-15,
+      "schur_true_residual_rel": 5.9031137282987575e-15,
+      "diff_kappa_global_vs_schur": 7.796612332912425e-17,
+      "diff_ci_global_vs_schur": 6.014692867026272e-15,
+      "agree": true
+    }
+  ]
+}

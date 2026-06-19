@@ -1,0 +1,27 @@
+{
+  "name": "cross_geometry_transport_requirement_heh_cas22",
+  "h_bohr": 0.001,
+  "rebuilt_offdiagonal": 1.734723475976807e-18,
+  "exact_offdiagonal": 2.09969746308436e-05,
+  "finding": "fci->mps round-trip drops the O(1e-5) finite-difference components; production needs cross-driver MPS transport",
+  "O_rebuilt": [
+    [
+      1.0000000000000002,
+      -1.734723475976807e-18
+    ],
+    [
+      1.734723475976807e-18,
+      1.0
+    ]
+  ],
+  "O_exact": [
+    [
+      0.9999999997788566,
+      -2.0996879532272222e-05
+    ],
+    [
+      -2.09969746308436e-05,
+      -0.9999999965868179
+    ]
+  ]
+}
