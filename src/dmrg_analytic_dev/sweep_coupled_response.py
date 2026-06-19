@@ -81,6 +81,7 @@ def solve_state_sweep_schur(
     ci_tol: float = 1.0e-11,
     solver_type: str = "MinRes",
     proj_weight: float = 1.0e3,
+    residual_tol: float | None = None,
 ):
     """Solve the CP response for ``state`` by the sweep-localized Schur method.
 
@@ -104,12 +105,34 @@ def solve_state_sweep_schur(
             solver_type=solver_type, proj_weight=proj_weight,
         )
 
-    # --- build dense H_OO once by probing (orbital space is small) ---
+    # --- build dense H_OO once by probing (small relative to the determinant
+    #     space; absolute size depends on the orbital partition) ---
     M_OO = np.zeros((n_orb, n_orb))
     for k in range(n_orb):
         e = np.zeros(n_orb); e[k] = 1.0
         kap = obj._canonical_kappa(unpack(e))
         M_OO[:, k] = pack(obj._canonical_kappa(obj.H_OO_apply(kap)))
+
+    # symmetric eigendecomposition for a regularized (pseudo-inverse)
+    # orbital preconditioner -- robust to a near-singular orbital Hessian
+    A_sym = 0.5 * (M_OO + M_OO.T)
+    hoo_w, hoo_V = np.linalg.eigh(A_sym)
+    hoo_scale = max(1.0, float(np.max(np.abs(hoo_w))))
+    hoo_keep = np.abs(hoo_w) > 1.0e-8 * hoo_scale
+
+    def hoo_precond(y):
+        c = hoo_V.T @ np.asarray(y)
+        c = np.where(hoo_keep, c / np.where(hoo_keep, hoo_w, 1.0), 0.0)
+        return hoo_V @ c
+
+    kept = hoo_w[hoo_keep]
+    hoo_diag = {
+        "HOO_eig_min_abs": float(np.min(np.abs(hoo_w))),
+        "HOO_eig_max_abs": float(np.max(np.abs(hoo_w))),
+        "HOO_rank_eff": int(np.count_nonzero(hoo_keep)),
+        "HOO_cond_eff": (float(np.max(np.abs(kept)) / np.min(np.abs(kept)))
+                         if kept.size else None),
+    }
 
     # --- Schur RHS:  b_kappa - H_OC H_CC^{-1} b_C ---
     binv = Hcc_inv(b_ci)
@@ -131,8 +154,7 @@ def solve_state_sweep_schur(
     S = spla.LinearOperator((n_orb, n_orb), matvec=schur_matvec)
     z_packed, orb_info = spla.gmres(
         S, rhs_schur, rtol=orb_tol, atol=0.0, maxiter=orb_max_iter,
-        M=spla.LinearOperator((n_orb, n_orb),
-                              matvec=lambda y: np.linalg.solve(M_OO, y)),
+        M=spla.LinearOperator((n_orb, n_orb), matvec=hoo_precond),
     )
     z_kappa = obj._canonical_kappa(unpack(z_packed))
 
@@ -165,12 +187,16 @@ def solve_state_sweep_schur(
         + sum(max(obj._mps_overlap(c, c), 0.0) for c in b_ci)
     ))
     rel_res = res_norm / max(b_norm, 1.0e-30)
-    info = 0 if rel_res < max(orb_tol * 10, 1.0e-6) else 1
+    resid_tol = (float(residual_tol) if residual_tol is not None
+                 else max(10.0 * orb_tol, 1.0e-8))
+    info = 0 if rel_res < resid_tol else 1
     meta = {
         "method": "sweep_schur",
         "orb_dim": int(n_orb),
         "orb_gmres_info": int(orb_info),
         "schur_applies": int(n_schur_applies["count"]),
         "true_residual_rel": rel_res,
+        "residual_tol_used": resid_tol,
     }
+    meta.update(hoo_diag)
     return z_kappa, z_C, info, meta

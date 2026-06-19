@@ -3,9 +3,9 @@
   "system": "HeH+ / 3-21G / CAS(2,2) / SA(2)",
   "result": {
     "name": "SCHUR_matches_global",
-    "diff_kappa_vs_global": 8.704388832005821e-16,
+    "diff_kappa_vs_global": 8.704094966585146e-16,
     "diff_ci_vs_global": 4.092971621350028e-15,
-    "true_residual_rel": 2.241809569964308e-15,
+    "true_residual_rel": 2.2529237439692586e-15,
     "orb_dim": 4,
     "schur_applies": 5,
     "info_schur": 0,
