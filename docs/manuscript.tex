@@ -302,7 +302,14 @@ Schur system
 The orbital Schur system has the dimension of the orbital-rotation space (four
 variables for the HeH$^+$ example below) and is solved with a dense iterative
 solver, each application of the Schur operator requiring one
-$\mathbf{H}_{CC}^{-1}$ evaluation.  Every $\mathbf{H}_{CC}^{-1}$ application is a
+$\mathbf{H}_{CC}^{-1}$ evaluation.  In the present implementation the orbital
+block $\mathbf{H}_{\kappa\kappa}$ is formed explicitly by probing, and the
+orbital preconditioner is built from its symmetric eigendecomposition with a
+relative cutoff, so that a near-singular orbital Hessian is handled by a
+pseudo-inverse rather than a direct solve; this is appropriate for the
+orbital-rotation spaces of the systems studied here, and a matrix-free orbital
+block would be required before the same construction is applied to much larger
+orbital spaces.  Every $\mathbf{H}_{CC}^{-1}$ application is a
 shifted linear-response equation in the active space, $(H_{\mathrm{cas}}-E_I)\,v
 = w$ with $v$ orthogonal to the reference root, which is solved as a
 sweep-localized correction-vector problem by the MPS linear solver of
@@ -316,7 +323,12 @@ orbital/MPS vectors that are orthogonalized by MPS overlaps and recombined by
 MPS addition.  The two routes solve the same linear system and, on the HeH$^+$
 CAS(2,2) reference, agree to machine precision (orbital response and active-space
 response matching the global solver to $9\times10^{-16}$ and $4\times10^{-15}$,
-with a coupled-system residual of $2\times10^{-15}$).
+with a coupled-system residual of $2\times10^{-15}$).  The sweep-localized route
+is presented here as an alternative to the global MPS-Krylov solver rather than
+as a replacement for it; the wall-time of the two routes as the active and
+orbital spaces grow is reported in the scaling study of
+Section~\ref{sec:results}, and which route is preferable depends on the relative
+size of the orbital and active-space blocks.
 
 \section{Implementation}
 
@@ -499,6 +511,7 @@ Benzene & STO-3G, 3-21G, 6-31G & CAS(6,6) & Aromatic $\pi$-space benchmark \\
 \end{table}
 
 \section{Results and Discussion}
+\label{sec:results}
 
 \subsection{Validation Against FCI Active-Space References}
 

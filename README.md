@@ -2,15 +2,17 @@
 
 Analytic state-averaged DMRG-CASSCF energies, nuclear gradients, and
 non-adiabatic couplings on top of `pyblock2` / `block2`, with a SHARC-PySCF
-interface for direct surface-hopping dynamics. The coupled-perturbed
-response solver runs in MPS space (MPS-Krylov), so no dense FCI response
-vector is ever stored — the method reaches CAS active spaces well beyond
-the conventional FCI ceiling while keeping fully analytic gradients and
+interface that emits SHARC-format output (`H`, `DM`, `GRAD`, `NACDR`,
+`PHASES`) for surface-hopping dynamics. The coupled-perturbed response
+solver runs in MPS space (MPS-Krylov), so no dense FCI response vector is
+ever stored — the active-space response is carried by the MPS, which lets
+the active space exceed the determinant sizes where a dense FCI response
+vector is tractable, while keeping fully analytic gradients and
 non-adiabatic couplings.
 
-The default code path reproduces the submitted-manuscript numerics. The
-fast-path flags described below reduce per-call wall time for production
-runs without changing the converged result.
+The default code path reproduces the accompanying manuscript's numerics.
+The fast-path flags described below reduce per-call wall time for
+production runs without changing the converged result.
 
 ## What's here
 
@@ -30,8 +32,8 @@ runs without changing the converged result.
 | `benchmarks/large_active_space/` | Fixed-orbital MPS-only response benchmarks. |
 | `benchmarks/bvoe_convergence_study/` | Convergence study driver + summary figure. |
 | `benchmarks/response_timing/` | Per-component wall-time benchmarks. |
-| `docs/manuscript.tex` + `manuscript.bbl`, `docs/references.bib` | Submitted manuscript source and bibliography. |
-| `docs/supporting_information.tex` + `supporting_information.bbl` | Submitted Supporting Information source. |
+| `docs/manuscript.tex` + `manuscript.bbl`, `docs/references.bib` | Manuscript source and bibliography. |
+| `docs/supporting_information.tex` + `supporting_information.bbl` | Supporting Information source. |
 | `docs/figures/anthracene_mps_krylov_response.pdf` | Manuscript figure for the anthracene CAS(14,14) strict MPS-Krylov response convergence. |
 | `docs/figures/workflow_architecture.pdf` | Manuscript figure for the SA-DMRG-CASSCF response workflow. |
 | `docs/si/largest_m_table_rows.tex`, `si_endpoint_rows.tex`, `si_reference_rows.tex`, `si_scan_summary_rows.tex` | SI row data for the largest-M response, fixed-orbital endpoint, FCI reference, and scan summary tables. |
