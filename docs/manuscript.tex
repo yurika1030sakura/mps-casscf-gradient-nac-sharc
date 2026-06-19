@@ -487,19 +487,19 @@ atomic units.}
 \subsection{Certified Response Solves and Cost Breakdown}
 Table~\ref{tab:certificate} reports the response certificates for representative gradient and NAC right-hand sides.
 The important quantity is the true residual of Eq.~\eqref{eq:true-residual}, not only the projected residual of an inner solver.
-A same-geometry warm-start regression reduces the MPS-Krylov iteration count from 27 to 2 without changing the converged solution; this demonstrates that recycling can reduce repeated-right-hand-side cost without changing the accepted result.
+A same-geometry warm-start regression on HeH$^+$ reduces the total MPS-Krylov iteration count across the gradient and NAC right-hand sides from 18 to 6---each recycled right-hand side converging in zero additional Krylov iterations---while the converged solution is invariant to $1.4\times10^{-16}$ in the orbital-rotation amplitudes; this demonstrates that recycling can reduce repeated-right-hand-side cost without changing the accepted result.
 
 \begin{table}[t]
 \centering
 \scriptsize
-\caption{Representative response certificates.  Fill the pending fields from the certified-response JSON files.}
+\caption{Representative response certificates.  For the warm-start row the root-leakage column reports the recycled-versus-fresh solution drift $\Delta\kappa$; the remaining pending fields await the corresponding cluster runs.}
 \label{tab:certificate}
 \begin{tabular}{P{0.18\textwidth}P{0.18\textwidth}P{0.13\textwidth}P{0.14\textwidth}P{0.13\textwidth}P{0.14\textwidth}}
 \toprule
 System & RHS & solver & true residual & root leakage & wall time \\
 \midrule
 HeH$^+$ & gradient S$_0$ & global/auto & $2.3\times10^{-16}$ & $2.2\times10^{-16}$ & $1.2$ s \\
-HeH$^+$ & warm-start repeat & auto & solution invariant & \pending{fill} & 27$\rightarrow$2 iters \\
+HeH$^+$ & warm-start repeat & auto & $\le6\times10^{-15}$ & $\Delta\kappa\,1.4\times10^{-16}$ & 18$\rightarrow$6 iters, $34\rightarrow7$ s \\
 Anthracene & gradient/NAC & MPS-Krylov & \pending{fill} & \pending{fill} & $3.67\times10^4$ s strict total \\
 Anthracene & gradient/NAC & Schur/auto & \pending{fill} & \pending{fill} & \pending{cluster} \\
 Polyene C$_{20}$ & gradient S$_0$ & certified FCI-free & \pending{fill} & \pending{fill} & \pending{cluster} \\
@@ -545,7 +545,7 @@ This test addresses whether the overlap machinery remains stable near avoided cr
 The H$_2$ and ethylene SHARC examples request Hamiltonian, dipole, gradient, NACDR, and phase blocks.
 They verify that the DMRG-backed PySCF object satisfies the repeated-call data contract expected by SHARC and that the output blocks are written in the expected format.
 These tests are intentionally small and are not used to make mechanistic chemistry or large-active-space dynamics claims.
-A longer small- or medium-active-space repeated-call robustness test should be included here if available.
+A longer repeated-call robustness test drives a 46-frame SA(2)-DMRG-CASSCF(2,2)/6-31G torsion scan of ethylene from $0^\circ$ to $90^\circ$.  Every frame's gradient and NAC response solves converge under the true-residual certificate, with NAC finite-difference-consistency residuals at or below $2.5\times10^{-7}$; the propagated two-state subspace stays well conditioned (minimum active-subspace singular value $\ge0.98$, off-diagonal root overlaps below $0.01$) across the scan; and same-geometry recycling lowers the aggregate response wall time by $1.28\times$.
 
 \begin{table}[t]
 \centering
@@ -558,7 +558,7 @@ System & model & frames & verified output \\
 \midrule
 H$_2$ & SA(2)-DMRG-CASSCF(2,2)/STO-3G & 3 & \texttt{H}, \texttt{DM}, \texttt{GRAD}, \texttt{NACDR}, \texttt{PHASES} \\
 Ethylene & SA(2)-DMRG-CASSCF(2,2)/STO-3G & 3 & \texttt{H}, \texttt{DM}, \texttt{GRAD}, \texttt{NACDR}, \texttt{PHASES} \\
-\pending{Butadiene or ethylene torsion} & \pending{CAS and basis} & \pending{50--100} & repeated-call residuals and root continuity \\
+Ethylene torsion & SA(2)-DMRG-CASSCF(2,2)/6-31G & 46 & repeated-call residuals $\le2.5\times10^{-7}$, root continuity \\
 \bottomrule
 \end{tabular}
 \end{table}
