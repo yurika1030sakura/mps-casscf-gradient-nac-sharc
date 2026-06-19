@@ -1238,6 +1238,7 @@ class CPDMRGCASSCFResponseMPSKrylov(CPDMRGCASSCFResponseMPS):
         y_best = None
         n_best = 0
         residual = beta
+        true_converged = False
         solve_t0 = time.perf_counter()
 
         for j in range(max_iter):
@@ -1264,14 +1265,51 @@ class CPDMRGCASSCFResponseMPSKrylov(CPDMRGCASSCFResponseMPS):
             y_best = y
             n_best = j + 1
             self.timing.add("gmres_iter", 0.0, iter=j + 1, residual=residual)
+
+            projected_converged = (residual <= conv_abs or residual <= conv_rel)
+            lucky_breakdown = h[j + 1, j] <= 1.0e-13
+            true_residual = None
+            if projected_converged or lucky_breakdown:
+                # The projected (Arnoldi) residual ||e1 - H y|| is only equal to
+                # the true residual ||rhs - A x|| when the basis is exactly
+                # orthonormal and A Q = Q H holds exactly. Lossy MPS addition
+                # (and any recycled guess or preconditioner that reshapes the
+                # basis) breaks that, so the projected estimate can be
+                # optimistic. Verify the explicit residual before stopping.
+                cand = self.vector_linear_combination(
+                    [(float(y[i]), q[i]) for i in range(j + 1)],
+                    label=f"GMRES-CAND{j}",
+                )
+                t_res = time.perf_counter()
+                true_residual = rhs.add_scaled(
+                    self.matvec_mps(cand), -1.0, label=f"GMRES-TRUERES{j}",
+                ).norm()
+                self._add_timing(
+                    "gmres_true_residual_check", time.perf_counter() - t_res,
+                )
+                self.timing.add(
+                    "gmres_true_residual", 0.0, iter=j + 1,
+                    projected=residual, true=true_residual,
+                )
+
             if self._verbose_solver:
+                extra = (f" true={true_residual:.3e}"
+                         if true_residual is not None else "")
                 print(
-                    f"  MPS-GMRES iter {j + 1}: residual={residual:.3e}",
+                    f"  MPS-GMRES iter {j + 1}: residual={residual:.3e}{extra}",
                     flush=True,
                 )
-            if residual <= conv_abs or residual <= conv_rel:
+
+            if true_residual is not None and (
+                true_residual <= conv_abs or true_residual <= conv_rel
+            ):
+                residual = true_residual
+                true_converged = True
                 break
-            if h[j + 1, j] <= 1.0e-13:
+            if lucky_breakdown and true_residual is not None:
+                # exact-arithmetic breakdown but true residual still above tol:
+                # the Krylov space is exhausted, stop with the honest residual
+                residual = true_residual
                 break
 
         assert y_best is not None
@@ -1290,6 +1328,15 @@ class CPDMRGCASSCFResponseMPSKrylov(CPDMRGCASSCFResponseMPS):
                 label="SOL-X0",
             )
             self._add_timing("initial_guess_solution_merge", time.perf_counter() - t0)
+        if not true_converged:
+            # Exited on max_iter or projected-only: report the honest residual
+            # of the assembled correction against the (shifted) RHS.
+            t_res = time.perf_counter()
+            residual = rhs.add_scaled(
+                self.matvec_mps(correction), -1.0, label="GMRES-FINALRES",
+            ).norm()
+            self._add_timing("gmres_true_residual_check",
+                             time.perf_counter() - t_res)
         converged = residual <= conv_abs or residual <= conv_rel
         info = 0 if converged else max_iter
         if len(q) >= n_best + 1:
