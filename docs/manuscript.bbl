@@ -236,8 +236,17 @@ Sun,~Q.; Berkelbach,~T.~C.; Blunt,~N.~S.; Booth,~G.~H.; Guo,~S.; Li,~Z.;
   Purwanto, Robinson, Ronca, Sayfutyarova, Scheurer, Schurkus, Smith, Sun, Sun,
   Upadhyay, Wagner, Wang, White, Whitfield, Williamson, Wouters, Yang, Yu, Zhu,
   Berkelbach, Sharma, Sokolov, and Chan]{Sun2020PySCF}
-Sun,~Q. \latin{et~al.}  Recent developments in the {PySCF} program package.
-  \emph{Journal of Chemical Physics} \textbf{2020}, \emph{153}, 024109\relax
+Sun,~Q.; Zhang,~X.; Banerjee,~S.; Bao,~P.; Barbry,~M.; Blunt,~N.~S.;
+  Bogdanov,~N.~A.; Booth,~G.~H.; Chen,~J.; Cui,~Z.-H.; Eriksen,~J.~J.; Gao,~Y.;
+  Guo,~S.; Hermann,~J.; Hermes,~M.~R.; Koh,~K.; Koval,~P.; Lehtola,~S.; Li,~Z.;
+  Liu,~J.; Mardirossian,~N.; McClain,~J.~D.; Motta,~M.; Mussard,~B.;
+  Pham,~H.~Q.; Pulkin,~A.; Purwanto,~W.; Robinson,~P.~J.; Ronca,~E.;
+  Sayfutyarova,~E.~R.; Scheurer,~M.; Schurkus,~H.~F.; Smith,~J. E.~T.; Sun,~C.;
+  Sun,~S.-N.; Upadhyay,~S.; Wagner,~L.~K.; Wang,~X.; White,~A.;
+  Whitfield,~J.~D.; Williamson,~M.~J.; Wouters,~S.; Yang,~J.; Yu,~J.~M.;
+  Zhu,~T.; Berkelbach,~T.~C.; Sharma,~S.; Sokolov,~A.~Y.; Chan,~G. K.-L. Recent
+  developments in the {PySCF} program package. \emph{Journal of Chemical
+  Physics} \textbf{2020}, \emph{153}, 024109\relax
 \mciteBstWouldAddEndPuncttrue
 \mciteSetBstMidEndSepPunct{\mcitedefaultmidpunct}
 {\mcitedefaultendpunct}{\mcitedefaultseppunct}\relax
