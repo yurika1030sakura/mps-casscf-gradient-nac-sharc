@@ -65,10 +65,13 @@ SYSTEMS = {
 }
 
 
-def run_one(key, *, bond_dim=400, tol=1.0e-8):
+def run_one(key, *, bond_dim=400, tol=1.0e-8, n_threads=1, stack_mem_mb=None):
     s = SYSTEMS[key]
     cfg = dict(fdv.DEFAULT_SOLVER_CFG)
-    cfg.update(bond_dim=bond_dim, n_sweeps=30, sweep_tol=1.0e-10)
+    cfg.update(bond_dim=bond_dim, n_sweeps=30, sweep_tol=1.0e-10,
+               n_threads=int(n_threads))
+    if stack_mem_mb is not None:
+        cfg["stack_mem_mb"] = int(stack_mem_mb)
     coords_bohr = s["coords_ang"] * ANG
     _mol, _mf, mc, _solver = fdv.build_sa_dmrg_casscf(
         s["atoms"], coords_bohr, basis=s["basis"], charge=s["charge"],
@@ -123,13 +126,17 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--only", default=None, help="run a single system key")
     ap.add_argument("--bond-dim", type=int, default=400)
+    ap.add_argument("--threads", type=int, default=1)
+    ap.add_argument("--stack-mem-mb", type=int, default=None)
+    ap.add_argument("--out", default=None, help="output json path")
     args = ap.parse_args()
     keys = [args.only] if args.only else list(SYSTEMS)
     results = []
     for key in keys:
         print(f"=== {key} ===", flush=True)
         try:
-            r = run_one(key, bond_dim=args.bond_dim)
+            r = run_one(key, bond_dim=args.bond_dim, n_threads=args.threads,
+                        stack_mem_mb=args.stack_mem_mb)
             print(json.dumps(r, indent=2), flush=True)
         except Exception as exc:
             r = {"system": key, "status": "error",
@@ -137,8 +144,8 @@ def main():
                  "traceback_tail": traceback.format_exc()[-2500:]}
             print(f"  ERROR {key}: {exc}", flush=True)
         results.append(r)
-    out = _HERE / "data" / "schur_vs_global_scaling.json"
-    out.parent.mkdir(exist_ok=True)
+    out = Path(args.out) if args.out else _HERE / "data" / "schur_vs_global_scaling.json"
+    out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps({
         "benchmark": "sweep_schur_vs_global_mps_krylov_scaling",
         "results": results,
