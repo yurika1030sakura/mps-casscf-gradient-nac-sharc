@@ -336,6 +336,15 @@ def fd_gradient(
     """
     if track_roots is True:
         track_roots = "fci_overlap"
+    ddim = _determinant_dimension(ncas, nelecas)
+    if ddim > FCI_FREE_THRESHOLD and track_roots == "fci_overlap":
+        raise ValueError(
+            f"fd_gradient: determinant space det_dim={ddim:.3e} exceeds the "
+            f"FCI-free threshold {FCI_FREE_THRESHOLD:.1e}; 'fci_overlap' root "
+            f"tracking forms dense CI vectors via mps_ci_list and is forbidden "
+            f"for beyond-FCI active spaces. Use track_roots='gap_guard' "
+            f"(or 'mps_subspace')."
+        )
     coords_bohr = np.asarray(coords_bohr, dtype=float)
     natom = len(atoms)
     grad = np.zeros((natom, 3))
@@ -455,6 +464,17 @@ def fd_nac(
     coords_bohr = np.asarray(coords_bohr, dtype=float)
     natom = len(atoms)
     dcoup = np.zeros((natom, 3))
+
+    ddim = _determinant_dimension(ncas, nelecas)
+    if ddim > FCI_FREE_THRESHOLD:
+        raise ValueError(
+            f"fd_nac: determinant space det_dim={ddim:.3e} exceeds the FCI-free "
+            f"threshold {FCI_FREE_THRESHOLD:.1e}; this determinant-overlap NAC "
+            f"finite difference forms dense CI vectors via mps_ci_list. For "
+            f"beyond-FCI active spaces use the MPS-native cross-geometry overlap "
+            f"path (cross_geometry_overlap.cross_geometry_overlap_matrix / "
+            f"benchmarks/large_active_space/run_beyond_fci_nac.py)."
+        )
 
     mol0, _mf0, mc0, solver0 = build_sa_dmrg_casscf(
         atoms, coords_bohr, basis=basis, charge=charge, spin=spin,
