@@ -1,0 +1,69 @@
+{
+  "benchmark": "same_geometry_warm_start_recycling",
+  "results": [
+    {
+      "system": "heh_cas22",
+      "ncas": 2,
+      "nelecas": 2,
+      "basis": "3-21G",
+      "bond_dim": 200,
+      "rhs_sequence": [
+        "grad:0",
+        "grad:1",
+        "nac:(0, 1)"
+      ],
+      "zero_guess": [
+        {
+          "rhs": "grad:0",
+          "niter": 6,
+          "wall_s": 5.999134908000997,
+          "true_residual_relative": 2.34304920093238e-16,
+          "converged": true
+        },
+        {
+          "rhs": "grad:1",
+          "niter": 6,
+          "wall_s": 15.430749234998075,
+          "true_residual_relative": 5.961704619797255e-15,
+          "converged": true
+        },
+        {
+          "rhs": "nac:(0, 1)",
+          "niter": 6,
+          "wall_s": 12.485207183999592,
+          "true_residual_relative": 3.053428561657114e-15,
+          "converged": true
+        }
+      ],
+      "recycled": [
+        {
+          "rhs": "grad:0",
+          "niter": 6,
+          "wall_s": 2.6644762180003454,
+          "true_residual_relative": 2.34304920093238e-16,
+          "converged": true
+        },
+        {
+          "rhs": "grad:1",
+          "niter": 0,
+          "wall_s": 1.823727050999878,
+          "true_residual_relative": 5.8719427733874105e-15,
+          "converged": true
+        },
+        {
+          "rhs": "nac:(0, 1)",
+          "niter": 0,
+          "wall_s": 2.322133093002776,
+          "true_residual_relative": 2.880273736207432e-15,
+          "converged": true
+        }
+      ],
+      "total_iters_zero": 18,
+      "total_iters_recycled": 6,
+      "iter_reduction": 12,
+      "max_kappa_drift_zero_vs_recycled": 1.4230020311267627e-16,
+      "solution_invariant": true,
+      "all_converged": true
+    }
+  ]
+}

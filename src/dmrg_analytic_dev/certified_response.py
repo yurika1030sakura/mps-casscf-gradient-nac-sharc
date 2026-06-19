@@ -94,6 +94,9 @@ def certify_response(
     tol: float,
     solver: str,
     rhs=None,
+    rhs_kind: str = "grad",
+    nac_pair=None,
+    project: bool = True,
     wall_s: Optional[float] = None,
     leakage_tol: float = 1.0e-6,
     check_leakage: bool = True,
@@ -103,12 +106,25 @@ def certify_response(
 
     Recomputes the explicit residual ``b - A z`` against the global coupled
     operator (``obj.matvec_mps``); this is the same arbiter the solvers use, so
-    the certificate never disagrees with the accepted solution.  ``rhs`` is
-    rebuilt for ``state`` if not supplied.
+    the certificate never disagrees with the accepted solution.
+
+    The right-hand side must be the one the solver targeted.  When ``rhs`` is not
+    supplied it is rebuilt here: a state gradient RHS for ``rhs_kind="grad"`` or
+    the interstate RHS for ``rhs_kind="nac"`` (with ``nac_pair=(I, J)``).  The
+    solvers project the RHS out of the reference-root space before solving, so by
+    default the RHS is projected the same way here; projection is idempotent, so
+    passing an already-projected RHS is harmless.
     """
     state = int(state)
     if rhs is None:
-        rhs = obj.build_rhs_mps(state)
+        if rhs_kind == "nac":
+            if nac_pair is None:
+                raise ValueError("rhs_kind='nac' requires nac_pair=(I, J)")
+            rhs = obj.build_rhs_nac_mps(tuple(int(s) for s in nac_pair))
+        else:
+            rhs = obj.build_rhs_mps(state)
+    if project:
+        rhs, _ = obj.project_vector_ci_mps(rhs, label="CERT-RHS-PROJ", mode="all")
     rhs_norm = float(rhs.norm())
     resid = rhs.add_scaled(obj.matvec_mps(z), -1.0, label=f"CERT-RES{state}")
     r_norm = float(resid.norm())
