@@ -1,0 +1,21 @@
+{
+  "name": "cross_geometry_overlap_unitary_rotation_heh_cas22",
+  "displacement_magnitude": 0.005,
+  "O_gt": [
+    [
+      0.9999833661793168,
+      0.005575381973798973
+    ],
+    [
+      -0.0055677160040725196,
+      0.9999712727204687
+    ]
+  ],
+  "max_err_vs_fci": 7.665969726448028e-06,
+  "convention": {
+    "u_sign": -1.0,
+    "p_sign": -1.0,
+    "order": "P_then_U"
+  },
+  "status": "pass"
+}

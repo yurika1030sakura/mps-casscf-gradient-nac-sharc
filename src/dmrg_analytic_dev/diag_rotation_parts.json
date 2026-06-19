@@ -1,0 +1,60 @@
+{
+  "U_only": {
+    "rows": [
+      {
+        "sign": -1.0,
+        "hermitian": false,
+        "err": 3.099015239059477e-06
+      },
+      {
+        "sign": -1.0,
+        "hermitian": true,
+        "err": 3.099015239059477e-06
+      },
+      {
+        "sign": 1.0,
+        "hermitian": false,
+        "err": 0.007088039154837168
+      },
+      {
+        "sign": 1.0,
+        "hermitian": true,
+        "err": 0.007088039154837168
+      }
+    ],
+    "best": {
+      "sign": -1.0,
+      "hermitian": false,
+      "err": 3.099015239059477e-06
+    }
+  },
+  "P_only": {
+    "rows": [
+      {
+        "sign": -1.0,
+        "hermitian": false,
+        "err": 0.029534521979142414
+      },
+      {
+        "sign": -1.0,
+        "hermitian": true,
+        "err": 0.029534521979142414
+      },
+      {
+        "sign": 1.0,
+        "hermitian": false,
+        "err": 0.013000798779637333
+      },
+      {
+        "sign": 1.0,
+        "hermitian": true,
+        "err": 0.013000798779637333
+      }
+    ],
+    "best": {
+      "sign": 1.0,
+      "hermitian": false,
+      "err": 0.013000798779637333
+    }
+  }
+}
