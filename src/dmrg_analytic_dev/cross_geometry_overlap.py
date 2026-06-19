@@ -108,3 +108,58 @@ def cross_geometry_active_overlap(mol_a, mol_b, mo_a, mo_b, ncore, ncas):
     ca = mo_a[:, ncore:ncore + ncas]
     cb = mo_b[:, ncore:ncore + ncas]
     return ca.T @ s_ao @ cb
+
+
+def load_foreign_mps(host_driver, host_frame, foreign_driver, foreign_frame,
+                     foreign_mps, tag):
+    """Load an MPS built by a *different* driver into ``host_driver``.
+
+    A finite-difference-displaced state is the DMRG state of a different
+    geometry, so it lives in a different block2 driver/frame and cannot be
+    overlapped against the reference state directly.  Reconstructing it from a
+    CI read-out is too lossy (it drops the O(1e-5) displacement components); the
+    state must be transported intact.  This makes a uniquely-tagged on-disk copy
+    in the foreign frame, moves its block2 files into the host scratch, and
+    re-loads it in the host frame.  Both drivers must share the active-space
+    size and symmetry (true for two geometries of the same active space).
+    """
+    import glob
+    import os
+    import shutil
+
+    import block2
+
+    prev = block2.Global.frame
+    block2.Global.frame = foreign_frame
+    try:
+        # copy_mps writes the MPS info but not the per-site tensor files; flush
+        # them explicitly so the on-disk copy is complete before transport.
+        cp = foreign_driver.copy_mps(foreign_mps, tag)
+        cp.save_data()
+    finally:
+        block2.Global.frame = prev
+
+    # block2 names an MPS's files with the tag in the MIDDLE
+    # (``{tag}-mps_info.bin``, ``F.MPS.{tag}.<site>`` tensors,
+    # ``F.MPS.INFO.{tag}.<L/R>.<site>`` state info), so match the tag anywhere.
+    src_dir = foreign_driver.frame.mps_dir
+    dst_dir = host_driver.frame.mps_dir
+    moved = []
+    for f in glob.glob(os.path.join(src_dir, "*" + tag + "*")):
+        if os.path.isfile(f):
+            shutil.copy(f, os.path.join(dst_dir, os.path.basename(f)))
+            moved.append(os.path.basename(f))
+    import os as _os
+    if _os.environ.get("XFER_DEBUG"):
+        print(f"[xfer] foreign_tag={getattr(foreign_mps.info,'tag',None)} new_tag={tag}")
+        print(f"[xfer] src_dir={src_dir}")
+        print(f"[xfer] dst_dir={dst_dir}  same={src_dir==dst_dir}")
+        print(f"[xfer] moved {len(moved)} files: {moved}")
+    if not moved:
+        raise RuntimeError(f"no MPS files found for tag {tag!r} in {src_dir}")
+
+    block2.Global.frame = host_frame
+    try:
+        return host_driver.load_mps(tag)
+    finally:
+        block2.Global.frame = prev
