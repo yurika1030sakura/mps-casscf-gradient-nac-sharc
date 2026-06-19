@@ -38,6 +38,7 @@ for _p in (_HERE, _HERE.parent, _HERE.parents[1] / "sharc_interface"):
     if str(_p) not in sys.path:
         sys.path.insert(0, str(_p))
 
+from pyscf import gto as _gto
 from dmrg_fcisolver import MPSAsFCISolver
 from overlap_fci_reference import (
     cross_geometry_S_act,
@@ -47,6 +48,40 @@ from overlap_fci_reference import (
 )
 from site_replacement_density import _pyscf_to_block2_sign
 from analytic_cp_sharc import compute_grad_nac_analytic_cp
+
+
+def project_mo_to_new_geometry(mol_ref, mol_new, mo_ref):
+    """Project reference MOs into the AO basis of a displaced geometry.
+
+    Returns an ``S_new``-orthonormal MO guess with the same column ordering, so
+    a displaced-geometry CASSCF starts from (and stays on) the same orbital /
+    active-space surface as the reference -- the prerequisite for a meaningful
+    finite-difference derivative.  Also returns the minimum singular value of
+    the cross-geometry MO overlap as an orbital-continuity diagnostic.
+    """
+    S_new = mol_new.intor_symmetric("int1e_ovlp")
+    S_cross = _gto.intor_cross("int1e_ovlp", mol_new, mol_ref)
+    C = np.linalg.solve(S_new, S_cross @ mo_ref)         # AO least-squares map
+    M = C.T @ S_new @ C
+    evals, evecs = np.linalg.eigh(0.5 * (M + M.T))
+    sigma_min = float(np.sqrt(max(np.min(evals), 0.0)))
+    if np.min(evals) < 1.0e-8:
+        raise RuntimeError(
+            f"MO projection nearly singular (min eval {np.min(evals):.3e})"
+        )
+    X = evecs @ np.diag(evals ** -0.5) @ evecs.T          # symmetric orthonorm.
+    return C @ X, sigma_min
+
+
+def active_subspace_overlap(mol_a, mo_a, mol_b, mo_b, ncas, ncore):
+    """Minimum singular value of the active-active cross-geometry overlap.
+
+    sigma_min ~ 1 means the active space is continuous between the two
+    geometries (the finite-difference point is on the same surface); a small
+    value flags a discontinuity that invalidates the FD component."""
+    S_act = cross_geometry_S_act(mol_a, mol_b, mo_a, mo_b, ncas, ncore)
+    s = np.linalg.svd(S_act, compute_uv=False)
+    return float(np.min(s))
 
 
 # Solver configuration used for finite differences. force_dmrg=True so the
@@ -216,6 +251,13 @@ def _atom_components(natom, atmlst, components):
     return [(a, x) for a in atmlst for x in components]
 
 
+def _build_mol(atoms, coords_bohr, basis, charge, spin):
+    coords_bohr = np.asarray(coords_bohr, dtype=float)
+    atom_list = [(atoms[i], tuple(coords_bohr[i])) for i in range(len(atoms))]
+    return _gto.M(atom=atom_list, basis=basis, charge=charge, spin=spin,
+                  unit="Bohr", symmetry=False, verbose=0)
+
+
 def fd_gradient(
     atoms,
     coords_bohr,
@@ -232,68 +274,111 @@ def fd_gradient(
     h_bohr=1.0e-3,
     atmlst=None,
     components=None,
-    track_roots=True,
+    track_roots="fci_overlap",
+    gap_min=1.0e-3,
+    subspace_min=0.90,
+    return_diagnostics=False,
+    mo_guess=None,
 ):
     """Central-difference gradient of E_state from the DMRG state energies.
 
-    Returns an (natom, 3) array (unevaluated components left as 0) in
-    E_h/Bohr.  When ``track_roots`` is set, the displaced state energies are
-    re-ordered to follow the reference root by maximum overlap, guarding
-    against energy-sorted root swaps at avoided crossings.
+    Displaced-geometry CASSCF runs are seeded with the reference orbitals
+    projected into the displaced AO basis, so both sides of the difference stay
+    on the same active-space surface.
+
+    ``track_roots`` selects how the displaced state index is chosen:
+      * ``"fci_overlap"`` -- assign the displaced root to the reference root by
+        cross-geometry FCI wavefunction overlap (FCI/MPS-bridge must be
+        tractable; use only when the determinant space is small enough);
+      * ``"gap_guard"`` -- keep the energy-ordered index but require the state
+        gap to stay above ``gap_min`` at R and R+-h (the FCI-free choice for
+        beyond-FCI active spaces);
+      * ``False`` -- plain energy-ordered index, no guard.
+
+    In every mode the active-active cross-geometry overlap singular value is
+    recorded as an orbital-continuity diagnostic; this needs only the
+    (ncas x ncas) MO overlap and is available at any active-space size.
+
+    Returns the (natom, 3) gradient array, or ``(grad, diagnostics)`` when
+    ``return_diagnostics`` is set.
     """
+    if track_roots is True:
+        track_roots = "fci_overlap"
     coords_bohr = np.asarray(coords_bohr, dtype=float)
     natom = len(atoms)
     grad = np.zeros((natom, 3))
-    ncore = None
 
-    # reference roots, for optional root tracking across displacements
-    if track_roots:
-        mol0, _mf0, mc0, solver0 = build_sa_dmrg_casscf(
-            atoms, coords_bohr, basis=basis, charge=charge, spin=spin,
-            ncas=ncas, nelecas=nelecas, nroots=nroots, weights=weights,
-            solver_cfg=solver_cfg,
-        )
-        ncore = mc0.ncore
-        ci0 = mps_ci_list(solver0, ncas, mc0.nelecas, nroots)
-        mo0 = mc0.mo_coeff
+    # reference build (needed for the projected MO guess in every mode)
+    mol0, _mf0, mc0, solver0 = build_sa_dmrg_casscf(
+        atoms, coords_bohr, basis=basis, charge=charge, spin=spin,
+        ncas=ncas, nelecas=nelecas, nroots=nroots, weights=weights,
+        solver_cfg=solver_cfg, mo_guess=mo_guess,
+    )
+    ncore = mc0.ncore
+    mo0 = mc0.mo_coeff
+    e0 = state_energies(solver0)
+    ci0 = (mps_ci_list(solver0, ncas, mc0.nelecas, nroots)
+           if track_roots == "fci_overlap" else None)
+
+    diags = {"track_roots": track_roots, "components": [],
+             "ref_gap": float(e0[1] - e0[0]) if len(e0) > 1 else None}
 
     for (a, x) in _atom_components(natom, atmlst, components):
-        e_disp = {}
-        ci_disp = {}
-        mo_disp = {}
-        mol_disp = {}
+        e_disp, mo_disp, mol_disp, sig_disp, idx = {}, {}, {}, {}, {}
         for sgn in (+1, -1):
             cc = coords_bohr.copy()
             cc[a, x] += sgn * h_bohr
-            mol_s, _mf_s, mc_s, solver_s = build_sa_dmrg_casscf(
+            mol_s = _build_mol(atoms, cc, basis, charge, spin)
+            mo_guess, _smin_full = project_mo_to_new_geometry(mol0, mol_s, mo0)
+            _mol, _mf, mc_s, solver_s = build_sa_dmrg_casscf(
                 atoms, cc, basis=basis, charge=charge, spin=spin,
                 ncas=ncas, nelecas=nelecas, nroots=nroots, weights=weights,
-                solver_cfg=solver_cfg,
+                solver_cfg=solver_cfg, mo_guess=mo_guess,
             )
             e_disp[sgn] = state_energies(solver_s)
-            if track_roots:
-                ci_disp[sgn] = mps_ci_list(solver_s, ncas, mc_s.nelecas, nroots)
-                mo_disp[sgn] = mc_s.mo_coeff
-                mol_disp[sgn] = mol_s
+            mo_disp[sgn] = mc_s.mo_coeff
+            mol_disp[sgn] = mol_s
+            # active-space continuity (cheap ncas x ncas overlap; no FCI)
+            sig_disp[sgn] = active_subspace_overlap(
+                mol0, mo0, mol_s, mc_s.mo_coeff, ncas, ncore)
+            idx[sgn] = state
+            if track_roots == "fci_overlap":
+                ci_s = mps_ci_list(solver_s, ncas, mc_s.nelecas, nroots)
+                S = cross_geometry_S_act(mol0, mol_s, mo0, mc_s.mo_coeff,
+                                         ncas, ncore)
+                O = overlap_matrix_fci(ci0, ci_s, S, ncas, mc0.nelecas)
+                perm, _ = assign_roots_by_overlap(O)
+                idx[sgn] = int(perm[state])
 
-        idx_p, idx_m = state, state
-        if track_roots:
-            # match displaced roots back to the reference root `state`
-            S_p = cross_geometry_S_act(
-                mol0, mol_disp[+1], mo0, mo_disp[+1], ncas, ncore,
+        # guards
+        sig_min = min(sig_disp[+1], sig_disp[-1])
+        gp = e_disp[+1]; gm = e_disp[-1]
+        gap_p = float(gp[1] - gp[0]) if len(gp) > 1 else None
+        gap_m = float(gm[1] - gm[0]) if len(gm) > 1 else None
+        if track_roots == "gap_guard":
+            gaps = [g for g in (diags["ref_gap"], gap_p, gap_m) if g is not None]
+            if gaps and min(gaps) < gap_min:
+                raise RuntimeError(
+                    f"FD component (atom {a}, axis {x}) too close to a root "
+                    f"crossing (min gap {min(gaps):.2e} < {gap_min}); use "
+                    f"subspace tracking or skip this component."
+                )
+        if sig_min < subspace_min:
+            raise RuntimeError(
+                f"active-space discontinuity at FD component (atom {a}, axis "
+                f"{x}): sigma_min {sig_min:.3f} < {subspace_min}"
             )
-            O_p = overlap_matrix_fci(ci0, ci_disp[+1], S_p, ncas, mc0.nelecas)
-            perm_p, _ = assign_roots_by_overlap(O_p)
-            idx_p = int(perm_p[state])
-            S_m = cross_geometry_S_act(
-                mol0, mol_disp[-1], mo0, mo_disp[-1], ncas, ncore,
-            )
-            O_m = overlap_matrix_fci(ci0, ci_disp[-1], S_m, ncas, mc0.nelecas)
-            perm_m, _ = assign_roots_by_overlap(O_m)
-            idx_m = int(perm_m[state])
 
-        grad[a, x] = (e_disp[+1][idx_p] - e_disp[-1][idx_m]) / (2.0 * h_bohr)
-    return grad
+        grad[a, x] = (e_disp[+1][idx[+1]] - e_disp[-1][idx[-1]]) / (2.0 * h_bohr)
+        diags["components"].append({
+            "atom": int(a), "axis": int(x), "h_bohr": float(h_bohr),
+            "g_fd": float(grad[a, x]),
+            "active_subspace_sigma_min": sig_min,
+            "gap_plus": gap_p, "gap_minus": gap_m,
+            "idx_plus": int(idx[+1]), "idx_minus": int(idx[-1]),
+        })
+
+    return (grad, diags) if return_diagnostics else grad
 
 
 def analytic_gradient(mc, state, *, backend="mps-krylov", tol=1.0e-8, max_iter=500):
