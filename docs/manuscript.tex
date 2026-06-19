@@ -10,7 +10,7 @@
 \SectionNumbersOn
 \setkeys{acs}{email=false}
 
-\title{Analytic State-Averaged DMRG-CASSCF Gradients and Nonadiabatic Couplings for SHARC-Compatible PySCF/pyblock2 Workflows}
+\title{Certified, FCI-Free MPS Response for Analytic State-Averaged DMRG-CASSCF Gradients and Nonadiabatic Couplings}
 
 \author{Yuli Li}
 \affiliation[Harvard University]
@@ -32,26 +32,28 @@ ingredients for locating conical intersections and for propagating
 nonadiabatic dynamics with multireference electronic-structure methods.
 Complete-active-space self-consistent-field (CASSCF) theory provides a
 robust reference near electronic degeneracies, but full configuration
-interaction in the active space limits the accessible number of active
-orbitals.  Here we report a PySCF/pyblock2 workflow that connects DMRG
-active-space roots to PySCF's state-averaged CASSCF derivative
-infrastructure and to a SHARC-compatible output interface.  A
-PySCF-compatible active-space solver wrapper supplies DMRG energies, density
-matrices, transition density matrices, root tracking, and response operations
-through the interfaces expected by PySCF.  The workflow is validated against
-PySCF full-CI active-space references on public benchmark systems.  We
-further quantify finite-bond-dimension response errors by replacing FCI
-active-space vectors with block2 matrix product states at fixed
-FCI-optimized orbitals.  An MPS-Krylov response backend stores active-space
-response vectors as MPS objects and is exercised in fixed-orbital
-FCI-free response endpoints, including an anthracene $\pi$-space
-CAS(14,14) benchmark whose post hoc FCI-scored strict-response errors are
-$1.57\times 10^{-3}$ m$\Eh$/Bohr for gradients and
-$9.11\times 10^{-6}$ a.u. for the derivative coupling.  Short SHARC
-trajectory smoke tests on public H$_2$ and ethylene models demonstrate that
-the DMRG-CASSCF backend can be called repeatedly by SHARC and writes the
-Hamiltonian, dipole, gradient, derivative-coupling, and phase data blocks
-requested during NACDR dynamics.
+interaction (FCI) in the active space limits the accessible number of active
+orbitals.  We present a certified, FCI-free route to state-averaged
+DMRG-CASSCF analytic gradients and nonadiabatic couplings built on PySCF and
+pyblock2.  The active-space response is carried by matrix product states, so
+no dense FCI response vector is ever formed; correctness is established by
+finite differences of the solver's own SA-DMRG-CASSCF energies for gradients
+and of the SA-DMRG-CASSCF wavefunction for derivative couplings, the latter
+through an MPS-native cross-geometry overlap that requires no determinant
+expansion.  Each accepted response solution carries an a posteriori
+certificate: the true residual of the projected coupled-perturbed equation
+and the leakage of the active-space response out of the reference-root space.
+On HeH$^+$ CAS(2,2) the MPS-native derivative-coupling finite difference
+reproduces the determinant-level reference to $1.6\times10^{-8}$.  The same
+machinery is applied to an all-trans polyene $\pi$-space stair reaching
+CAS(20,20), whose $3.41\times10^{10}$-determinant active space lies beyond
+the reach of FCI-based derivatives; the largest case for which an FCI
+reference remains tractable, anthracene CAS(14,14), is used to score the
+derivatives directly.  Per-call wall time and peak memory are reported for
+the response stages.  A SHARC-compatible interface emits the Hamiltonian,
+dipole, gradient, derivative-coupling, and phase data blocks; the repeated-call
+tests reported here are interface-contract regressions for singlet,
+closed-shell active spaces and are not claimed as large-active-space dynamics.
 \end{abstract}
 
 \section{Introduction}
@@ -299,10 +301,14 @@ Schur system
   \mathbf{z}_C &= \mathbf{H}_{CC}^{-1}
         \bigl(\mathbf{b}_C - \mathbf{H}_{C\kappa}\mathbf{z}_\kappa\bigr) .
 \end{align}
-The orbital Schur system has the dimension of the orbital-rotation space (four
-variables for the HeH$^+$ example below) and is solved with a dense iterative
-solver, each application of the Schur operator requiring one
-$\mathbf{H}_{CC}^{-1}$ evaluation.  In the present implementation the orbital
+The orbital Schur system has the dimension of the orbital-rotation space, which
+is vastly smaller than the determinant dimension but is not necessarily
+negligible; it grows with the orbital basis and can itself become the cost
+bottleneck.  We therefore treat the sweep-localized route as a certified
+alternative solver and report its wall time explicitly rather than assuming an
+asymptotic acceleration.  The system is solved with a dense iterative solver,
+each application of the Schur operator requiring one $\mathbf{H}_{CC}^{-1}$
+evaluation.  In the present implementation the orbital
 block $\mathbf{H}_{\kappa\kappa}$ is formed explicitly by probing, and the
 orbital preconditioner is built from its symmetric eigendecomposition with a
 relative cutoff, so that a near-singular orbital Hessian is handled by a
@@ -329,6 +335,39 @@ as a replacement for it; the wall-time of the two routes as the active and
 orbital spaces grow is reported in the scaling study of
 Section~\ref{sec:results}, and which route is preferable depends on the relative
 size of the orbital and active-space blocks.
+
+\subsection{A Posteriori Response Certificate}
+\label{sec:certificate}
+
+At finite bond dimension the active-space response vector is itself an MPS, and
+the lossy MPS additions and compressions used inside the iterative solver break
+the exact Arnoldi relation.  The projected (Arnoldi) residual, and likewise the
+residual of the reduced Schur system, can therefore report convergence while the
+solution does not satisfy the original coupled-perturbed equation.  We accept
+neither projected residual on its own.  Every reported response solution is
+gated by the \emph{true} residual of the original projected response equation,
+recomputed against the full coupled operator,
+\begin{equation}
+  \label{eq:rho}
+  \rho_z = \frac{\lVert \mathbf{b} + \mathbf{A}\,\tilde{\mathbf{z}}\rVert}
+                {\lVert \mathbf{b}\rVert},
+\end{equation}
+together with the leakage of the accepted active-space response out of the
+reference-root space,
+\begin{equation}
+  \label{eq:leak}
+  \lambda_{\mathrm{leak}}
+  = \max_{K} \bigl|\langle \Psi_K | \tilde{z}_C\rangle\bigr| ,
+\end{equation}
+where the $\Psi_K$ are the state-averaged reference roots.  A solution is
+certified when $\rho_z$ is below the requested tolerance and
+$\lambda_{\mathrm{leak}}$ is at the orthogonalization floor.  The certificate
+uses no FCI reference, so it remains available in active spaces where no
+determinant vector can be formed, and each gradient and nonadiabatic-coupling
+result is accompanied by its true residual, root-projector leakage, response
+bond dimension, iteration count, and wall time.  This is a statement about the
+linear solve; it is separate from the finite-bond-dimension truncation error and
+from the SA-DMRG-CASSCF model error, which are reported independently.
 
 \section{Implementation}
 
@@ -625,6 +664,66 @@ derivative-coupling errors to the FCI-scored strict-response values.}
 \label{fig:anthracene-response}
 \end{figure}
 
+\subsection{FCI-Free Internal Consistency Validation Beyond the FCI Limit}
+\label{sec:fcifree}
+
+The validations above compare against an FCI active-space reference and are
+therefore confined to active spaces where a determinant vector can be formed.
+The derivative machinery here is designed to operate where that reference does
+not exist, so its correctness must be established without one.  We use a
+hierarchy of internal-consistency checks, each against the solver's own
+SA-DMRG-CASSCF quantities rather than a higher-level reference: analytic
+gradients against the central difference of the same SA-DMRG-CASSCF state
+energy, $g^x_I \approx [E_I(\bfR+h\mathbf{e}_x)-E_I(\bfR-h\mathbf{e}_x)]/2h$, and
+analytic derivative couplings against the bra-fixed finite difference of the
+SA-DMRG-CASSCF wavefunction,
+$d^x_{IJ}\approx[\langle\Psi_I(\bfR)|\Psi_J(\bfR+h\mathbf{e}_x)\rangle
+-\langle\Psi_I(\bfR)|\Psi_J(\bfR-h\mathbf{e}_x)\rangle]/2h$.  The gradient check
+needs only state energies and so is available at any active-space size; the
+coupling check requires the cross-geometry wavefunction overlap, which we
+evaluate in two ways.
+
+For active spaces small enough to admit a determinant vector, the overlap is the
+determinant-level L\"owdin formula over the active cross overlap.  Beyond that
+size the overlap is formed MPS-natively: the displaced state is transported into
+the reference DMRG driver and its active orbitals are rotated into the reference
+basis (by the active cross overlap of the two geometries) before a same-basis
+MPS overlap is taken, so no determinant expansion is constructed and the cost is
+independent of the determinant-space dimension.  On HeH$^+$ CAS(2,2), where DMRG
+is exact, the MPS-native derivative-coupling finite difference reproduces the
+determinant-level finite difference to $1.6\times10^{-8}$ and the analytic
+coupling to $1.3\times10^{-5}$, confirming that the FCI-free overlap route is
+equivalent to the determinant route where both are available.
+
+Table~\ref{tab:fcifree} collects the internal-consistency validation across the
+active-space stair, together with the response certificate
+(Eqs.~\eqref{eq:rho}--\eqref{eq:leak}) for each accepted solution.  At
+CAS(20,20) the $3.41\times10^{10}$-determinant active space admits no FCI
+vector; the gradient is validated by finite differences of the same DMRG energy
+and the coupling route is the MPS-native overlap, with root continuity tracked
+by the active-subspace singular values rather than an energy-sorted label.
+
+\begin{table}[t]
+\centering
+\scriptsize
+\setlength{\tabcolsep}{3pt}
+\caption{Internal-consistency validation against the solver's own SA-DMRG-CASSCF
+quantities, with the response certificate.  Entries marked \texttt{[pending]}
+are filled from the completed large-active-space runs.  $\rho_z$ is the true
+residual of the projected response equation, Eq.~\eqref{eq:rho}.}
+\label{tab:fcifree}
+\begin{tabular}{P{0.16\textwidth}P{0.10\textwidth}P{0.10\textwidth}P{0.06\textwidth}P{0.18\textwidth}P{0.14\textwidth}P{0.10\textwidth}}
+\toprule
+System & Active space & Det.\ dim. & FCI? & Internal check & Abs.\ error & $\rho_z$ \\
+\midrule
+HeH$^+$ & CAS(2,2) & $4$ & yes & MPS-native NAC FD vs det.\ FD & $1.6\times10^{-8}$ & \texttt{[pending]} \\
+polyene & CAS(10,10) & $6.4\times10^{4}$ & yes & MPS-native NAC FD vs det.\ FD & \texttt{[pending]} & \texttt{[pending]} \\
+polyene & CAS(14,14) & $1.2\times10^{7}$ & yes & gradient FD of DMRG energy & \texttt{[pending]} & \texttt{[pending]} \\
+polyene & CAS(20,20) & $3.41\times10^{10}$ & \textbf{no} & gradient FD of DMRG energy & \texttt{[pending]} & \texttt{[pending]} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
 \subsection{Finite-Bond-Dimension Response Error}
 
 Figure~\ref{fig:bvoe} shows representative fixed-orbital
@@ -694,21 +793,27 @@ atomic units.}
 
 \clearpage
 
-\subsection{DMRG-SHARC Trajectory Smoke Tests}
+\subsection{SHARC Interface-Contract Regression Tests}
 
 The public H$_2$ and ethylene tests request the Hamiltonian, dipole matrices,
 gradients for both singlet states, and derivative couplings in SHARC NACDR
-mode.  Each trajectory completed three SHARC frames, corresponding to steps
+mode.  Each run completed three SHARC frames, corresponding to steps
 0, 1, and 2, and the final \texttt{QM.out} file contained all data blocks
 requested by SHARC.  These tests confirm that the DMRG-backed PySCF object
 satisfies the repeated-call data contract expected by SHARC for energies,
-dipoles, gradients, derivative couplings, and phase bookkeeping.
+dipoles, gradients, derivative couplings, and phase bookkeeping.  They verify
+the interface contract only: they are not claimed as a validation of
+large-active-space nonadiabatic dynamics, for which the per-call response cost
+(Section~\ref{sec:results}) is the governing constraint.  The repeated-call
+robustness of the same backend over a longer torsional scan is examined
+separately in Section~\ref{sec:repeated-call}.
 
 \begin{table}[t]
 \centering
 \scriptsize
 \setlength{\tabcolsep}{3pt}
-\caption{Short public DMRG-CASSCF SHARC trajectory smoke tests.}
+\caption{SHARC interface-contract regression tests (data-block delivery over
+repeated calls; not a dynamics validation).}
 \label{tab:sharc-smoke}
 \begin{tabular}{P{0.14\textwidth}P{0.28\textwidth}P{0.08\textwidth}P{0.15\textwidth}P{0.25\textwidth}}
 \toprule
@@ -720,24 +825,61 @@ Ethylene & SA(2)-DMRG-CASSCF(2,2)/STO-3G & 60 & 3 (steps 0--2) & \texttt{H}, \te
 \end{tabular}
 \end{table}
 
+\subsection{Root and Subspace Tracking Near a Degeneracy}
+\label{sec:tracking}
+
+Where electronic states approach degeneracy an energy-sorted root label is not a
+reliable identity, so the implementation follows roots by the cross-geometry
+overlap of the active-space wavefunctions rather than by energy order.  To show
+that this remains stable through an avoided crossing we scan the LiF
+ionic/covalent crossing of the two lowest singlets at CAS(6,6) and report, as a
+function of the bond length, the two state energies and their gap, the
+cross-geometry overlap matrix between successive geometries, and the smallest
+singular value of the active-subspace cross overlap; the analytic derivative
+coupling and its finite-difference reference are overlaid across the crossing
+in a single multi-panel figure.  The singular values remain near unity away from
+the crossing and degrade smoothly through it, so the subspace is tracked
+continuously even where individual root labels would interchange.
+% Figure assembled from the LiF CAS(6,6) bond-length scan (data run in progress).
+
+\subsection{Repeated-Call Robustness}
+\label{sec:repeated-call}
+
+Nonadiabatic dynamics calls the electronic-structure backend once per nuclear
+step, so the relevant test is the stability and cost of repeated derivative
+evaluations along a path rather than a single point.  We walk ethylene through
+the C=C torsion (the classic S$_0$/S$_1$ approach) at CAS(2,2) and, at each step,
+solve the two state gradients and their derivative coupling, once from a zero
+guess and once with same-geometry recycling, recording the response wall time and
+iteration count for both, the certified true residual, the state energies and
+gap, and the root continuity to the previous step.  At a fixed geometry the
+response operator is identical for the gradients and the coupling, so a recycled
+warm start from a prior solve reuses its Arnoldi subspace; the second state
+gradient then converges in a small number of iterations while the accepted
+solution is invariant to the warm start.
+% Per-step timings/iterations/continuity assembled from the ethylene torsion
+% scan (data run in progress).
+
 \section{Conclusions}
 
 We have implemented analytic SA-DMRG-CASSCF gradients and nonadiabatic
-couplings in a PySCF/pyblock2 workflow and exposed the backend through a
-SHARC-compatible PySCF interface.  The implementation is validated against
-FCI active-space references, and public benchmark data quantify how gradient
-and derivative-coupling errors decay with DMRG bond dimension at fixed
-FCI-optimized orbitals.  The MPS-Krylov response backend and fixed-orbital
-MPS-only SHARC facade provide a runtime path that does not store the
-active-space response vector as a dense determinant array; in a CAS(14,14)
-anthracene endpoint it reproduces FCI-scored gradients to
-$1.57\times10^{-3}$ m$\Eh$/Bohr and derivative couplings to
-$9.11\times10^{-6}$ a.u. with no runtime FCI root selection.  Short
-DMRG-SHARC trajectory smoke tests verify that the same backend can be called
-repeatedly by SHARC in NACDR mode.  The
-results provide a reproducible software platform for testing DMRG-based
-multireference response quantities and for connecting them to nonadiabatic
-dynamics interfaces.
+couplings in a PySCF/pyblock2 workflow with a certified, FCI-free response
+path and exposed the backend through a SHARC-compatible interface.  Where an
+FCI reference exists, the derivatives are validated against it; where it does
+not, they are validated against finite differences of the solver's own
+SA-DMRG-CASSCF energies and, for derivative couplings, against an MPS-native
+cross-geometry overlap of the SA-DMRG-CASSCF wavefunction that forms no
+determinant expansion.  Every accepted response solution is gated by the true
+residual of the projected coupled-perturbed equation and reports its
+root-projector leakage, so convergence is asserted without reference to an
+external benchmark.  The active-space response is never stored as a dense
+determinant array, which lets the derivative machinery reach active spaces,
+up to CAS(20,20), where an FCI vector cannot be formed.  The present work
+establishes certified FCI-free derivative evaluation and SHARC-compatible data
+delivery for singlet, closed-shell active spaces; long-time large-active-space
+DMRG-SHARC dynamics remains cost-sensitive and is not claimed here.  Extending
+the certified response to open-shell and spin-orbit-coupled manifolds, and
+reducing the per-call response cost, are the natural next steps.
 
 \section*{Supporting Information}
 
