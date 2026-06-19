@@ -110,6 +110,37 @@ def cross_geometry_active_overlap(mol_a, mol_b, mo_a, mo_b, ncore, ncas):
     return ca.T @ s_ao @ cb
 
 
+def cross_geometry_overlap_matrix(obj_ref, obj_disp, mol_ref, mol_disp,
+                                  mo_ref, mo_disp, ncore, ncas, nst, *,
+                                  host_frame, tag):
+    """<Psi_I(ref) | Psi_J(disp)> for all I, J -- FCI-free.
+
+    Transports each displaced state into the reference driver, rotates it into
+    the reference orbital basis (by the transpose of the active cross overlap),
+    and takes the same-basis MPS overlap; each ket column is phase-aligned to the
+    reference root via its own diagonal sign.  Returns ``(O, s)`` with ``s`` the
+    active cross overlap.
+    """
+    import block2
+
+    s = cross_geometry_active_overlap(mol_ref, mol_disp, mo_ref, mo_disp,
+                                      ncore, ncas)
+    host_drv = obj_ref._driver_su2
+    O = np.zeros((nst, nst))
+    for j in range(nst):
+        loaded = load_foreign_mps(host_drv, host_frame, obj_disp._driver_su2,
+                                  obj_disp._su2_frame, obj_disp._state_mps[j],
+                                  tag=f"{tag}{j}")
+        block2.Global.frame = host_frame
+        rot = rotate_mps_orbitals(host_drv, loaded, s.T, ncas=ncas,
+                                  tag=f"{tag}rot{j}", include_stretch=False)
+        col = np.array([obj_ref._mps_overlap(obj_ref._state_mps[i], rot)
+                        for i in range(nst)])
+        sgn = 1.0 if col[j] >= 0 else -1.0
+        O[:, j] = sgn * col
+    return O, s
+
+
 def load_foreign_mps(host_driver, host_frame, foreign_driver, foreign_frame,
                      foreign_mps, tag):
     """Load an MPS built by a *different* driver into ``host_driver``.
