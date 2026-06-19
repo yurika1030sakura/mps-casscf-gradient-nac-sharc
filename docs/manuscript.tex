@@ -245,7 +245,7 @@ Fourth, the certified auto-response driver selects a response route, applies sam
 The FCI-free overlap layer transports MPS roots between geometries without determinant expansion.
 It evaluates active-orbital polar rotations, applies orbital rotations to block2 MPS roots, aligns phases or subspaces, and returns overlaps needed for root tracking and finite-difference NAC checks.
 In active spaces below a determinant threshold, the same test can be scored against determinant-level overlaps.
-Above that threshold, dense FCI conversion and FCI-overlap tracking are disabled by construction.
+Above a determinant-dimension threshold ($5\times10^{7}$), the finite-difference routines raise rather than form a dense CI vector: FCI-overlap root tracking is rejected in favor of energy-gap and active-subspace continuity guards, dense FCI conversion is disabled in the solver, and MPS-native density matrices are used throughout, so the determinant bridge cannot be entered for a beyond-FCI active space regardless of caller.
 
 The SHARC-facing interface is a data writer and repeated-call wrapper.
 It constructs a PySCF CASSCF object, installs the DMRG-backed active-space solver, evaluates requested Hamiltonian, dipole, gradient, NAC, and phase quantities, and writes the corresponding SHARC \texttt{QM.out} blocks.
