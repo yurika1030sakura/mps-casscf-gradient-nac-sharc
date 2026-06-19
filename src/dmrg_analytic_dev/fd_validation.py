@@ -249,6 +249,8 @@ def mps_ci_list(solver, ncas, nelec, nroots) -> list:
     the kets are spin-pure; a throwaway SZ driver provides the CSF readout.
     """
     from pyblock2.driver.core import DMRGDriver, SymmetryTypes
+    from fci_free_guard import DenseBridgeSentinel
+    DenseBridgeSentinel.mark("mps_ci_list")
 
     nelec = (int(nelec[0]), int(nelec[1]))
     n_elec_tot = nelec[0] + nelec[1]
