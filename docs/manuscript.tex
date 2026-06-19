@@ -220,6 +220,7 @@ These are the quantities required by state-specific geometry optimization,
 minimum-energy-crossing-point searches, and nonadiabatic dynamics drivers.
 
 \subsection{DMRG Active-Space Representation}
+\label{sec:dmrg-active}
 
 In DMRG-CASSCF, each active-space state is represented by an MPS rather than
 by an explicit FCI vector.\cite{RommerOstlund1997MPS,WhiteMartin1999DMRG}
@@ -267,6 +268,55 @@ electronic states.  This is a validation protocol, not a molecule-specific
 correction: when FCI is available it supplies the reference target states, and
 when FCI is unavailable the same overlap machinery is applied between
 successive geometries, macroiterations, or trajectory steps.
+
+\subsection{Sweep-Localized Coupled Response}
+\label{sec:schur}
+
+Partitioning the response variables into the dense orbital block $\kappa$ and
+the active-space block (FCI vector $C$ or MPS tensors $A$), the coupled-perturbed
+equation $\mathbf{H}^{\mathrm{SA}}\mathbf{z}_I = -\partial E_I/\partial\mathbf{x}$
+reads
+\begin{equation}
+  \label{eq:coupled-blocks}
+  \begin{pmatrix}
+    \mathbf{H}_{\kappa\kappa} & \mathbf{H}_{\kappa C} \\
+    \mathbf{H}_{C\kappa} & \mathbf{H}_{CC}
+  \end{pmatrix}
+  \begin{pmatrix} \mathbf{z}_\kappa \\ \mathbf{z}_C \end{pmatrix}
+  =
+  \begin{pmatrix} \mathbf{b}_\kappa \\ \mathbf{b}_C \end{pmatrix} ,
+\end{equation}
+where the diagonal active-space block $\mathbf{H}_{CC}$ is, for the target root
+$I$, the shifted Hamiltonian $H_{\mathrm{cas}}-E_I$ projected onto the complement
+of the reference roots.  Eliminating the active-space block gives the orbital
+Schur system
+\begin{align}
+  \label{eq:schur}
+  \bigl(\mathbf{H}_{\kappa\kappa}
+        - \mathbf{H}_{\kappa C}\,\mathbf{H}_{CC}^{-1}\,\mathbf{H}_{C\kappa}\bigr)
+        \mathbf{z}_\kappa
+  &= \mathbf{b}_\kappa - \mathbf{H}_{\kappa C}\,\mathbf{H}_{CC}^{-1}\mathbf{b}_C, \\
+  \mathbf{z}_C &= \mathbf{H}_{CC}^{-1}
+        \bigl(\mathbf{b}_C - \mathbf{H}_{C\kappa}\mathbf{z}_\kappa\bigr) .
+\end{align}
+The orbital Schur system has the dimension of the orbital-rotation space (four
+variables for the HeH$^+$ example below) and is solved with a dense iterative
+solver, each application of the Schur operator requiring one
+$\mathbf{H}_{CC}^{-1}$ evaluation.  Every $\mathbf{H}_{CC}^{-1}$ application is a
+shifted linear-response equation in the active space, $(H_{\mathrm{cas}}-E_I)\,v
+= w$ with $v$ orthogonal to the reference root, which is solved as a
+sweep-localized correction-vector problem by the MPS linear solver of
+pyblock2/block2.\cite{Zhai2023Block2}  The active-space work is therefore carried
+out by block2's per-site sweeps, while the orbital--active-space coupling is
+closed in the small dense orbital space.  This routes the active-space response
+through the same renormalized local solves used for the ground-state
+optimization, whereas the global MPS-Krylov scheme of
+Section~\ref{sec:dmrg-active} carries a growing Arnoldi basis of mixed
+orbital/MPS vectors that are orthogonalized by MPS overlaps and recombined by
+MPS addition.  The two routes solve the same linear system and, on the HeH$^+$
+CAS(2,2) reference, agree to machine precision (orbital response and active-space
+response matching the global solver to $9\times10^{-16}$ and $4\times10^{-15}$,
+with a coupled-system residual of $2\times10^{-15}$).
 
 \section{Implementation}
 
