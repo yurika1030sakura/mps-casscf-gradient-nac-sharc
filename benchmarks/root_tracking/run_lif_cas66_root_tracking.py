@@ -159,11 +159,12 @@ def lif_point(R_ang, basis, ncas, nelecas, nroots, weights, *,
                        max_cycle_macro=max_cycle_macro)
     if not mc.converged:
         # Escalation for stubborn (compressed / near-degenerate) geometries:
-        # discard the (possibly poorly propagated) guess, reselect fresh
-        # valence-adapted orbitals, raise the AH level shift, loosen the
-        # tolerance, and double the macro budget.
-        _nc, _, _, mo_fresh, _ = select_lif_cas66(mol, mf, ncas)
-        mc = staged_kernel(mf, ncas, nelecas, nroots, weights, mo_fresh,
+        # KEEP the propagated orbital guess.  Reselecting fresh orbitals here
+        # would put this point in a different orbital gauge from its neighbours
+        # and destroy the adjacent-geometry overlap continuity that the whole
+        # figure measures; instead just raise the AH level shift, loosen the
+        # tolerance, and double the macro budget on the *same* guess.
+        mc = staged_kernel(mf, ncas, nelecas, nroots, weights, mo,
                            conv_tol_grad_final=max(conv_tol_grad, 5.0e-5),
                            max_cycle_macro=max_cycle_macro * 2, level_shift=1.0)
     e = [float(x) for x in mc.e_states]
