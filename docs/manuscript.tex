@@ -163,9 +163,9 @@ formulation of Fdez. Galv{\'a}n et al. and the SA-DMRG-SCF response framework
 of Freitag et al.; the present work implements these response quantities in a
 PySCF/pyblock2 workflow rather than introducing a new derivative theory.
 
-Let $x$ collect the orbital rotations and active-space wave-function
-parameters.  For FCI-CASSCF, $x=(\kappa,C)$; for the DMRG representation,
-the active-space part is replaced by MPS tensor parameters, $x=(\kappa,A)$.
+Let $\mathbf{x}$ collect the orbital rotations and active-space wave-function
+parameters.  For FCI-CASSCF, $\mathbf{x}=(\kappa,C)$; for the DMRG representation,
+the active-space part is replaced by MPS tensor parameters, $\mathbf{x}=(\kappa,A)$.
 For states $I$ with weights $w_I$, the optimized state-averaged reference is
 defined by
 \begin{equation}
@@ -177,34 +177,45 @@ defined by
 \end{equation}
 where $\kappa_{pq}$ are orbital-rotation parameters and $a_{\mu I}$ denotes
 the active-space state parameters in either the CI or MPS representation.  For
-a state-specific derivative, the response multipliers $z_I$ are obtained from
+a state-specific derivative, the response multipliers $\mathbf{z}_I$ are obtained from
 the coupled-perturbed equation
 \begin{equation}
-  \mathbf{H}^{\mathrm{SA}} z_I =
-  -\frac{\partial E_I}{\partial x},
+  \mathbf{H}^{\mathrm{SA}} \mathbf{z}_I =
+  -\frac{\partial E_I}{\partial \mathbf{x}},
   \qquad
   \mathbf{H}^{\mathrm{SA}}
   =
-  \frac{\partial^2 E_{\mathrm{SA}}}{\partial x\,\partial x}.
+  \frac{\partial^2 E_{\mathrm{SA}}}{\partial \mathbf{x}\,\partial \mathbf{x}},
 \end{equation}
+where $\mathbf{x}$ and $\mathbf{z}_I$ are column vectors over the orbital and
+active-space parameters and $\mathbf{H}^{\mathrm{SA}}$ is the state-averaged
+electronic Hessian.
 They define the stationary state Lagrangian
 \begin{equation}
   \mathcal{L}_I =
-  E_I + z_I^{\mathrm{T}}
-  \frac{\partial E_{\mathrm{SA}}}{\partial x}.
+  E_I + \mathbf{z}_I^{\mathrm{T}}
+  \frac{\partial E_{\mathrm{SA}}}{\partial \mathbf{x}}.
 \end{equation}
 The analytic state gradient is then obtained as the explicit nuclear
 derivative of this stationary Lagrangian,
 \begin{equation}
+  \label{eq:state-gradient}
   \frac{dE_I}{dR_A} =
   \left.\frac{\partial \mathcal{L}_I}{\partial R_A}\right|_{\mathrm{stat.}},
 \end{equation}
 and the derivative-coupling vector is
 \begin{equation}
+  \label{eq:nac}
   \mathbf{d}^{A}_{IJ} =
   \left\langle \Psi_I \middle| \frac{\partial \Psi_J}{\partial R_A}
   \right\rangle,\qquad I\ne J .
 \end{equation}
+Equation~\eqref{eq:nac} is evaluated through the interstate coupling
+$dE_{IJ}/dR_A$ defined by an off-diagonal Lagrangian $\mathcal{L}_{IJ}$, whose
+nuclear derivative is assembled from the same orbital-response multipliers and
+one- and two-particle (transition) density-matrix contractions as the state
+gradient in Eq.~\eqref{eq:state-gradient}; the configuration-interaction and
+orbital terms therefore parallel those of Eq.~\eqref{eq:state-gradient}.
 These are the quantities required by state-specific geometry optimization,
 minimum-energy-crossing-point searches, and nonadiabatic dynamics drivers.
 
