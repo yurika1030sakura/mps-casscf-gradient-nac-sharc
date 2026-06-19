@@ -172,6 +172,10 @@ class CPDMRGCASSCFResponseMPSKrylov(CPDMRGCASSCFResponseMPS):
         )
         self._hcc_shifted_mpo_cache = {}
         self._gmres_recycle_cache = None
+        # Fingerprint of (mo_coeff, nuclear geometry) at which the geometry
+        # caches were built; used to refuse silent reuse of a stale cache when
+        # the object is carried to a new geometry without invalidation.
+        self._geom_fingerprint = None
 
     def _is_cached_zero_mps(self, state: int, mps) -> bool:
         return self._zero_state_mps_cache.get(int(state)) is mps
@@ -302,14 +306,67 @@ class CPDMRGCASSCFResponseMPSKrylov(CPDMRGCASSCFResponseMPS):
             )
         return out
 
+    def _geometry_fingerprint(self) -> str:
+        """Hash of the orbital coefficients and nuclear geometry the caches
+        are tied to.  Any change means the cached integrals/RDMs are stale."""
+        import hashlib
+
+        h = hashlib.sha1()
+        h.update(np.ascontiguousarray(self.mo_coeff, dtype=np.float64).tobytes())
+        try:
+            h.update(np.ascontiguousarray(
+                self.mol.atom_coords(), dtype=np.float64,
+            ).tobytes())
+        except Exception:
+            pass
+        return h.hexdigest()
+
+    def invalidate_geometry_cache(self) -> None:
+        """Drop every geometry-dependent cache so the response object can be
+        reused at a new geometry.  Must be called whenever ``mo_coeff`` or the
+        molecular geometry changes on a reused object (geometry scans,
+        trajectory steps); otherwise the stale-cache guard in
+        ``_build_eris_cache`` raises rather than returning wrong derivatives.
+        """
+        self._eris_cache = None
+        self._mps_hcc_mpo = None
+        self._hcc_shifted_mpo_cache = {}
+        self._hci0_mps_cache = None
+        self._corr_mps_cache = None
+        self._eci0_mps_cache = None
+        self._state_transition_rdm_cache = {}
+        self._gmres_recycle_cache = None
+        self._geom_fingerprint = None
+
+    def prepare_geometry_cache(self):
+        """Assemble the geometry-dependent, RHS-independent operator state once
+        (integrals, state RDMs, per-state shifted Hamiltonians) so subsequent
+        ``solve_mps`` / ``solve_nac_mps`` calls at this geometry reuse it.
+        Returns ``self`` for chaining."""
+        self._build_eris_cache()
+        self._build_hcc_state_cache()
+        for i in range(len(self._state_mps)):
+            self._hcc_shifted_mpo(i)
+        return self
+
     def _build_eris_cache(self):
         """Build response integral/RDM cache using state MPS RDMs.
 
         This mirrors the parent cache algebra but replaces the per-state
         ``direct_spin1.make_rdm12`` calls with block2 MPS RDM contractions.
         """
+        fp = self._geometry_fingerprint()
         if getattr(self, "_eris_cache", None) is not None:
+            if self._geom_fingerprint is not None and self._geom_fingerprint != fp:
+                raise RuntimeError(
+                    "CP-DMRG response cache is stale: mo_coeff/geometry "
+                    "changed since the cache was built. Call "
+                    "invalidate_geometry_cache() before reusing this response "
+                    "object at a new geometry."
+                )
             return self._eris_cache
+        # Building fresh: stamp the geometry this cache is bound to.
+        self._geom_fingerprint = fp
 
         ncore, ncas, nmo, nocc = (
             self.ncore, self.ncas, self.nmo, self.ncore + self.ncas
