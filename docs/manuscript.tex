@@ -264,6 +264,8 @@ For beyond-FCI active spaces, internal consistency is tested by finite differenc
 \section{Computational Details}
 Calculations used Python 3.11.14, PySCF 2.12.1, block2 0.5.3 through pyblock2, and SHARC 3.0.
 Unless stated otherwise, calculations used singlet SA(2)-CASSCF with equal weights and spin-adapted SU2 block2 DMRG.
+Backend correctness away from the singlet sector is verified separately: the public test suite includes doublet ($2S=1$, stretched H$_3$) and triplet ($2S=2$, stretched H$_4$) SU2-mode checks of state energies and one- and two-particle density matrices against FCI references, with the dense FCI conversion disabled and MPS-native density matrices used throughout, in both cases agreeing to $\sim10^{-15}$.
+Mixed-spin nonadiabatic dynamics and spin--orbit couplings are outside the present scope.
 The fixed-orbital FCI-scored benchmarks used SA-CASSCF-converged orbitals, PySCF \texttt{direct\_spin0} FCI references, and DMRG roots assigned by overlap where determinant vectors were available.
 The FCI-free finite-difference benchmarks used projected displaced-geometry orbital guesses, active-subspace singular-value guards, root-gap guards for energy-ordered roots, and no warm-start or persistent MPS cache in the displaced energy calculations.
 
