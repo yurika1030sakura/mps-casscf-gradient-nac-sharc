@@ -8,7 +8,7 @@
 \providecommand*\mcitethebibliography{\thebibliography}
 \csname @ifundefined\endcsname{endmcitethebibliography}
   {\let\endmcitethebibliography\endthebibliography}{}
-\begin{mcitethebibliography}{30}
+\begin{mcitethebibliography}{26}
 \providecommand*\natexlab[1]{#1}
 \providecommand*\mciteSetBstSublistMode[1]{}
 \providecommand*\mciteSetBstMaxWidthForm[2]{}
@@ -52,18 +52,6 @@ Mai,~S.; Marquetand,~P.; Gonz{\'a}lez,~L. Nonadiabatic dynamics: The {SHARC}
 \mciteSetBstMidEndSepPunct{\mcitedefaultmidpunct}
 {\mcitedefaultendpunct}{\mcitedefaultseppunct}\relax
 \EndOfBibitem
-\bibitem[Fdez.~Galv{\'a}n \latin{et~al.}(2016)Fdez.~Galv{\'a}n, Delcey,
-  Pedersen, Aquilante, and Lindh]{FdezGalvan2016}
-Fdez.~Galv{\'a}n,~I.; Delcey,~M.~G.; Pedersen,~T.~B.; Aquilante,~F.; Lindh,~R.
-  Analytical State-Average Complete-Active-Space Self-Consistent Field
-  Nonadiabatic Coupling Vectors: Implementation with Density-Fitted
-  Two-Electron Integrals and Application to Conical Intersections.
-  \emph{Journal of Chemical Theory and Computation} \textbf{2016}, \emph{12},
-  3636--3653\relax
-\mciteBstWouldAddEndPuncttrue
-\mciteSetBstMidEndSepPunct{\mcitedefaultmidpunct}
-{\mcitedefaultendpunct}{\mcitedefaultseppunct}\relax
-\EndOfBibitem
 \bibitem[Yarkony(1996)]{Yarkony1996}
 Yarkony,~D.~R. Diabolical conical intersections. \emph{Reviews of Modern
   Physics} \textbf{1996}, \emph{68}, 985--1013\relax
@@ -85,6 +73,18 @@ Bernardi,~F.; Olivucci,~M.; Robb,~M.~A. Potential energy surface crossings in
 Bearpark,~M.~J.; Robb,~M.~A.; Schlegel,~H.~B. A direct method for the location
   of the lowest energy point on a potential surface crossing. \emph{Chemical
   Physics Letters} \textbf{1994}, \emph{223}, 269--274\relax
+\mciteBstWouldAddEndPuncttrue
+\mciteSetBstMidEndSepPunct{\mcitedefaultmidpunct}
+{\mcitedefaultendpunct}{\mcitedefaultseppunct}\relax
+\EndOfBibitem
+\bibitem[Fdez.~Galv{\'a}n \latin{et~al.}(2016)Fdez.~Galv{\'a}n, Delcey,
+  Pedersen, Aquilante, and Lindh]{FdezGalvan2016}
+Fdez.~Galv{\'a}n,~I.; Delcey,~M.~G.; Pedersen,~T.~B.; Aquilante,~F.; Lindh,~R.
+  Analytical State-Average Complete-Active-Space Self-Consistent Field
+  Nonadiabatic Coupling Vectors: Implementation with Density-Fitted
+  Two-Electron Integrals and Application to Conical Intersections.
+  \emph{Journal of Chemical Theory and Computation} \textbf{2016}, \emph{12},
+  3636--3653\relax
 \mciteBstWouldAddEndPuncttrue
 \mciteSetBstMidEndSepPunct{\mcitedefaultmidpunct}
 {\mcitedefaultendpunct}{\mcitedefaultseppunct}\relax
@@ -154,6 +154,24 @@ Sharma,~S.; Chan,~G. K.-L. Spin-adapted density matrix renormalization group
 \mciteSetBstMidEndSepPunct{\mcitedefaultmidpunct}
 {\mcitedefaultendpunct}{\mcitedefaultseppunct}\relax
 \EndOfBibitem
+\bibitem[Zgid and Nooijen(2008)Zgid, and Nooijen]{ZgidNooijen2008}
+Zgid,~D.; Nooijen,~M. The density matrix renormalization group self-consistent
+  field method: Orbital optimization with the density matrix renormalization
+  group method in the active space. \emph{Journal of Chemical Physics}
+  \textbf{2008}, \emph{128}, 144116\relax
+\mciteBstWouldAddEndPuncttrue
+\mciteSetBstMidEndSepPunct{\mcitedefaultmidpunct}
+{\mcitedefaultendpunct}{\mcitedefaultseppunct}\relax
+\EndOfBibitem
+\bibitem[Ghosh \latin{et~al.}(2008)Ghosh, Hachmann, Yanai, and Chan]{Ghosh2008}
+Ghosh,~D.; Hachmann,~J.; Yanai,~T.; Chan,~G. K.-L. Orbital optimization in the
+  density matrix renormalization group, with applications to polyenes and
+  beta-carotene. \emph{Journal of Chemical Physics} \textbf{2008}, \emph{128},
+  144117\relax
+\mciteBstWouldAddEndPuncttrue
+\mciteSetBstMidEndSepPunct{\mcitedefaultmidpunct}
+{\mcitedefaultendpunct}{\mcitedefaultseppunct}\relax
+\EndOfBibitem
 \bibitem[Wouters and Van~Neck(2014)Wouters, and
   Van~Neck]{Wouters2014DMRGReview}
 Wouters,~S.; Van~Neck,~D. The density matrix renormalization group for ab
@@ -178,24 +196,6 @@ Wouters,~S.; Poelmans,~W.; Ayers,~P.~W.; Van~Neck,~D. {CheMPS2}: A free
   open-source spin-adapted implementation of the density matrix renormalization
   group for ab initio quantum chemistry. \emph{Computer Physics Communications}
   \textbf{2014}, \emph{185}, 1501--1514\relax
-\mciteBstWouldAddEndPuncttrue
-\mciteSetBstMidEndSepPunct{\mcitedefaultmidpunct}
-{\mcitedefaultendpunct}{\mcitedefaultseppunct}\relax
-\EndOfBibitem
-\bibitem[Zgid and Nooijen(2008)Zgid, and Nooijen]{ZgidNooijen2008}
-Zgid,~D.; Nooijen,~M. The density matrix renormalization group self-consistent
-  field method: Orbital optimization with the density matrix renormalization
-  group method in the active space. \emph{Journal of Chemical Physics}
-  \textbf{2008}, \emph{128}, 144116\relax
-\mciteBstWouldAddEndPuncttrue
-\mciteSetBstMidEndSepPunct{\mcitedefaultmidpunct}
-{\mcitedefaultendpunct}{\mcitedefaultseppunct}\relax
-\EndOfBibitem
-\bibitem[Ghosh \latin{et~al.}(2008)Ghosh, Hachmann, Yanai, and Chan]{Ghosh2008}
-Ghosh,~D.; Hachmann,~J.; Yanai,~T.; Chan,~G. K.-L. Orbital optimization in the
-  density matrix renormalization group, with applications to polyenes and
-  beta-carotene. \emph{Journal of Chemical Physics} \textbf{2008}, \emph{128},
-  144117\relax
 \mciteBstWouldAddEndPuncttrue
 \mciteSetBstMidEndSepPunct{\mcitedefaultmidpunct}
 {\mcitedefaultendpunct}{\mcitedefaultseppunct}\relax
@@ -236,17 +236,8 @@ Sun,~Q.; Berkelbach,~T.~C.; Blunt,~N.~S.; Booth,~G.~H.; Guo,~S.; Li,~Z.;
   Purwanto, Robinson, Ronca, Sayfutyarova, Scheurer, Schurkus, Smith, Sun, Sun,
   Upadhyay, Wagner, Wang, White, Whitfield, Williamson, Wouters, Yang, Yu, Zhu,
   Berkelbach, Sharma, Sokolov, and Chan]{Sun2020PySCF}
-Sun,~Q.; Zhang,~X.; Banerjee,~S.; Bao,~P.; Barbry,~M.; Blunt,~N.~S.;
-  Bogdanov,~N.~A.; Booth,~G.~H.; Chen,~J.; Cui,~Z.-H.; Eriksen,~J.~J.; Gao,~Y.;
-  Guo,~S.; Hermann,~J.; Hermes,~M.~R.; Koh,~K.; Koval,~P.; Lehtola,~S.; Li,~Z.;
-  Liu,~J.; Mardirossian,~N.; McClain,~J.~D.; Motta,~M.; Mussard,~B.;
-  Pham,~H.~Q.; Pulkin,~A.; Purwanto,~W.; Robinson,~P.~J.; Ronca,~E.;
-  Sayfutyarova,~E.~R.; Scheurer,~M.; Schurkus,~H.~F.; Smith,~J. E.~T.; Sun,~C.;
-  Sun,~S.-N.; Upadhyay,~S.; Wagner,~L.~K.; Wang,~X.; White,~A.;
-  Whitfield,~J.~D.; Williamson,~M.~J.; Wouters,~S.; Yang,~J.; Yu,~J.~M.;
-  Zhu,~T.; Berkelbach,~T.~C.; Sharma,~S.; Sokolov,~A.~Y.; Chan,~G. K.-L. Recent
-  developments in the {PySCF} program package. \emph{Journal of Chemical
-  Physics} \textbf{2020}, \emph{153}, 024109\relax
+Sun,~Q. \latin{et~al.}  Recent developments in the {PySCF} program package.
+  \emph{Journal of Chemical Physics} \textbf{2020}, \emph{153}, 024109\relax
 \mciteBstWouldAddEndPuncttrue
 \mciteSetBstMidEndSepPunct{\mcitedefaultmidpunct}
 {\mcitedefaultendpunct}{\mcitedefaultseppunct}\relax
@@ -258,47 +249,6 @@ Zhai,~H.; Larsson,~H.~R.; Lee,~S.; Cui,~Z.-H.; Zhu,~T.; Sun,~C.; Peng,~L.;
   a comprehensive open source framework to develop and apply state-of-the-art
   {DMRG} algorithms in electronic structure and beyond. \emph{Journal of
   Chemical Physics} \textbf{2023}, \emph{159}, 234801\relax
-\mciteBstWouldAddEndPuncttrue
-\mciteSetBstMidEndSepPunct{\mcitedefaultmidpunct}
-{\mcitedefaultendpunct}{\mcitedefaultseppunct}\relax
-\EndOfBibitem
-\bibitem[Aquilante \latin{et~al.}(2020)Aquilante, Autschbach, Baiardi,
-  Battaglia, Borin, Chibotaru, Conti, De~Vico, Delcey, Fdez.~Galv{\'a}n,
-  Ferr{\'e}, Freitag, Garavelli, Gong, Knecht, Larsson, Lindh, Lundberg,
-  Malmqvist, \latin{et~al.} others]{Aquilante2020OpenMolcas}
-Aquilante,~F.; Autschbach,~J.; Baiardi,~A.; Battaglia,~S.; Borin,~V.~A.;
-  Chibotaru,~L.~F.; Conti,~I.; De~Vico,~L.; Delcey,~M.~G.;
-  Fdez.~Galv{\'a}n,~I.; Ferr{\'e},~N.; Freitag,~L.; Garavelli,~M.; Gong,~X.;
-  Knecht,~S.; Larsson,~E.~D.; Lindh,~R.; Lundberg,~M.; Malmqvist,~P.~{\AA}.;
-  others Modern quantum chemistry with {[Open]Molcas}. \emph{Journal of
-  Chemical Physics} \textbf{2020}, \emph{152}, 214117\relax
-\mciteBstWouldAddEndPuncttrue
-\mciteSetBstMidEndSepPunct{\mcitedefaultmidpunct}
-{\mcitedefaultendpunct}{\mcitedefaultseppunct}\relax
-\EndOfBibitem
-\bibitem[Szenes \latin{et~al.}(2025)Szenes, Glaser, Erakovic, Barandun,
-  M{\"o}rchen, Feldmann, Battaglia, Baiardi, and Reiher]{Szenes2025QCMaquis}
-Szenes,~K.; Glaser,~N.; Erakovic,~M.; Barandun,~V.; M{\"o}rchen,~M.;
-  Feldmann,~R.; Battaglia,~S.; Baiardi,~A.; Reiher,~M. {QCMaquis} 4.0:
-  Multipurpose Electronic, Vibrational, and Vibronic Structure and Dynamics
-  Calculations with the Density Matrix Renormalization Group. \emph{Journal of
-  Physical Chemistry A} \textbf{2025}, \emph{129}, 7549\relax
-\mciteBstWouldAddEndPuncttrue
-\mciteSetBstMidEndSepPunct{\mcitedefaultmidpunct}
-{\mcitedefaultendpunct}{\mcitedefaultseppunct}\relax
-\EndOfBibitem
-\bibitem[Saad and Schultz(1986)Saad, and Schultz]{SaadSchultz1986GMRES}
-Saad,~Y.; Schultz,~M.~H. {GMRES}: A generalized minimal residual algorithm for
-  solving nonsymmetric linear systems. \emph{SIAM Journal on Scientific and
-  Statistical Computing} \textbf{1986}, \emph{7}, 856--869\relax
-\mciteBstWouldAddEndPuncttrue
-\mciteSetBstMidEndSepPunct{\mcitedefaultmidpunct}
-{\mcitedefaultendpunct}{\mcitedefaultseppunct}\relax
-\EndOfBibitem
-\bibitem[Boys(1960)]{Boys1960}
-Boys,~S.~F. Construction of Some Molecular Orbitals to Be Approximately
-  Invariant for Changes from One Molecule to Another. \emph{Reviews of Modern
-  Physics} \textbf{1960}, \emph{32}, 296--299\relax
 \mciteBstWouldAddEndPuncttrue
 \mciteSetBstMidEndSepPunct{\mcitedefaultmidpunct}
 {\mcitedefaultendpunct}{\mcitedefaultseppunct}\relax
