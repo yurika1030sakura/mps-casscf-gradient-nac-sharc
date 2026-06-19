@@ -302,11 +302,83 @@ The public regression suite verifies DMRG/FCI energies, state density matrices, 
 These tests establish algebraic and sign-convention correctness in active spaces where exact FCI references are available.
 They are not used by themselves to claim DMRG necessity.
 
+\begin{table}[t]
+\centering
+\scriptsize
+\caption{Validation layers included in the public test and benchmark suite.}
+\label{tab:validation}
+\begin{tabular}{p{0.25\textwidth}p{0.32\textwidth}p{0.34\textwidth}}
+\toprule
+Validation target & Public evidence & Quantity checked \\
+\midrule
+DMRG active-space solver & Solver regression tests & Energies, state density matrices, transition density matrices, and analytic NAC pipeline consistency with FCI references. \\
+MPS/FCI mapping & Active-space map tests & Round-trip mapping for CAS(2,2), CAS(4,4), and CAS(8,8) active spaces. \\
+Response linear algebra & Coupled-perturbed response tests & Hermiticity, linearity, response-vector solves, and agreement between MPS and FCI response operations in exactly recoverable cases. \\
+MPS-Krylov response & MPS-only response-vector tests & Gradient and NAC RHS construction, MPS Krylov solves, MPS-only initialization without dense CI roots, and MPS Lagrange nuclear assembly. \\
+Cross-geometry MPS overlap & Transport and rotation tests & Foreign-driver MPS transport, active-orbital rotation, and FCI-free finite-difference NAC against the determinant reference at small CAS. \\
+Response certificate & Certificate regression tests & True residual of the projected response equation and root-projector leakage for accepted gradient and NAC solves. \\
+Fixed-orbital MPS-only SHARC path & SHARC facade regression test & Energies, dipoles, gradients, and NACs are evaluated from MPS roots with only small \texttt{mc.ci} placeholders present at runtime. \\
+Gradient and NAC derivatives & Derivative regression tests & Analytic gradients and derivative couplings against PySCF FCI active-space references. \\
+FCI-free runtime endpoint & 27 public molecule/basis endpoint checks & DMRG root selection and derivative evaluation run without FCI CI vectors; FCI is loaded only afterward for error scoring. \\
+SHARC interface & H$_2$/ethylene trajectory smoke tests and MPS-Krylov SHARC-interface tests & Repeated SHARC calls write \texttt{H}, \texttt{DM}, \texttt{GRAD}, \texttt{NACDR}, and \texttt{PHASES} blocks in \texttt{QM.out}; the MPS-Krylov gradient/NAC path matches the projected-CI interface path in the exact validation case. \\
+\bottomrule
+\end{tabular}
+\end{table}
+
 The previous FCI-scored endpoint checks remain useful as regression tests.
 In all small and medium active-space cases, DMRG root selection and derivative evaluation can be run without loading FCI CI vectors at runtime; FCI data are loaded only after the endpoint calculation to score the errors.
 The anthracene CAS(14,14) benchmark is retained as the largest FCI-scored bridge case.
 At $M=512$, the strict MPS-Krylov response gives maximum state-wise energy, gradient, and derivative-coupling errors of $6.41\times10^{-5}$ m$\Eh$, $1.57\times10^{-3}$ m$\Eh$/Bohr, and $9.11\times10^{-6}$ a.u., respectively.
 This benchmark is explicitly a validation stress test, not the final demonstration of DMRG necessity.
+
+Across the public benchmark systems (Table~\ref{tab:systems}), the FCI-free
+endpoint check ran DMRG root selection and derivative evaluation without loading
+FCI CI vectors at runtime, with FCI data loaded only afterward to score the
+errors.  The largest post hoc FCI-scored gradient error was
+$1.25\times10^{-6}$~m$\Eh$/Bohr for N$_2$/6-31G, and the largest derivative
+coupling error was $3.79\times10^{-7}$~a.u. for LiF/6-31G.  For the anthracene
+CAS(14,14) bridge (an 11.8-million-determinant FCI validation target), the
+strict MPS-Krylov response is monotonic over the $M=64,128,256,512$ sequence:
+the maximum gradient error decreases from $3.39$ to $0.368$, $0.0356$, and
+$1.57\times10^{-3}$~m$\Eh$/Bohr, and the derivative-coupling error from
+$2.22\times10^{-2}$ to $2.52\times10^{-3}$, $1.68\times10^{-4}$, and
+$9.11\times10^{-6}$~a.u.\ (Figure~\ref{fig:anthracene-response}); the per-call
+DMRG and response wall times, including the CAS(14,14) response cost that the
+sweep-localized and certified routes are compared against, are listed in
+Table~\ref{tab:mps-only-response}.
+
+\begin{table}[t]
+\centering
+\scriptsize
+\setlength{\tabcolsep}{3pt}
+\caption{Fixed-orbital MPS-only response endpoint timings and large-active-space
+accuracy.  No FCI reference or dense active-space response vector is used
+during these runtime calculations; FCI data are used only for post hoc scoring
+when a reference is available.}
+\label{tab:mps-only-response}
+\begin{tabular}{P{0.18\textwidth}P{0.13\textwidth}P{0.06\textwidth}P{0.12\textwidth}P{0.13\textwidth}P{0.25\textwidth}}
+\toprule
+System & Active space & $M$ & DMRG time (s) & Response wall time (s) & Post hoc validation \\
+\midrule
+H$_4$ chain/STO-3G & CAS(4,4) & 50 & 0.017 & 7.16 & exact-space endpoint \\
+H$_{10}$ chain/STO-3G & CAS(10,10) & 200 & 3.81 & 751 & timing endpoint \\
+Anthracene/STO-3G & CAS(14,14) & 512 & 848 & $3.67\times10^4$ &
+$\Delta_g=1.57\times10^{-3}$ m$\Eh$/Bohr; $\Delta_d=9.11\times10^{-6}$ a.u. \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\textwidth]{figures/anthracene_mps_krylov_response.pdf}
+\caption{Anthracene CAS(14,14)/STO-3G fixed-orbital MPS-Krylov response
+validation.  Circles show the standard 20-iteration response setting used to
+scan bond dimension, and triangles show the strict response setting used for
+production derivative validation.  Increasing $M$ converges the electronic
+energies, while tightening the response solve reduces the gradient and
+derivative-coupling errors to the FCI-scored strict-response values.}
+\label{fig:anthracene-response}
+\end{figure}
 
 \subsection{Internal Finite-Difference Validation}
 Table~\ref{tab:fd-validation} summarizes internal-consistency checks against the same SA-DMRG-CASSCF energy surface and MPS wave functions used by the analytic derivative code.
@@ -352,6 +424,65 @@ C$_{20}$H$_{22}$ & (20,20) & $3.41\times10^{10}$ & no & FD gradient & \pending{f
 \bottomrule
 \end{tabular}
 \end{table}
+
+\subsection{Finite-Bond-Dimension Response Error}
+Figure~\ref{fig:bvoe} shows representative fixed-orbital bond-dimension
+response-error curves for points that pass the root-overlap and
+response-equation convergence checks.  The selected systems cover small active
+spaces, CAS(6,6) and CAS(8,8) examples, nonzero derivative couplings, and a
+public SHARC-interface molecule.  These curves show reduction of the derivative
+error as $M$ is increased and recover the FCI active-space limit at high $M$.
+The high-$M$ gradient errors in Table~\ref{tab:largestm} are reported in
+m$\Eh$/Bohr; values near $10^{-4}$ correspond to $10^{-7}$~$\Eh$/Bohr and are
+well below the $0.1$~m$\Eh$/Bohr reference line in Figure~\ref{fig:bvoe}.  The
+NAC column is an absolute vector error and is interpreted together with the
+benchmark matrix in Figure~\ref{fig:highm}.  In the N$_2$ scans, the homonuclear
+geometry gives a symmetry-suppressed derivative coupling and a root-labeling
+problem for low-rank truncated CI spaces: several low- and intermediate-$M$ DMRG
+roots are accurate enough energetically to be nearby states but do not satisfy
+the root-overlap criterion for a root-by-root FCI derivative comparison.  The
+high-$M$ points recover unit overlap with the FCI reference, sub-$10^{-6}$
+$\Eh$/Bohr gradient errors, and NAC errors near $10^{-8}$~a.u.
+
+\begin{table}[t]
+\centering
+\scriptsize
+\setlength{\tabcolsep}{3pt}
+\caption{Representative largest-$M$ fixed-orbital response errors from the
+public benchmark scan.  The full molecule/basis matrix is summarized in
+Figure~\ref{fig:highm}.}
+\label{tab:largestm}
+\begin{tabular}{P{0.18\textwidth}P{0.12\textwidth}P{0.06\textwidth}P{0.15\textwidth}P{0.12\textwidth}P{0.23\textwidth}}
+\toprule
+System & Active space & $M$ & $\Delta_g$ (m$\Eh$/Bohr) & $\Delta_d$ & Role \\
+\midrule
+\input{si/largest_m_table_rows.tex}
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[tbp]
+\centering
+\includegraphics[width=\textwidth]{figures/bvoe_phase2.pdf}
+\caption{Fixed-orbital bond-dimension response-error convergence for public
+benchmark systems.  Gradient errors are reported in m$\Eh$/Bohr and
+nonadiabatic coupling errors in atomic units.  Filled symbols connected by
+lines pass the uniform benchmark QC: minimum assigned root overlap with the
+FCI reference of at least 0.98 and converged gradient and NAC response
+equations.  Pale open triangles mark computed N$_2$/6-31G points that fail
+one of these QC filters and are not used for convergence claims.}
+\label{fig:bvoe}
+\end{figure}
+
+\begin{figure}[tbp]
+\centering
+\includegraphics[width=0.96\textwidth]{figures/bvoe_highm_heatmap.pdf}
+\caption{Largest-$M$ derivative errors across the public molecule/basis
+matrix.  Color encodes the base-10 logarithm of the error, while each cell
+reports the corresponding gradient error in m$\Eh$/Bohr or NAC error in
+atomic units.}
+\label{fig:highm}
+\end{figure}
 
 \subsection{Certified Response Solves and Cost Breakdown}
 Table~\ref{tab:certificate} reports the response certificates for representative gradient and NAC right-hand sides.
