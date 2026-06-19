@@ -3,14 +3,16 @@
 Analytic state-averaged DMRG-CASSCF energies, nuclear gradients, and
 non-adiabatic couplings on top of `pyblock2` / `block2`, with a SHARC-PySCF
 interface that emits SHARC-format output (`H`, `DM`, `GRAD`, `NACDR`,
-`PHASES`) for surface-hopping dynamics. The coupled-perturbed response
-solver runs in MPS space (MPS-Krylov), so no dense FCI response vector is
-ever stored — the active-space response is carried by the MPS, which lets
-the active space exceed the determinant sizes where a dense FCI response
-vector is tractable, while keeping fully analytic gradients and
-non-adiabatic couplings.
+`PHASES`) as a repeated-call electronic-structure interface for SHARC. The
+coupled-perturbed response solver runs in MPS space (MPS-Krylov), so no dense
+FCI response vector is ever stored — the active-space response is carried by
+the MPS, which lets the active space exceed the determinant sizes where a
+dense FCI response vector is tractable. The emphasis is **FCI-free
+active-space validation** of analytic gradients and non-adiabatic couplings:
+correctness is checked against FCI where one is tractable and against finite
+differences of the solver's own DMRG energy where it is not.
 
-The default code path reproduces the accompanying manuscript's numerics.
+The default code path reproduces the draft benchmark numerics.
 The fast-path flags described below reduce per-call wall time for
 production runs without changing the converged result.
 
@@ -188,8 +190,8 @@ gradient and 10⁻⁶ a.u. NAC accuracy at large CAS. **The fast-path flags
 below do not affect that benchmark** — they target a different workload.
 
 The fast path exists for **SA-DMRG-CASSCF orbital optimization** at
-large CAS, and for surface-hopping dynamics where that loop repeats per
-nuclear step. In the macro-iteration loop the same DMRG kernel is called
+large CAS, and for repeated-call drivers (e.g. SHARC) where that loop repeats
+per nuclear step. In the macro-iteration loop the same DMRG kernel is called
 many times with updated `h1e` / `eri` until orbital convergence. On the
 original code path, every kernel call ended with an
 O(n_determinants) `mps_to_fci_generic` call that converted the converged
@@ -204,9 +206,9 @@ converged physics; H₄ CAS(4,4) regressions
 `test_v10_su2_triplet.py`) pin them against PySCF FCI to machine
 precision.
 
-All flags default off. With every flag off the code path is the
-manuscript-submitted version; enable them only when the macro loop or a
-dynamics driver is doing the calling.
+All flags default off. With every flag off the code path is the draft
+benchmark configuration; enable them only when the macro loop or a
+repeated-call driver is doing the calling.
 
 | `MPSAsFCISolver` kwarg | SHARC template key | What it does |
 |---|---|---|
@@ -234,7 +236,7 @@ mc.fcisolver = MPSAsFCISolver(
 )
 ```
 
-SHARC template equivalent for surface-hopping dynamics with full
+SHARC template equivalent for repeated calls with full
 SA-DMRG-CASSCF at every step:
 
 ```
@@ -300,6 +302,17 @@ accepted.
 
 Public methods bundle only. Application systems, trajectory outputs, and
 local cluster files belong in private project repositories.
+
+The validated workflow targets **singlet, closed-shell active spaces** with
+state-averaged singlet roots. The SU2 backend itself represents spin-pure
+states of any multiplicity (e.g. a triplet ground state, used in the solver
+regression tests), but the SHARC-compatible gradient/NAC path and its
+finite-difference validation are exercised for singlets; doublet/triplet
+excited-state couplings and spin-orbit coupling are outside the present scope.
+The goal here is to implement and validate FCI-free SA-DMRG-CASSCF gradients
+and non-adiabatic couplings for single-point and repeated-call use; long-time
+dynamics in large active spaces remains a cost-sensitive direction for further
+optimization.
 
 ## License
 

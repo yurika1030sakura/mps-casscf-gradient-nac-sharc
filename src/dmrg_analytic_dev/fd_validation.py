@@ -106,6 +106,37 @@ DEFAULT_SOLVER_CFG = dict(
 
 DEFAULT_H_SCAN = (2.0e-3, 1.0e-3, 5.0e-4, 2.0e-4, 1.0e-4)
 
+# Determinant-space size above which a dense FCI vector cannot be formed.  The
+# default solver config carries the FCI-convertible settings (so small cases
+# keep a cheap dense readout for scoring); past this threshold the build path
+# forces the FCI-free settings regardless of what the caller passed, so a large
+# active space can never silently trigger a dense MPS->FCI conversion.
+FCI_FREE_THRESHOLD = 5.0e7
+
+
+def _determinant_dimension(ncas, nelecas) -> float:
+    from math import comb
+    if isinstance(nelecas, (tuple, list)):
+        na, nb = int(nelecas[0]), int(nelecas[1])
+    else:
+        na = int(nelecas) // 2 + int(nelecas) % 2
+        nb = int(nelecas) // 2
+    return float(comb(int(ncas), na) * comb(int(ncas), nb))
+
+
+def _enforce_fci_free(cfg: dict, ncas, nelecas) -> dict:
+    """Force FCI-free solver settings when the determinant space is too large.
+
+    Returns ``cfg`` unchanged below the threshold; above it, sets
+    ``skip_kernel_fci_conversion`` and ``mps_native_rdms`` to ``True`` so the
+    solver never attempts a dense FCI readout it cannot hold.
+    """
+    if _determinant_dimension(ncas, nelecas) > FCI_FREE_THRESHOLD:
+        cfg = dict(cfg)
+        cfg["skip_kernel_fci_conversion"] = True
+        cfg["mps_native_rdms"] = True
+    return cfg
+
 
 def _assert_fd_safe(cfg: dict) -> None:
     if cfg.get("warm_start", False):
@@ -134,6 +165,7 @@ def build_sa_dmrg_casscf(
     holding the SZ driver and converged MPS roots.
     """
     cfg = dict(DEFAULT_SOLVER_CFG if solver_cfg is None else solver_cfg)
+    cfg = _enforce_fci_free(cfg, ncas, nelecas)
     _assert_fd_safe(cfg)
     coords_bohr = np.asarray(coords_bohr, dtype=float)
     atom_list = [(atoms[i], tuple(coords_bohr[i])) for i in range(len(atoms))]
