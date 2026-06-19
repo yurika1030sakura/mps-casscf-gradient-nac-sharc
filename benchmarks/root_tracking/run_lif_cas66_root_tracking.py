@@ -49,10 +49,12 @@ for p in (str(DEV), str(SHARC)):
     if p not in sys.path:
         sys.path.insert(0, p)
 
-from pyscf import gto, scf, mcscf
+from pyscf import gto, scf, mcscf, fci
 import fd_validation as fdv
 from overlap_fci_reference import (overlap_matrix_fci, assign_roots_by_overlap,
                                    cross_geometry_S_act)
+from active_space import select_active_space_by_ao_targets
+from system_diagnostics import assess_point
 
 ANG = 1.8897261246257702
 
@@ -70,53 +72,24 @@ def lif_mol(R_ang, basis):
                  basis=basis, charge=0, spin=0, unit="Bohr", symmetry=False, verbose=0)
 
 
-def select_lif_cas66(mol, mf, ncas=6):
-    """Valence-adapted CAS(6,6) selector for the LiF ionic/covalent crossing.
+# Default valence-adapted target AOs for the LiF ionic/covalent crossing.
+# Any other system just supplies its own chemically active AO labels.
+LIF_AO_TARGETS = ["F 2p", "Li 2s", "Li 2pz", "Li 3s", "Li 3pz", "F 3pz"]
 
-    Targets F 2px/2py/2pz, Li 2s, Li 2pz, and one correlating sigma virtual
-    (Li 3s/3pz or F 3pz character).  Reorders the MO coefficient matrix to
-    [core | active | rest] and returns (ncore, ncas, nelecas, mo, diagnostics).
+
+def select_lif_cas66(mol, mf, ncas=6, nelecas=None, ao_targets=None):
+    """Valence-adapted CAS(ncas) via the general AO-target selector.
+
+    Thin wrapper over :func:`active_space.select_active_space_by_ao_targets`,
+    defaulting to the LiF ionic/covalent targets; pass ``ao_targets`` (a list of
+    'atom shell' tokens like ['F 2p', 'Li 2s']) for any other system.  Returns
+    (ncore, ncas, nelecas, mo, diagnostics) for backward compatibility.
     """
-    mo = mf.mo_coeff
-    S = mf.get_ovlp()
-    labels = mol.ao_labels()
-    mo_energy = mf.mo_energy
-
-    target = []
-    for iao, lab in enumerate(labels):
-        toks = lab.split()
-        if len(toks) < 3:
-            continue
-        atom, orb = toks[1], toks[2]
-        if atom == "F" and orb in ("2px", "2py", "2pz"):
-            target.append(iao)
-        if atom == "Li" and orb in ("2s", "2pz", "3s", "3pz"):
-            target.append(iao)
-        if atom == "F" and orb in ("3pz",):
-            target.append(iao)
-    if not target:
-        raise RuntimeError("No LiF target AOs found; check AO labels / bond axis.")
-
-    Smo = S @ mo
-    target_pop = np.einsum("ai,ai->i", mo[target, :], Smo[target, :])
-
-    ncore = (mol.nelectron - ncas) // 2
-    core = sorted(range(mo.shape[1]), key=lambda i: mo_energy[i])[:ncore]
-    noncore = [i for i in range(mo.shape[1]) if i not in core]
-    active = sorted(
-        sorted(noncore, key=lambda i: target_pop[i], reverse=True)[:ncas],
-        key=lambda i: mo_energy[i],
-    )
-    rest = sorted([i for i in range(mo.shape[1]) if i not in core and i not in active],
-                  key=lambda i: mo_energy[i])
-    new_order = core + active + rest
-    mo_init = mo[:, new_order]
-    diagnostics = {
-        "ncore": ncore, "ncas": ncas, "nelecas": ncas,
-        "active_target_pop": [float(target_pop[i]) for i in active],
-        "active_mo_energy": [float(mo_energy[i]) for i in active],
-    }
-    return ncore, ncas, ncas, mo_init, diagnostics
+    nelecas = ncas if nelecas is None else nelecas
+    targets = ao_targets or LIF_AO_TARGETS
+    ncore, mo_init, diag = select_active_space_by_ao_targets(
+        mol, mf, ncas, nelecas, targets)
+    return ncore, ncas, nelecas, mo_init, diag
 
 
 # --------------------------------------------------------------- CASSCF builders
@@ -195,6 +168,8 @@ def lif_point(R_ang, basis, ncas, nelecas, nroots, weights, *,
                            max_cycle_macro=max_cycle_macro * 2, level_shift=1.0)
     e = [float(x) for x in mc.e_states]
     ci = [np.asarray(c) for c in mc.ci]
+    nel = (nelecas // 2, nelecas - nelecas // 2)
+    s2 = [float(fci.spin_square(c, ncas, nel)[0]) for c in ci]
 
     rec = {
         "R_ang": float(R_ang), "basis": basis, "ncas": ncas, "nelecas": nelecas,
@@ -202,10 +177,17 @@ def lif_point(R_ang, basis, ncas, nelecas, nroots, weights, *,
         "energies": e, "gap_Eh": float(e[1] - e[0]),
         "converged": bool(mc.converged),
         "conv_tol_grad": float(conv_tol_grad),
-        "spin_sector": "singlet_fix_spin_ss0",
+        "spin_sector": "singlet_fix_spin_ss0", "s2_per_state": s2,
     }
     if sel_diag is not None:
         rec["active_target_pop"] = sel_diag["active_target_pop"]
+        rec["active_space_well_matched"] = sel_diag.get("active_space_well_matched")
+    # Self-diagnosis: a user reading this record can tell whether the point is
+    # trustworthy (convergence, spin sector, near-degeneracy) without knowing
+    # the answer in advance.
+    rec["health"] = assess_point(
+        casscf_converged=bool(mc.converged), s2_per_state=s2,
+        target_spin=0, gap_eh=rec["gap_Eh"]).to_dict()
     return rec, mol, mc.mo_coeff, ci, int(mc.ncore)
 
 
@@ -223,6 +205,8 @@ def adjacent_overlap(mol_l, mo_l, ci_l, mol_r, mo_r, ci_r, ncas, ncore, nelecas)
         "subspace_singular_values": [float(x) for x in sv],
         "subspace_sigma_min": float(np.min(sv)),
         "active_orbital_sigma_min": float(np.min(asv)),
+        "health": assess_point(
+            active_subspace_sigma_min=float(np.min(asv))).to_dict(),
     }
 
 
