@@ -41,8 +41,30 @@ class ResponseCertificate:
     wall_s: Optional[float] = None
     extra: dict = field(default_factory=dict)
 
+    def health(self, *, leakage_tol: float = 1.0e-6):
+        """Self-diagnosing PASS/WARN/FAIL verdict for this response solve.
+
+        Wraps :func:`system_diagnostics.assess_point` so a user can read the
+        certificate and tell whether the solve is trustworthy (converged, true
+        residual within tolerance, root-projector leakage small) without knowing
+        the answer in advance.  Imported lazily to keep this module standalone.
+        """
+        from system_diagnostics import assess_point
+        return assess_point(
+            response_converged=bool(self.converged),
+            response_true_residual_rel=self.true_residual_relative,
+            response_residual_tol=self.residual_tol,
+            root_projector_leakage=self.root_projector_leakage,
+            leakage_tol=leakage_tol,
+        )
+
     def to_dict(self) -> dict:
-        return asdict(self)
+        d = asdict(self)
+        try:
+            d["health"] = self.health().to_dict()
+        except Exception:  # never let diagnostics break serialization
+            pass
+        return d
 
 
 def _orbital_dim(obj, z) -> int:

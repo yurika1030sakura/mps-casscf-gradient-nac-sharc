@@ -421,6 +421,20 @@ def fd_gradient(
             "idx_plus": int(idx[+1]), "idx_minus": int(idx[-1]),
         })
 
+    # Self-diagnosing summary over all FD components (worst active-subspace
+    # continuity, smallest state gap), so a user can read whether the FD points
+    # stayed on a clean, well-separated surface.
+    try:
+        from system_diagnostics import assess_point
+        sigmas = [c["active_subspace_sigma_min"] for c in diags["components"]]
+        gaps = [g for c in diags["components"]
+                for g in (c.get("gap_plus"), c.get("gap_minus")) if g is not None]
+        diags["health"] = assess_point(
+            active_subspace_sigma_min=min(sigmas) if sigmas else None,
+            gap_eh=min(gaps) if gaps else None).to_dict()
+    except Exception:
+        pass
+
     return (grad, diags) if return_diagnostics else grad
 
 
