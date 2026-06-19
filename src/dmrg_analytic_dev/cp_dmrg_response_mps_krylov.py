@@ -32,6 +32,7 @@ from mps_lagrange_assembly import (
     Lci_dot_dgci_dx_from_tdm,
     Lorb_dot_dgorb_dx_from_rdms,
 )
+from response_timing_log import TimingLog
 from single_site_sigma import single_site_sigma_mps_native, site_tensor_to_fci
 from site_replacement_density import (
     _block2_trans_rdm12_to_pyscf,
@@ -156,6 +157,19 @@ class CPDMRGCASSCFResponseMPSKrylov(CPDMRGCASSCFResponseMPS):
         self._eci0_mps_cache = None
         self._state_transition_rdm_cache = {}
         self._timings = {}
+        # Structured per-stage wall-time / peak-RSS log for the cost-breakdown
+        # tables. Enabled by setting DMRG_RESPONSE_TIMING=1 in the environment;
+        # inert (zero overhead) otherwise so production calls are unaffected.
+        import os as _os
+        self.timing = TimingLog(
+            enabled=_os.environ.get("DMRG_RESPONSE_TIMING", "") not in ("", "0"),
+            label=type(self).__name__,
+        )
+        # When set, GMRES/BiCGSTAB residual histories are printed live. Off by
+        # default; the residual trace is still recorded in self.timing.
+        self._verbose_solver = (
+            _os.environ.get("DMRG_RESPONSE_VERBOSE", "") not in ("", "0")
+        )
         self._hcc_shifted_mpo_cache = {}
         self._gmres_recycle_cache = None
 
@@ -276,22 +290,16 @@ class CPDMRGCASSCFResponseMPSKrylov(CPDMRGCASSCFResponseMPS):
         return out
 
     def _state_rdm12_mps(self, mps, tag: str):
-        import os, time as _time
-        pid = os.getpid()
-        print(f"[HANG-PROBE pid={pid}] _state_rdm12_mps START tag={tag}", flush=True)
-        _t0 = _time.time()
-        with self._use_su2_frame():
-            print(f"[HANG-PROBE pid={pid}]   inside _use_su2_frame", flush=True)
-            safe = _prepare_trans_npdm_mps(
-                self._driver_su2, mps, tag=self._new_tag(tag),
+        with self.timing.section("state_rdm12_mps", tag=tag):
+            with self._use_su2_frame():
+                safe = _prepare_trans_npdm_mps(
+                    self._driver_su2, mps, tag=self._new_tag(tag),
+                )
+                dm1_b = self._driver_su2.get_1pdm(safe, iprint=0)
+                dm2_b = self._driver_su2.get_2pdm(safe, iprint=0)
+            out = _block2_trans_rdm12_to_pyscf(
+                np.asarray(dm1_b), np.asarray(dm2_b)
             )
-            print(f"[HANG-PROBE pid={pid}]   _prepare_trans_npdm done +{_time.time()-_t0:.2f}s", flush=True)
-            dm1_b = self._driver_su2.get_1pdm(safe, iprint=0)
-            print(f"[HANG-PROBE pid={pid}]   get_1pdm done +{_time.time()-_t0:.2f}s", flush=True)
-            dm2_b = self._driver_su2.get_2pdm(safe, iprint=0)
-            print(f"[HANG-PROBE pid={pid}]   get_2pdm done +{_time.time()-_t0:.2f}s", flush=True)
-        out = _block2_trans_rdm12_to_pyscf(np.asarray(dm1_b), np.asarray(dm2_b))
-        print(f"[HANG-PROBE pid={pid}] _state_rdm12_mps END +{_time.time()-_t0:.2f}s", flush=True)
         return out
 
     def _build_eris_cache(self):
@@ -300,27 +308,19 @@ class CPDMRGCASSCFResponseMPSKrylov(CPDMRGCASSCFResponseMPS):
         This mirrors the parent cache algebra but replaces the per-state
         ``direct_spin1.make_rdm12`` calls with block2 MPS RDM contractions.
         """
-        import os, time as _time
-        pid = os.getpid()
         if getattr(self, "_eris_cache", None) is not None:
-            # Cached path: silent. (Previously printed HIT for every GMRES
-            # inner call, ~1000s of lines per response stage; removed.)
             return self._eris_cache
-        print(f"[HANG-PROBE pid={pid}] _build_eris_cache START", flush=True)
-        _t0 = _time.time()
 
         ncore, ncas, nmo, nocc = (
             self.ncore, self.ncas, self.nmo, self.ncore + self.ncas
         )
-        eris = self.mc.ao2mo(self.mo_coeff)
-        print(f"[HANG-PROBE pid={pid}]   mc.ao2mo done +{_time.time()-_t0:.2f}s", flush=True)
+        with self.timing.section("ao2mo", nmo=nmo, ncas=ncas):
+            eris = self.mc.ao2mo(self.mo_coeff)
 
         casdm1_per = []
         casdm2_per = []
         for i, state in enumerate(self._state_mps):
-            print(f"[HANG-PROBE pid={pid}]   _state_rdm12_mps i={i} entering...", flush=True)
             d1, d2 = self._state_rdm12_mps(state, tag=f"STATE-RDM-{i}")
-            print(f"[HANG-PROBE pid={pid}]   _state_rdm12_mps i={i} done +{_time.time()-_t0:.2f}s", flush=True)
             casdm1_per.append(d1)
             casdm2_per.append(d2)
         casdm1_per = np.asarray(casdm1_per)
@@ -800,28 +800,23 @@ class CPDMRGCASSCFResponseMPSKrylov(CPDMRGCASSCFResponseMPS):
 
     def weighted_lci_transition_rdm_mps(self, ci_mps_list):
         """Weighted SA transition RDM ``sum_I w_I <L_I|E|I>`` from MPS Lci."""
-        import os, time as _time
-        pid = os.getpid()
-        print(f"[HANG-PROBE pid={pid}] weighted_lci_transition_rdm_mps START n_states={len(ci_mps_list)}", flush=True)
-        _t0 = _time.time()
         tdm1 = np.zeros((self.ncas, self.ncas))
         tdm2 = np.zeros((self.ncas, self.ncas, self.ncas, self.ncas))
-        for i, (trial, state, w) in enumerate(zip(
-            ci_mps_list, self._state_mps, self.weights,
-        )):
-            if self._is_cached_zero_mps(i, trial):
-                print(f"[HANG-PROBE pid={pid}]   state {i} cached zero, skipping", flush=True)
-                continue
-            print(f"[HANG-PROBE pid={pid}]   state {i} entering transition_rdm_site_replacement_mps...", flush=True)
-            with self._use_su2_frame():
-                d1, d2 = transition_rdm_site_replacement_mps(
-                    self._driver_su2, trial, state, self.ncas, self.nelec,
-                    trial_tag=self._new_tag(f"LCI-TDM-{i}"),
-                )
-            print(f"[HANG-PROBE pid={pid}]   state {i} TDM done +{_time.time()-_t0:.2f}s", flush=True)
-            tdm1 += float(w) * d1
-            tdm2 += float(w) * d2
-        print(f"[HANG-PROBE pid={pid}] weighted_lci_transition_rdm_mps END +{_time.time()-_t0:.2f}s", flush=True)
+        with self.timing.section(
+            "weighted_lci_transition_rdm", n_states=len(ci_mps_list),
+        ):
+            for i, (trial, state, w) in enumerate(zip(
+                ci_mps_list, self._state_mps, self.weights,
+            )):
+                if self._is_cached_zero_mps(i, trial):
+                    continue
+                with self._use_su2_frame():
+                    d1, d2 = transition_rdm_site_replacement_mps(
+                        self._driver_su2, trial, state, self.ncas, self.nelec,
+                        trial_tag=self._new_tag(f"LCI-TDM-{i}"),
+                    )
+                tdm1 += float(w) * d1
+                tdm2 += float(w) * d2
         return tdm1, tdm2
 
     def Lci_dot_dgci_dx_mps(
@@ -859,40 +854,33 @@ class CPDMRGCASSCFResponseMPSKrylov(CPDMRGCASSCFResponseMPS):
         verbose=None,
     ):
         """Full Lagrange nuclear derivative from dense orbital and MPS CI parts."""
-        import os, time as _time
-        pid = os.getpid()
-        print(f"[HANG-PROBE pid={pid}] LdotJnuc_mps START", flush=True)
-        _t0 = _time.time()
         if mo_coeff is None:
             mo_coeff = self.mo_coeff
         if ci is None:
             ci = self.ci_list
-        print(f"[HANG-PROBE pid={pid}]   calling Lci_dot_dgci_dx_mps...", flush=True)
-        de_lci = self.Lci_dot_dgci_dx_mps(
-            lci_mps_list,
-            mo_coeff=mo_coeff,
-            atmlst=atmlst,
-            mf_grad=mf_grad,
-            eris=eris,
-            verbose=verbose,
-        )
-        print(f"[HANG-PROBE pid={pid}]   Lci_dot_dgci_dx_mps done +{_time.time()-_t0:.2f}s", flush=True)
-        print(f"[HANG-PROBE pid={pid}]   calling _build_eris_cache...", flush=True)
-        cache = self._build_eris_cache()
-        print(f"[HANG-PROBE pid={pid}]   _build_eris_cache done +{_time.time()-_t0:.2f}s", flush=True)
-        print(f"[HANG-PROBE pid={pid}]   calling Lorb_dot_dgorb_dx_from_rdms...", flush=True)
-        de_lorb = Lorb_dot_dgorb_dx_from_rdms(
-            np.asarray(kappa),
-            cache["casdm1_avg"],
-            cache["casdm2_avg"],
-            self.mc,
-            mo_coeff=mo_coeff,
-            atmlst=atmlst,
-            mf_grad=mf_grad,
-            eris=eris,
-            verbose=verbose,
-        )
-        print(f"[HANG-PROBE pid={pid}] LdotJnuc_mps END +{_time.time()-_t0:.2f}s", flush=True)
+        with self.timing.section("LdotJnuc_mps"):
+            with self.timing.section("Lci_dot_dgci_dx_mps"):
+                de_lci = self.Lci_dot_dgci_dx_mps(
+                    lci_mps_list,
+                    mo_coeff=mo_coeff,
+                    atmlst=atmlst,
+                    mf_grad=mf_grad,
+                    eris=eris,
+                    verbose=verbose,
+                )
+            cache = self._build_eris_cache()
+            with self.timing.section("Lorb_dot_dgorb_dx"):
+                de_lorb = Lorb_dot_dgorb_dx_from_rdms(
+                    np.asarray(kappa),
+                    cache["casdm1_avg"],
+                    cache["casdm2_avg"],
+                    self.mc,
+                    mo_coeff=mo_coeff,
+                    atmlst=atmlst,
+                    mf_grad=mf_grad,
+                    eris=eris,
+                    verbose=verbose,
+                )
         return de_lci + de_lorb
 
     def matvec_mps(self, vec: MPSKrylovVector) -> MPSKrylovVector:
@@ -1275,12 +1263,12 @@ class CPDMRGCASSCFResponseMPSKrylov(CPDMRGCASSCFResponseMPS):
             self._add_timing("gmres_small_lstsq", time.perf_counter() - t0)
             y_best = y
             n_best = j + 1
-            # Forced (always print) so SHARC users can see GMRES progress.
-            # Original gated by `if verbose:` which made production runs
-            # silent for hours.
-            import os as _os
-            print(f"  [pid={_os.getpid()}] MPS-GMRES iter {j + 1}: residual={residual:.3e}",
-                  flush=True)
+            self.timing.add("gmres_iter", 0.0, iter=j + 1, residual=residual)
+            if self._verbose_solver:
+                print(
+                    f"  MPS-GMRES iter {j + 1}: residual={residual:.3e}",
+                    flush=True,
+                )
             if residual <= conv_abs or residual <= conv_rel:
                 break
             if h[j + 1, j] <= 1.0e-13:
@@ -1429,10 +1417,12 @@ class CPDMRGCASSCFResponseMPSKrylov(CPDMRGCASSCFResponseMPS):
             r = s.add_scaled(t_vec, -omega, label=f"BICG-R{it}")
             residual = r.norm()
             n_done = it
-            # Forced (always print) so SHARC users can see BiCGSTAB progress
-            import os as _os
-            print(f"  [pid={_os.getpid()}] MPS-BiCGSTAB iter {it}: residual={residual:.3e}",
-                  flush=True)
+            self.timing.add("bicgstab_iter", 0.0, iter=it, residual=residual)
+            if self._verbose_solver:
+                print(
+                    f"  MPS-BiCGSTAB iter {it}: residual={residual:.3e}",
+                    flush=True,
+                )
             if residual <= conv_abs or residual <= conv_rel:
                 break
             rho_old = rho_new
