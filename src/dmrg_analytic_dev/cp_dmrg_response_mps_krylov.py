@@ -234,6 +234,15 @@ class CPDMRGCASSCFResponseMPSKrylov(CPDMRGCASSCFResponseMPS):
         def add_two(ca, ma, cb, mb, out_tag):
             bra = self._copy_mps(ma, out_tag)
             bd = max(int(ma.info.bond_dim), int(mb.info.bond_dim), int(bra.info.bond_dim))
+            # Cap the addition fit bond dimension at the response compression bond
+            # dim.  Otherwise an addition that involves the reference state (kept
+            # at the build M, e.g. 512-800) fits at that M regardless of
+            # m_compress, so reducing m_compress never reduces the cost -- a single
+            # SU2 addition at M=512 grinds ~170 s, and there are many per matvec.
+            # This (not the eris cache) is the beyond-FCI response stall; capping
+            # at m_compress makes m_compress an effective cost lever.
+            if self._m_compress is not None:
+                bd = min(bd, int(self._m_compress))
             with self._use_su2_frame():
                 self._driver_su2.addition(
                     bra, ma, mb,
