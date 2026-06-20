@@ -141,14 +141,18 @@ def build_progressive(symbols, coords_bohr, basis, ncas, nelecas, *,
     if nroots > 1:
         mc = mc.state_average_(list(weights))
 
-    # The DMRG-CASSCF cost is dominated by the macro-iteration count times the
-    # per-macro DMRG cost.  An AH level shift stabilizes the orbital step near
-    # small gaps and cuts the macro count (LiF-proven); a reduced sweep count
-    # keeps the warm-started macros cheap (the warm path uses min(n_sweeps,8),
-    # the first cold solve still ramps internally).  These only change the
-    # convergence path, not the final result, which is gated by the certificate.
-    if hasattr(mc, "ah_level_shift"):
-        mc.ah_level_shift = 0.3
+    # IMPORTANT: no AH level shift here.  SA-CASSCF orbital optimization is
+    # non-convex, and an AH level shift was found to steer the optimizer into a
+    # *different* stationary point ~4e-4 Eh higher in energy -- i.e. it is NOT a
+    # pure accelerator, it can change the converged solution.  For the
+    # well-conditioned polyene pi space the unshifted optimization converges
+    # fine (~36 min for CAS(20,20)) and reaches the lowest-energy SA-CASSCF
+    # solution, so the reported derivative is well defined and reproducible.
+    # (The ill-conditioned LiF near-degeneracy uses a level shift in its own
+    # driver, where convergence genuinely requires it and the same diagnostics
+    # confirm the tracked subspace.)  The reduced sweep count is inert (the warm
+    # path already caps sweeps and the cold solve ramps internally) but kept for
+    # clarity.
     if hasattr(solver, "n_sweeps"):
         solver.n_sweeps = 12
     mo = mo_guess
