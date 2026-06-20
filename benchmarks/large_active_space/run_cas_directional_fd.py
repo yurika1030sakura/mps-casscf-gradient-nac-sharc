@@ -183,6 +183,7 @@ def directional_fd(symbols, coords0_bohr, q, *, basis, ncas, nelecas, m_schedule
     out = {"h_bohr": float(h_bohr)}
     e_disp = {}
     sig = {}
+    blogs = {}
     for sgn in (+1.0, -1.0):
         disp = coords0_bohr + sgn * h_bohr * q
         mol_s, mc_s, _solver, blog = build_progressive(
@@ -192,12 +193,26 @@ def directional_fd(symbols, coords0_bohr, q, *, basis, ncas, nelecas, m_schedule
                 basis=basis, unit="Bohr", verbose=0), mo0)[0],
             threads=threads, stack_mem_mb=stack_mem_mb)
         e_disp[sgn] = float(mc_s.e_states[0])
+        blogs[sgn] = blog.get("stages", [])
         ncore = mc_s.ncore
         sig[sgn] = fdv.active_subspace_overlap(mol0, mo0, mol_s, mc_s.mo_coeff,
                                                ncas, ncore)
     out["e_plus"], out["e_minus"] = e_disp[+1.0], e_disp[-1.0]
     out["g_fd_dir"] = (e_disp[+1.0] - e_disp[-1.0]) / (2.0 * h_bohr)
     out["active_subspace_sigma_min"] = float(min(sig[+1.0], sig[-1.0]))
+    # Directional gradient at each bond dimension: the beyond-FCI precision
+    # evidence.  DMRG -> exact as M -> infinity, so stability of g_fd_dir across
+    # the M schedule shows the reported gradient is converged with respect to the
+    # only approximation in play (the bond dimension), with no FCI reference.
+    try:
+        n = min(len(blogs[+1.0]), len(blogs[-1.0]))
+        out["g_fd_dir_vs_M"] = [
+            {"M": int(blogs[+1.0][i]["M"]),
+             "g_fd_dir": (blogs[+1.0][i]["e_states"][0]
+                          - blogs[-1.0][i]["e_states"][0]) / (2.0 * h_bohr)}
+            for i in range(n)]
+    except Exception:  # noqa: BLE001
+        pass
     if g_analytic is not None:
         out["analytic_dir"] = float(np.tensordot(g_analytic, q))
         out["abs_err"] = abs(out["analytic_dir"] - out["g_fd_dir"])
