@@ -19,8 +19,14 @@ export TMPDIR=$SCR TMP=$SCR TEMP=$SCR PYSCF_TMPDIR=$SCR
 export OMP_NUM_THREADS=8 MKL_NUM_THREADS=8
 
 PY=/n/holylabs/woo_lab/Lab/yulili_pyscf/env/bin/python3.11
-WORK=/n/home04/yulili/daisuan/dmrg_sacasscf_response_public/benchmarks/engine_general
+ROOT=/n/home04/yulili/daisuan/dmrg_sacasscf_response_public
+WORK=$ROOT/benchmarks/engine_general
+DEV=$ROOT/src/dmrg_analytic_dev
 cd $WORK
 echo "engine stress start $(date) host $(hostname)"
 $PY run_engine_stress_test.py --out $WORK/data/engine_stress.json
+echo "=== certified-engine sanity test ==="
+cd $DEV && $PY test_certified_engine.py
+echo "=== NAC two-check validation (HeH+ + ethylene) ==="
+cd $DEV && $PY test_nac_validation.py
 echo "done $(date)"
