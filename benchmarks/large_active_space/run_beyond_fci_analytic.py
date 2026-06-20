@@ -55,6 +55,8 @@ def main():
                     help="response bond dim (below the build M to cut per-matvec cost)")
     ap.add_argument("--response-tol", type=float, default=1.0e-4,
                     help="response tolerance (FD is only h=1e-3 accurate)")
+    ap.add_argument("--faulthandler-s", type=float, default=180.0,
+                    help="dump all-thread stacks to stderr every N s during the solve (0=off)")
     args = ap.parse_args()
 
     from run_polyene_beyond_fci import polyene_geometry, det_dim
@@ -102,6 +104,13 @@ def main():
         obj = _make_mps_krylov_response(mc)
         log(f"RESPONSE OBJECT READY (solver={args.linear_solver} guess={args.initial_guess} "
             f"m_compress={args.m_compress} tol={args.response_tol:.1e}) -- solving grad[0]+NAC(0,1)")
+        # Locate any stall: dump the live Python stack of every thread to stderr
+        # on a timer, so a frozen-but-compute-bound operation reveals its exact
+        # call site instead of silently grinding.
+        if args.faulthandler_s > 0:
+            import faulthandler
+            faulthandler.dump_traceback_later(int(args.faulthandler_s),
+                                              repeat=True, file=sys.stderr)
         t1 = time.perf_counter()
         certs = compute_all_responses_certified(
             obj, gradient_states=[0], nac_pairs=[(0, 1)],
