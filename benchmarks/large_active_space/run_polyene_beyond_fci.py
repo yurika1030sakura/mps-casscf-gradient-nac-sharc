@@ -140,16 +140,21 @@ H_SCAN = (2.0e-3, 1.0e-3, 5.0e-4)
 
 
 def beyond_fci_solver_cfg(ncas, bond_dim, threads, stack_mem_mb):
-    """Solver config that never requests a dense CI readout at large CAS."""
+    """Solver config whose DMRG build never requests a dense CI readout.
+
+    The build is MPS-native at EVERY size.  The old ncas<16 branch kept a
+    per-macro mps_to_fci_generic conversion that materialises a dense FCI vector
+    twice per macro per root (~95 MB/root at CAS(14,14)) -- that is what hung the
+    C10/C14 builds for >10 h, not a true deadlock.  Nothing in the directional-FD,
+    analytic-response, or cross-geometry-overlap path needs a dense CI; the FCI
+    determinant cross-check (run_beyond_fci_nac) builds its own separate FCI
+    solver where it is actually required.  So keep the build MPS-native at all n.
+    """
     cfg = dict(fdv.DEFAULT_SOLVER_CFG)
     cfg.update(bond_dim=bond_dim, n_sweeps=30, sweep_tol=1.0e-9,
                n_threads=int(threads), stack_mem_mb=int(stack_mem_mb),
-               dmrg_symm_su2=True, force_dmrg=True)
-    if ncas >= 16:
-        # beyond-FCI: MPS-native RDMs, no dense MPS->FCI conversion
-        cfg.update(mps_native_rdms=True, skip_kernel_fci_conversion=True)
-    else:
-        cfg.update(mps_native_rdms=False, skip_kernel_fci_conversion=False)
+               dmrg_symm_su2=True, force_dmrg=True,
+               mps_native_rdms=True, skip_kernel_fci_conversion=True)
     return cfg
 
 
