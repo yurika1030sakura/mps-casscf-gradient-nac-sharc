@@ -55,6 +55,8 @@ from overlap_fci_reference import (overlap_matrix_fci, assign_roots_by_overlap,
                                    cross_geometry_S_act)
 from active_space import select_active_space_by_ao_targets
 from system_diagnostics import assess_point
+from lif_subspace_tracking import (align_active_orbitals, buffered_overlap,
+                                    adaptive_refine)
 
 ANG = 1.8897261246257702
 
@@ -246,6 +248,14 @@ def main():
     ap.add_argument("--max-cycle-macro", type=int, default=100)
     ap.add_argument("--out", default=str(_HERE / "data" / "lif_cas66_root_tracking.jsonl"))
     ap.add_argument("--resume", action="store_true")
+    ap.add_argument("--align-active", action="store_true",
+                    help="Polar-align each point's active orbitals (and CI) to "
+                         "the previous geometry before measuring overlap "
+                         "(energy-invariant gauge fix).")
+    ap.add_argument("--n-lowest", type=int, default=2,
+                    help="With --nroots > 2, also report the lowest-N-state "
+                         "subspace sigma_min so the buffered value can prove "
+                         "physical multi-state mixing.")
     ap.add_argument("--walltime-buffer-min", type=float, default=15.0)
     ap.add_argument("--walltime-min", type=float, default=1e9)
     args = ap.parse_args()
@@ -281,9 +291,35 @@ def main():
             rec["kind"] = "point"
             rec["wall_s"] = time.perf_counter() - t0
             if prev is not None:
+                ncore_pair = min(prev[3], ncore)
+                # Energy-invariant active-orbital polar alignment (optional):
+                # rotate this point's active orbitals (and CI consistently) to
+                # the previous geometry's active basis.  Energies are untouched;
+                # only the gauge changes.  The aligned (mo, ci) are what we then
+                # measure the overlap with and propagate.
+                if args.align_active:
+                    al = align_active_orbitals(
+                        prev[0], prev[1], mol, mo, ci,
+                        args.ncas, ncore_pair, args.nelecas)
+                    rec["active_alignment"] = {
+                        "active_sigma_min_before": al["active_sigma_min_before"],
+                        "active_sigma_min_after": al["active_sigma_min_after"],
+                        "active_singular_values": al["active_singular_values"],
+                        "aligned_asymmetry": al["aligned_asymmetry"],
+                    }
+                    mo, ci = al["mo_aligned"], al["ci_aligned"]
+
                 rec["active_sigma_from_prev"] = adjacent_overlap(
                     prev[0], prev[1], prev[2], mol, mo, ci,
-                    args.ncas, min(prev[3], ncore), args.nelecas)
+                    args.ncas, ncore_pair, args.nelecas)
+                # k-state buffer diagnostic: report BOTH the lowest-N-state and
+                # the full buffered sigma_min so a low 2-state value can be
+                # attributed to physical multi-state mixing vs a gauge artifact.
+                if args.nroots > 2:
+                    rec["buffered_from_prev"] = buffered_overlap(
+                        prev[0], prev[1], prev[2], mol, mo, ci,
+                        args.ncas, ncore_pair, args.nelecas,
+                        n_lowest=args.n_lowest)
             append_jsonl(out, rec)
             print(f"  conv={rec['converged']} {rec['wall_s']:.1f}s "
                   f"gap={rec['gap_Eh']:.6f}", flush=True)
