@@ -57,6 +57,10 @@ def main():
                     help="response tolerance (FD is only h=1e-3 accurate)")
     ap.add_argument("--faulthandler-s", type=float, default=180.0,
                     help="dump all-thread stacks to stderr every N s during the solve (0=off)")
+    ap.add_argument("--fit-sweeps", type=int, default=4,
+                    help="MPS addition/sigma fit sweeps in the response (was 10; 4 is plenty)")
+    ap.add_argument("--max-iter", type=int, default=80,
+                    help="max Krylov iterations for the response solve")
     args = ap.parse_args()
 
     from run_polyene_beyond_fci import polyene_geometry, det_dim
@@ -97,9 +101,11 @@ def main():
         mc.fcisolver.response_linear_solver = args.linear_solver
         mc.fcisolver.response_initial_guess = args.initial_guess
         mc.fcisolver.response_m_compress = int(args.m_compress)
+        mc.fcisolver.mps_fit_sweeps = int(args.fit_sweeps)  # response fit sweeps (not the build)
         result["response_config"] = {
             "linear_solver": args.linear_solver, "initial_guess": args.initial_guess,
-            "m_compress": int(args.m_compress), "response_tol": args.response_tol}
+            "m_compress": int(args.m_compress), "response_tol": args.response_tol,
+            "fit_sweeps": int(args.fit_sweeps), "max_iter": int(args.max_iter)}
         block2.Global.frame = mc.fcisolver._driver.frame
         obj = _make_mps_krylov_response(mc)
         log(f"RESPONSE OBJECT READY (solver={args.linear_solver} guess={args.initial_guess} "
@@ -114,7 +120,8 @@ def main():
         t1 = time.perf_counter()
         certs = compute_all_responses_certified(
             obj, gradient_states=[0], nac_pairs=[(0, 1)],
-            tol=args.response_tol, cert_tol=args.response_tol * 10.0)
+            tol=args.response_tol, cert_tol=args.response_tol * 10.0,
+            max_iter=args.max_iter, verbose=True)
         log(f"RESPONSE DONE wall={time.perf_counter() - t1:.0f}s")
 
         result["certs"] = {}

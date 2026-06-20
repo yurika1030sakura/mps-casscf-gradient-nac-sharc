@@ -117,6 +117,7 @@ def compute_all_responses_certified(
     max_iter: int = 60,
     cert_tol: float = 1.0e-6,
     recycle: bool = True,
+    verbose: bool = False,
 ):
     """Solve and certify every response RHS at one geometry on a single object.
 
@@ -139,7 +140,8 @@ def compute_all_responses_certified(
     for s in gradient_states:
         s = int(s)
         t0 = time.perf_counter()
-        kappa, ci, _info, meta = obj.solve_mps(s, tol=tol, max_iter=max_iter)
+        kappa, ci, _info, meta = obj.solve_mps(s, tol=tol, max_iter=max_iter,
+                                               verbose=verbose)
         wall = time.perf_counter() - t0
         z = MPSKrylovVector(obj, kappa, ci, label=f"BATCH-G{s}")
         cert = certify_response(obj, z, state=s, rhs_kind="grad",
@@ -151,7 +153,8 @@ def compute_all_responses_certified(
     for pair in nac_pairs:
         p = tuple(int(x) for x in pair)
         t0 = time.perf_counter()
-        kappa, ci, _info, meta = obj.solve_nac_mps(p, tol=tol, max_iter=max_iter)
+        kappa, ci, _info, meta = obj.solve_nac_mps(p, tol=tol, max_iter=max_iter,
+                                                   verbose=verbose)
         wall = time.perf_counter() - t0
         z = MPSKrylovVector(obj, kappa, ci, label=f"BATCH-NAC{p}")
         cert = certify_response(obj, z, state=p[0], rhs_kind="nac", nac_pair=p,
