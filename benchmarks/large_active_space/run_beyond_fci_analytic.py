@@ -45,6 +45,16 @@ def main():
     ap.add_argument("--threads", type=int, default=8)
     ap.add_argument("--stack-mem-mb", type=int, default=16000)
     ap.add_argument("--out", default=None)
+    # Phase-2 response-solver levers (diagnosis: GMRES O(iter^2) + no preconditioner
+    # + m_compress=build-M is the beyond-FCI stall).  Defaults = the fixed config.
+    ap.add_argument("--linear-solver", default="cr",
+                    help="cr (conjugate residual, short-recurrence) | bicgstab | gmres")
+    ap.add_argument("--initial-guess", default="hcc-inverse",
+                    help="hcc-inverse (CI-block preconditioned) | gmres-recycle | zero")
+    ap.add_argument("--m-compress", type=int, default=256,
+                    help="response bond dim (below the build M to cut per-matvec cost)")
+    ap.add_argument("--response-tol", type=float, default=1.0e-4,
+                    help="response tolerance (FD is only h=1e-3 accurate)")
     args = ap.parse_args()
 
     from run_polyene_beyond_fci import polyene_geometry, det_dim
@@ -81,12 +91,21 @@ def main():
             log(f"build not converged; wrote {out_path}")
             return 1
 
+        # Phase-2 response config: the factory reads these off the solver.
+        mc.fcisolver.response_linear_solver = args.linear_solver
+        mc.fcisolver.response_initial_guess = args.initial_guess
+        mc.fcisolver.response_m_compress = int(args.m_compress)
+        result["response_config"] = {
+            "linear_solver": args.linear_solver, "initial_guess": args.initial_guess,
+            "m_compress": int(args.m_compress), "response_tol": args.response_tol}
         block2.Global.frame = mc.fcisolver._driver.frame
         obj = _make_mps_krylov_response(mc)
-        log("RESPONSE OBJECT READY -- solving certified analytic gradient[0] + NAC(0,1)")
+        log(f"RESPONSE OBJECT READY (solver={args.linear_solver} guess={args.initial_guess} "
+            f"m_compress={args.m_compress} tol={args.response_tol:.1e}) -- solving grad[0]+NAC(0,1)")
         t1 = time.perf_counter()
         certs = compute_all_responses_certified(
-            obj, gradient_states=[0], nac_pairs=[(0, 1)], tol=1.0e-6, cert_tol=1.0e-5)
+            obj, gradient_states=[0], nac_pairs=[(0, 1)],
+            tol=args.response_tol, cert_tol=args.response_tol * 10.0)
         log(f"RESPONSE DONE wall={time.perf_counter() - t1:.0f}s")
 
         result["certs"] = {}
