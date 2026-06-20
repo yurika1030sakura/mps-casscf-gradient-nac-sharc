@@ -172,9 +172,15 @@ def build_progressive(symbols, coords_bohr, basis, ncas, nelecas, *,
 
 # ------------------------------------------------------------------- one direction
 def directional_fd(symbols, coords0_bohr, q, *, basis, ncas, nelecas, m_schedule,
-                   mo0, mol0, h_bohr, threads, stack_mem_mb, g_analytic):
-    """Central directional FD of E0 along q; compared to the analytic g.q."""
-    out = {"h_bohr": float(h_bohr), "analytic_dir": float(np.tensordot(g_analytic, q))}
+                   mo0, mol0, h_bohr, threads, stack_mem_mb, g_analytic=None):
+    """Central directional FD of E0 along q (the primary beyond-FCI gradient).
+
+    The FD value needs only the two displaced SA-DMRG-CASSCF energies, so it is
+    computed independently of the (expensive) analytic response.  If ``g_analytic``
+    is supplied the analytic directional derivative and its absolute error are
+    added; otherwise that cross-check is filled in later.
+    """
+    out = {"h_bohr": float(h_bohr)}
     e_disp = {}
     sig = {}
     for sgn in (+1.0, -1.0):
@@ -191,8 +197,10 @@ def directional_fd(symbols, coords0_bohr, q, *, basis, ncas, nelecas, m_schedule
                                                ncas, ncore)
     out["e_plus"], out["e_minus"] = e_disp[+1.0], e_disp[-1.0]
     out["g_fd_dir"] = (e_disp[+1.0] - e_disp[-1.0]) / (2.0 * h_bohr)
-    out["abs_err"] = abs(out["analytic_dir"] - out["g_fd_dir"])
     out["active_subspace_sigma_min"] = float(min(sig[+1.0], sig[-1.0]))
+    if g_analytic is not None:
+        out["analytic_dir"] = float(np.tensordot(g_analytic, q))
+        out["abs_err"] = abs(out["analytic_dir"] - out["g_fd_dir"])
     return out
 
 
@@ -230,13 +238,10 @@ def run(n_carbon, *, basis="sto-3g", m_schedule=None, threads=8,
     result["reference_converged"] = bool(mc0.converged)
     flush()
 
-    # analytic gradient of S0 + certificate
-    res = compute_grad_nac_analytic_cp(mc0, gradient_states=[0], nac_pairs=None,
-                                       backend="mps-krylov", tol=1.0e-7, max_iter=300)
-    g0 = np.asarray(res["grad"][0], dtype=float)
-    cert = res.get("certificates", {}).get(("grad", 0)) if isinstance(res.get("certificates"), dict) else None
-    result["analytic_gradient_norm"] = float(np.linalg.norm(g0))
-
+    # FD directions FIRST: each needs only two warm-started displaced energies,
+    # so the beyond-FCI directional gradients land independently of (and before)
+    # the expensive CP-DMRG-CASSCF response.  This is the primary R1 evidence; the
+    # analytic derivative is the cross-check, added afterwards if it completes.
     dirs = named_directions(symbols, coords0)
     if directions:
         dirs = {k: v for k, v in dirs.items() if k in directions}
@@ -246,7 +251,7 @@ def run(n_carbon, *, basis="sto-3g", m_schedule=None, threads=8,
             d = directional_fd(symbols, coords0, q, basis=basis, ncas=ncas,
                                nelecas=nelecas, m_schedule=m_schedule, mo0=mo0,
                                mol0=mol0, h_bohr=h_bohr, threads=threads,
-                               stack_mem_mb=stack_mem_mb, g_analytic=g0)
+                               stack_mem_mb=stack_mem_mb, g_analytic=None)
             d["health"] = assess_point(
                 casscf_converged=result["reference_converged"],
                 active_subspace_sigma_min=d["active_subspace_sigma_min"],
@@ -256,6 +261,26 @@ def run(n_carbon, *, basis="sto-3g", m_schedule=None, threads=8,
             result["directions"][name] = {"status": "error",
                                           "exception": type(exc).__name__,
                                           "message": str(exc)[:300]}
+        flush()
+
+    # Analytic gradient AFTER (expensive response); add the analytic-vs-FD
+    # cross-check to each direction if the response solve completes.  A failure
+    # or timeout here does not lose the FD directional gradients already written.
+    try:
+        res = compute_grad_nac_analytic_cp(mc0, gradient_states=[0], nac_pairs=None,
+                                           backend="mps-krylov", tol=1.0e-7, max_iter=300)
+        g0 = np.asarray(res["grad"][0], dtype=float)
+        result["analytic_gradient_norm"] = float(np.linalg.norm(g0))
+        for name, q in dirs.items():
+            d = result["directions"].get(name, {})
+            if "g_fd_dir" in d:
+                d["analytic_dir"] = float(np.tensordot(g0, q))
+                d["abs_err"] = abs(d["analytic_dir"] - d["g_fd_dir"])
+        flush()
+    except Exception as exc:  # noqa: BLE001
+        result["analytic_gradient"] = {"status": "error",
+                                       "exception": type(exc).__name__,
+                                       "message": str(exc)[:300]}
         flush()
 
     # FCI-free integrity: prove no dense bridge was ever entered in a beyond-FCI run
@@ -286,10 +311,12 @@ def main():
                 stack_mem_mb=args.stack_mem_mb, h_bohr=args.h_bohr,
                 directions=args.directions, out_path=out)
         for name, d in r.get("directions", {}).items():
-            if "abs_err" in d:
-                print(f"  {name}: analytic={d['analytic_dir']:.6f} fd={d['g_fd_dir']:.6f} "
-                      f"err={d['abs_err']:.2e} sigma={d['active_subspace_sigma_min']:.3f} "
-                      f"{d['health']['overall']}", flush=True)
+            if "g_fd_dir" in d:
+                xtra = (f" analytic={d['analytic_dir']:.6f} err={d['abs_err']:.2e}"
+                        if "abs_err" in d else " (analytic cross-check pending)")
+                print(f"  {name}: fd={d['g_fd_dir']:.6f} "
+                      f"sigma={d['active_subspace_sigma_min']:.3f} "
+                      f"{d['health']['overall']}{xtra}", flush=True)
             else:
                 print(f"  {name}: {d.get('message','error')}", flush=True)
         print(f"  fci_free_integrity={r['fci_free_integrity']} "
