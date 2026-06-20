@@ -141,6 +141,16 @@ def build_progressive(symbols, coords_bohr, basis, ncas, nelecas, *,
     if nroots > 1:
         mc = mc.state_average_(list(weights))
 
+    # The DMRG-CASSCF cost is dominated by the macro-iteration count times the
+    # per-macro DMRG cost.  An AH level shift stabilizes the orbital step near
+    # small gaps and cuts the macro count (LiF-proven); a reduced sweep count
+    # keeps the warm-started macros cheap (the warm path uses min(n_sweeps,8),
+    # the first cold solve still ramps internally).  These only change the
+    # convergence path, not the final result, which is gated by the certificate.
+    if hasattr(mc, "ah_level_shift"):
+        mc.ah_level_shift = 0.3
+    if hasattr(solver, "n_sweeps"):
+        solver.n_sweeps = 12
     mo = mo_guess
     stage_log = []
     for (M, swtol, cgrad, mxm) in m_schedule:
