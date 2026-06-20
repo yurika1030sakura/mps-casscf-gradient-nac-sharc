@@ -43,10 +43,16 @@ ANG = 1.8897261246257702
 
 
 def _build(symbols, coords_bohr, basis, ncas, nelecas, cfg, mo_guess):
-    mol, _mf, mc, solver = fdv.build_sa_dmrg_casscf(
-        symbols, coords_bohr, basis=basis, charge=0, spin=0,
-        ncas=ncas, nelecas=nelecas, nroots=2, weights=[0.5, 0.5],
-        solver_cfg=cfg, mo_guess=mo_guess)
+    # Use the progressive-M + warm-start build (the path that converges the
+    # CAS(20,20) gradient reference in ~36 min); the old single-cold-M
+    # build_sa_dmrg_casscf hangs at this size.  The reference (R) selects its own
+    # pi active space; the displaced (P, M) geometries warm-start from mo_guess.
+    from run_cas_directional_fd import build_progressive, DEFAULT_M_SCHEDULE
+    mol, mc, solver, _blog = build_progressive(
+        symbols, coords_bohr, basis, ncas, nelecas,
+        m_schedule=DEFAULT_M_SCHEDULE, mo_guess=mo_guess,
+        threads=int(cfg.get("n_threads", 8)),
+        stack_mem_mb=int(cfg.get("stack_mem_mb", 8000)))
     return mol, mc, solver
 
 
