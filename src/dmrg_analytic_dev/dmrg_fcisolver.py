@@ -304,6 +304,13 @@ class MPSAsFCISolver(lib.StreamObject):
         self.n_sweeps = int(n_sweeps)
         self.sweep_tol = float(sweep_tol)
         self.n_threads = int(n_threads)
+        # Optional RNG seed for the random initial MPS.  Default None = do NOT
+        # seed; production runs stay genuinely random.  A correct, converged
+        # calculation MUST give the same result for ANY seed, so validity is
+        # demonstrated by running several seeds and showing they agree -- NOT by
+        # fixing a seed, which would only hide under-convergence.  Set this to an
+        # int ONLY to drive the seed-independence reproducibility test.
+        self.dmrg_seed = None
         self._scratch_root = scratch_root
         self.mps_native_rdms = bool(mps_native_rdms)
         # Mode control.
@@ -842,6 +849,9 @@ class MPSAsFCISolver(lib.StreamObject):
                 n_threads=int(self.n_threads),
                 symm_type=sym,
             )
+            if self.dmrg_seed is not None:
+                import block2
+                block2.Random.rand_seed(int(self.dmrg_seed))
         if self.timing_log:
             print(f"[TIMING]   driver init: {_time.time()-_t_driver_init:.2f}s",
                   flush=True)
@@ -1226,6 +1236,9 @@ class MPSAsFCISolver(lib.StreamObject):
             n_threads=int(self.n_threads),
             symm_type=SymmetryTypes.SU2,
         )
+        if self.dmrg_seed is not None:
+            import block2
+            block2.Random.rand_seed(int(self.dmrg_seed))
         driver.initialize_system(
             n_sites=norb, n_elec=nelec_tot, spin=spin, orb_sym=[0] * norb,
         )
