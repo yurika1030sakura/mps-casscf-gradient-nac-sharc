@@ -50,11 +50,18 @@ LIF = dict(
 
 
 def _build(sys_):
-    return fdv.build_sa_dmrg_casscf(
+    out = fdv.build_sa_dmrg_casscf(
         sys_["atoms"], sys_["coords_bohr"], basis=sys_["basis"],
         charge=sys_["charge"], spin=sys_["spin"], ncas=sys_["ncas"],
         nelecas=sys_["nelecas"], nroots=sys_["nroots"], weights=sys_["weights"],
         solver_cfg=SOLVER_CFG)
+    # Use the short-recurrence cr solver + fewer fit sweeps for the analytic
+    # response: the default gmres is the no-preconditioner O(iter^2) path that
+    # ground N2/LiF to a halt; cr avoids that and is reliable for these small CAS.
+    mc = out[2]
+    mc.fcisolver.response_linear_solver = "cr"
+    mc.fcisolver.mps_fit_sweeps = 4
+    return out
 
 
 def c1_canary(sys_):
