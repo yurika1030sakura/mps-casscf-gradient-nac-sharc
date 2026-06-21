@@ -46,6 +46,36 @@ from scipy.linalg import logm, polar
 ROTATION_CONVENTION = {"u_sign": -1.0, "p_sign": -1.0, "order": "P_then_U"}
 
 
+def discrete_gauge(s):
+    """Factor an active cross-overlap ``s`` as ``s = G @ s_res``.
+
+    ``G`` is the signed permutation closest to the polar unitary ``U`` of ``s``
+    (round each row of ``U`` to its largest-magnitude column with that entry's
+    sign); ``s_res = G.T @ s`` is then near the SPD stretch (near-identity,
+    det>0), so ``logm(polar(s_res)[0])`` is real even when ``s`` has a sign flip
+    / column swap / reflection (det U ~ -1) that makes ``logm(polar(s)[0])``
+    complex.  ``G`` is exactly orthogonal (det +-1); it is the discrete gauge of
+    the displaced active orbitals (relabel + sign) that must be applied to the
+    displaced state for the overlap to stay invariant.
+
+    Returns ``(G, s_res)``.
+    """
+    s = np.asarray(s, dtype=float)
+    n = s.shape[0]
+    U = polar(s)[0]
+    G = np.zeros((n, n))
+    used = set()
+    for p in sorted(range(n), key=lambda r: -np.max(np.abs(U[r]))):
+        for q in np.argsort(-np.abs(U[p])):
+            q = int(q)
+            if q not in used:
+                used.add(q)
+                G[p, q] = 1.0 if U[p, q] >= 0 else -1.0
+                break
+    s_res = G.T @ s
+    return G, s_res
+
+
 def _real_log(M):
     Z = logm(np.asarray(M, dtype=float))
     if np.iscomplexobj(Z):
