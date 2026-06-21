@@ -27,7 +27,7 @@ choice.
 from __future__ import annotations
 
 import numpy as np
-from scipy.linalg import logm, polar
+from scipy.linalg import logm, polar, schur
 
 # Calibrated against overlap_fci (see test_cross_geometry_overlap.py /
 # diag_rotation_parts.py).  The single-particle rotation by s uses its polar
@@ -76,12 +76,60 @@ def discrete_gauge(s):
     return G, s_res
 
 
+def real_so_log(U):
+    """Real antisymmetric log of a special-orthogonal ``U`` (det +1).
+
+    Valid even when ``U`` has eigenvalues near -1 (rotation angle ~pi -- e.g. a
+    180-deg rotation of a near-degenerate active-orbital pair, the polyene-C20
+    case), where ``scipy.linalg.logm`` returns the complex principal branch.  Uses
+    the real Schur form: 2x2 rotation blocks map to ``theta*[[0,-1],[1,0]]``, and
+    pairs of -1 eigenvalues (each pair = a 180-deg rotation, det +1) map to a
+    ``pi`` rotation block.  An odd number of -1 eigenvalues is a genuine reflection
+    (det -1) with no real log -> raised (needs discrete sign surgery).
+    """
+    U = np.asarray(U, dtype=float)
+    n = U.shape[0]
+    T, Z = schur(U, output="real")
+    L = np.zeros((n, n))
+    neg = []
+    i = 0
+    while i < n:
+        if i + 1 < n and abs(T[i + 1, i]) > 1.0e-9:
+            theta = np.arctan2(T[i + 1, i], T[i, i])
+            L[i, i + 1] = -theta
+            L[i + 1, i] = theta
+            i += 2
+        else:
+            if T[i, i] < 0:
+                neg.append(i)
+            i += 1
+    for a in range(0, len(neg) - 1, 2):
+        p, q = neg[a], neg[a + 1]
+        L[p, q] += -np.pi
+        L[q, p] += np.pi
+    if len(neg) % 2 == 1:
+        raise ValueError("orbital-rotation matrix is a det=-1 reflection (odd "
+                         "sign flips); no real antisymmetric log -- discrete sign "
+                         "surgery on the MPS is required")
+    return Z @ L @ Z.T
+
+
 def _real_log(M):
-    Z = logm(np.asarray(M, dtype=float))
+    M = np.asarray(M, dtype=float)
+    Z = logm(M)
     if np.iscomplexobj(Z):
         if np.max(np.abs(Z.imag)) > 1.0e-7:
+            # Near-(-1) eigenvalues: scipy returns the complex principal branch.
+            # A special-orthogonal matrix (det +1) still has a REAL antisymmetric
+            # log (e.g. a 180-deg rotation of a near-degenerate pair, the C20
+            # overlap case); build it from the real Schur form.  A genuine
+            # reflection (det -1) has no real log and raises a clear message.
+            if (abs(float(np.linalg.det(M)) - 1.0) < 1.0e-6
+                    and np.max(np.abs(M @ M.T - np.eye(M.shape[0]))) < 1.0e-6):
+                return np.ascontiguousarray(real_so_log(M))
             raise ValueError(f"orbital-rotation log has imaginary part "
-                             f"{np.max(np.abs(Z.imag)):.2e}; s not near-identity?")
+                             f"{np.max(np.abs(Z.imag)):.2e}; det={float(np.linalg.det(M)):.3f} "
+                             f"(det -1 reflection needs discrete sign surgery)")
         Z = Z.real
     return np.ascontiguousarray(Z)
 
