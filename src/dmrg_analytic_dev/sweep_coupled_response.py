@@ -48,7 +48,18 @@ def _proj_out_roots(obj, v, tag):
 
 def _ci_block_inverse(obj, w_list, *, n_sweeps, tol, solver_type, proj_weight):
     """Apply H_CC^{-1} per state: solve (H_CC - E_i) v_i = w_i, v_i orthogonal
-    to the roots.  Zero (or near-zero) slots map to the cached zero MPS."""
+    to the roots.  Zero (or near-zero) slots map to the cached zero MPS.
+
+    The true correction vector (H_CC-E)^{-1} w is intrinsically higher-rank than
+    the wavefunction, so a single fixed ``bra_bond_dims=[m_compress]`` floors the
+    residual (representability ceiling, not an iteration-count failure).  If the
+    response object carries ``_ci_bra_schedule`` (a GROWING bond-dim schedule) and
+    optionally ``_ci_noises`` (ReducedPerturbative noise), pass them through so
+    block2 grows |x> to its own rank -- the standard dynamical-DMRG correction
+    vector.  Defaults reproduce the old fixed-m behaviour exactly.
+    """
+    schedule = list(getattr(obj, "_ci_bra_schedule", None) or [int(obj._m_compress)])
+    noises = getattr(obj, "_ci_noises", None)
     out = []
     for i, w in enumerate(w_list):
         wp = _proj_out_roots(obj, w, f"CIINV-RHS{i}")
@@ -57,15 +68,17 @@ def _ci_block_inverse(obj, w_list, *, n_sweeps, tol, solver_type, proj_weight):
             continue
         sm = obj._state_mps[i]
         bra = obj._copy_mps(wp, tag=obj._new_tag(f"CIINV-BRA{i}"))
+        kw = dict(
+            left_mpo=obj._hcc_shifted_mpo(i),
+            n_sweeps=int(n_sweeps), tol=float(tol),
+            bra_bond_dims=schedule,
+            proj_mpss=[sm], proj_weights=[float(proj_weight)],
+            linear_max_iter=4000, solver_type=solver_type, iprint=0,
+        )
+        if noises is not None:
+            kw["noises"] = list(noises)
         with obj._use_su2_frame():
-            obj._driver_su2.multiply(
-                bra, obj._identity(), wp,
-                left_mpo=obj._hcc_shifted_mpo(i),
-                n_sweeps=int(n_sweeps), tol=float(tol),
-                bra_bond_dims=[obj._m_compress],
-                proj_mpss=[sm], proj_weights=[float(proj_weight)],
-                linear_max_iter=4000, solver_type=solver_type, iprint=0,
-            )
+            obj._driver_su2.multiply(bra, obj._identity(), wp, **kw)
         out.append(_proj_out_roots(obj, bra, f"CIINV-SOL{i}"))
     return out
 
