@@ -32,7 +32,11 @@ from overlap_fci_reference import cross_geometry_S_act, overlap_fci
 BOHR = 1.0 / 0.52917721067
 
 SOLVER_CFG = dict(fdv.DEFAULT_SOLVER_CFG)
-SOLVER_CFG.update(bond_dim=128, n_sweeps=24, sweep_tol=1.0e-12)
+# n_threads=8 (DEFAULT is 1 -> the DMRG-CASSCF build ran single-threaded and
+# stalled the job); skip the per-macro dense FCI conversion (the readout happens
+# once in mps_ci_list for these FCI-feasible CAS).
+SOLVER_CFG.update(bond_dim=128, n_sweeps=24, sweep_tol=1.0e-12, n_threads=8,
+                  skip_kernel_fci_conversion=True, mps_native_rdms=True)
 
 # Test systems.  test_atom/test_comp pick a coupling/force component along the bond.
 N2 = dict(
