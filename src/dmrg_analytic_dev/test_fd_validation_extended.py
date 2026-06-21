@@ -59,12 +59,11 @@ def _build(sys_):
         charge=sys_["charge"], spin=sys_["spin"], ncas=sys_["ncas"],
         nelecas=sys_["nelecas"], nroots=sys_["nroots"], weights=sys_["weights"],
         solver_cfg=SOLVER_CFG)
-    # Use the short-recurrence cr solver + fewer fit sweeps for the analytic
-    # response: the default gmres is the no-preconditioner O(iter^2) path that
-    # ground N2/LiF to a halt; cr avoids that and is reliable for these small CAS.
-    mc = out[2]
-    mc.fcisolver.response_linear_solver = "cr"
-    mc.fcisolver.mps_fit_sweeps = 4
+    # Small FCI-feasible CAS: keep the default gmres solver -- it converges for
+    # both the ground- AND excited-state response RHS here (cr stagnates on the
+    # excited-state RHS because lossy MPS arithmetic breaks operator symmetry; cr
+    # is only worth its short recurrence at the large-CAS cost wall).  The earlier
+    # gmres N2/LiF stall was node contention, not the solver (CAS(6,6) is tiny).
     return out
 
 
