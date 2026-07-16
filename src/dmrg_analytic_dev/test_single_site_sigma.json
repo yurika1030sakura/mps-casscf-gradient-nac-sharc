@@ -1,0 +1,29 @@
+{
+  "milestone": "FreitagReiher_Step1_single_site_sigma_FCI_fallback",
+  "purpose": "Validate FCI fallback used for CAS(2,2)/(4,4) regime in CP-DMRG-CASSCF.",
+  "results": [
+    {
+      "name": "S1_eigenvector_identity",
+      "E0_active": -4.272406496909014,
+      "E1_active": -3.191206807827968,
+      "diff_root0": 9.04082224356802e-16,
+      "diff_root1": 2.234280737922546e-15,
+      "tol": 1e-10,
+      "status": "pass"
+    },
+    {
+      "name": "S2_linearity",
+      "abs_diff": 1.0175362097255202e-15,
+      "tol": 1e-12,
+      "status": "pass"
+    },
+    {
+      "name": "S3_hermiticity",
+      "<v|sw>": -0.5170111248040778,
+      "<w|sv>": -0.5170111248040781,
+      "abs_diff": 2.220446049250313e-16,
+      "tol": 1e-12,
+      "status": "pass"
+    }
+  ]
+}

@@ -1,0 +1,64 @@
+#!/bin/bash
+#SBATCH -J bvoe_group
+#SBATCH -p test
+#SBATCH -N 1
+#SBATCH --cpus-per-task=8
+#SBATCH --mem=120G
+#SBATCH -t 0-12:00:00
+#SBATCH -o bvoe_parallel_%x_%j.out
+#SBATCH -e bvoe_parallel_%x_%j.err
+
+set -euo pipefail
+
+ROOT=${ROOT:-${SLURM_SUBMIT_DIR:-$(cd -- "$(dirname "${BASH_SOURCE[0]}")" && pwd)}}
+PYSCF_PYTHON=${PYSCF_PYTHON:-python}
+
+if [[ -z "${BVOE_SYSTEMS:-}" ]]; then
+  echo "BVOE_SYSTEMS must be set, e.g. 'c2 c2_321g c2_631g'" >&2
+  exit 2
+fi
+
+GROUP=${BVOE_GROUP:-${SLURM_JOB_NAME:-bvoe_group}}
+RUN_ROOT=${BVOE_PARALLEL_ROOT:-$ROOT/parallel_runs}/${SLURM_JOB_ID}_${GROUP}
+
+export OMP_NUM_THREADS=${SLURM_CPUS_PER_TASK:-8}
+export MKL_NUM_THREADS=${SLURM_CPUS_PER_TASK:-8}
+export OPENBLAS_NUM_THREADS=${SLURM_CPUS_PER_TASK:-8}
+export BVOE_THREADS=${SLURM_CPUS_PER_TASK:-8}
+export BVOE_SWEEPS=${BVOE_SWEEPS:-100}
+export BVOE_ROOT_BUFFER=${BVOE_ROOT_BUFFER:-8}
+export BVOE_FORCE_RECOMPUTE=1
+export BVOE_ROOT_LOCK_OVERLAP=${BVOE_ROOT_LOCK_OVERLAP:-0.90}
+export BVOE_ROOT_LOCK_MARGIN=${BVOE_ROOT_LOCK_MARGIN:-0.10}
+export BVOE_DAV_THRD=${BVOE_DAV_THRD:-1e-14}
+export BVOE_DAV_MAX_ITER=${BVOE_DAV_MAX_ITER:-8000}
+export BVOE_DAV_DEF_MAX_SIZE=${BVOE_DAV_DEF_MAX_SIZE:-80}
+export BVOE_SWEEP_TOL=${BVOE_SWEEP_TOL:-1e-14}
+export BVOE_MPS_COEFF_CUTOFF=${BVOE_MPS_COEFF_CUTOFF:-1e-16}
+export BVOE_CASSCF_CONV_TOL=${BVOE_CASSCF_CONV_TOL:-1e-12}
+export BVOE_CASSCF_CONV_TOL_GRAD=${BVOE_CASSCF_CONV_TOL_GRAD:-1e-9}
+export BVOE_CASSCF_MAX_CYCLE=${BVOE_CASSCF_MAX_CYCLE:-300}
+export BVOE_FCI_POLISH_CONV_TOL=${BVOE_FCI_POLISH_CONV_TOL:-1e-14}
+export BVOE_FCI_POLISH_MAX_CYCLE=${BVOE_FCI_POLISH_MAX_CYCLE:-300}
+export BVOE_FCI_POLISH_MAX_SPACE=${BVOE_FCI_POLISH_MAX_SPACE:-80}
+export BVOE_FCI_POLISH_PSPACE_SIZE=${BVOE_FCI_POLISH_PSPACE_SIZE:-2000}
+export BVOE_FCI_POLISH_SCAN_ROOTS=${BVOE_FCI_POLISH_SCAN_ROOTS:-20}
+export BVOE_FCI_POLISH_SPIN_TOL=${BVOE_FCI_POLISH_SPIN_TOL:-1e-6}
+export BVOE_FCI_DEGENERACY_TOL=${BVOE_FCI_DEGENERACY_TOL:-1e-4}
+export BVOE_DATA_DIR=$RUN_ROOT/data_phase2
+export BVOE_SUMMARY_PATH=$RUN_ROOT/summary_phase2.json
+
+mkdir -p "$RUN_ROOT"
+cd "$ROOT"
+
+echo "Parallel BVOE group start: $(date)"
+echo "Job: ${SLURM_JOB_ID:-unknown} group=$GROUP"
+echo "Systems: $BVOE_SYSTEMS"
+echo "Output: $RUN_ROOT"
+echo "Partition: ${SLURM_JOB_PARTITION:-unknown}"
+
+"$PYSCF_PYTHON" -m py_compile run_bvoe_phase2.py test_root_matching_protocol.py
+"$PYSCF_PYTHON" test_root_matching_protocol.py
+"$PYSCF_PYTHON" run_bvoe_phase2.py $BVOE_SYSTEMS
+
+echo "Parallel BVOE group done: $(date)"

@@ -1,0 +1,10 @@
+{
+  "name": "beyond_fci_nac_fd_heh_cas22",
+  "h_bohr": 0.001,
+  "d_mps_native_01": -0.032443691765745436,
+  "d_fci_fd_01": 0.0324437078987631,
+  "d_analytic_01": -0.0324304147265289,
+  "abs_err_mps_vs_fci_fd": 1.613301766484332e-08,
+  "abs_err_mps_vs_analytic": 1.3277039216538777e-05,
+  "status": "pass"
+}

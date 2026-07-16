@@ -1,0 +1,23 @@
+# Public full DMRG-CASSCF SHARC trajectory smoke for the methods manuscript.
+
+basis sto-3g
+charge 0
+
+method dmrg-casscf
+ncas 2
+nelecas 2
+roots 2
+
+verbose 0
+conv-tol 1e-8
+conv-tol-grad 1e-5
+max-cycle-macro 10
+max-cycle-micro 4
+ah-max-cycle 20
+ah-start-cycle 3
+grad-max-cycle 20
+
+dmrg-maxm 40
+dmrg-nsteps 8
+dmrg-sweep-tol 1e-7
+dmrg-max-fci-dets 10000

@@ -1,0 +1,107 @@
+{
+  "system": "polyene_C16",
+  "ncas": 16,
+  "nelecas": 16,
+  "det_dim": 165636900,
+  "build_bond_dim": 512,
+  "ci_schedule": [
+    512,
+    512,
+    768,
+    768,
+    1152,
+    1152,
+    1600,
+    1600
+  ],
+  "ci_noises": [
+    0.0001,
+    0.0001,
+    0.0001,
+    0.0001,
+    1e-05,
+    1e-05,
+    0.0,
+    0.0
+  ],
+  "build": {
+    "det_dim": 165636900.0,
+    "beyond_fci": true,
+    "ncas": 16,
+    "nelecas": 16,
+    "spin": 0,
+    "orbital_source": "dmrg-casscf",
+    "fci_certified": false,
+    "stages": [
+      {
+        "M": 256,
+        "converged": true,
+        "wall_s": 290.6889039220405,
+        "e_states": [
+          -604.4590245948623,
+          -604.2446035695917
+        ]
+      },
+      {
+        "M": 512,
+        "converged": true,
+        "wall_s": 90.08215117803775,
+        "e_states": [
+          -604.4590245951345,
+          -604.2446035716422
+        ]
+      }
+    ],
+    "converged": true,
+    "escalated": false,
+    "level_shift_used": 0.0,
+    "level_shift_warning": false,
+    "s2_per_state": null,
+    "e_states": [
+      -604.4590245951345,
+      -604.2446035716422
+    ],
+    "wall_s": 380.82775996404234,
+    "active_space_selection": null,
+    "build_health": {
+      "overall": "PASS",
+      "trustworthy": true,
+      "checks": [
+        {
+          "name": "scf_converged",
+          "status": "PASS",
+          "value": true,
+          "message": "converged"
+        },
+        {
+          "name": "casscf_converged",
+          "status": "PASS",
+          "value": true,
+          "message": "converged"
+        },
+        {
+          "name": "near_degeneracy",
+          "status": "PASS",
+          "value": 0.21442102349226388,
+          "message": "gap 2.14e-01 Eh"
+        },
+        {
+          "name": "fci_free_integrity",
+          "status": "PASS",
+          "value": false,
+          "message": "det_dim 1.66e+08 beyond FCI; no dense bridge used"
+        }
+      ]
+    }
+  },
+  "status": "kappa_audit",
+  "kappa_mconv": {
+    "192->256": 0.038430625674489315,
+    "256->384": 0.02271202799510697
+  },
+  "audit_kappa_norms": {
+    "192": 0.010154908215610147,
+    "256": 0.010106152010080685,
+    "384": 0.010047734999287192
+  }
+}

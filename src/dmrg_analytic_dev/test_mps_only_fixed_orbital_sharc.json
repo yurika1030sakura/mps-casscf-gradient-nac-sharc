@@ -1,0 +1,21 @@
+{
+  "milestone": "MPS_only_fixed_orbital_SHARC_facade",
+  "purpose": "Verify that a fixed-orbital MPS-only SHARC-facing object can produce energies, dipoles, gradients, and NACs without dense active-space CI roots.",
+  "results": [
+    {
+      "name": "F1_fixed_orbital_mps_only_sharc_quantities",
+      "ci_placeholder_sizes": [
+        1,
+        1
+      ],
+      "energies_hartree": [
+        -1.1372759436170448,
+        -0.16929174091069765
+      ],
+      "dipole_norm": 1.6402918813474998,
+      "grad0_norm": 0.007484323735974308,
+      "nac01_norm": 0.5094624686169988,
+      "status": "pass"
+    }
+  ]
+}

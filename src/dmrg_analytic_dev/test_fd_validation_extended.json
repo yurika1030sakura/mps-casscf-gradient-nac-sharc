@@ -1,0 +1,84 @@
+{
+  "milestone": "FD_validation_N2_LiF",
+  "purpose": "Committed finite-difference validation artifacts for N2 (gradient) and LiF (NAC), CAS(6,6)/6-31G, FCI-feasible.",
+  "systems": [
+    {
+      "system": "N2_CAS66_631G",
+      "results": [
+        {
+          "name": "C1_overlap_canary",
+          "o00": 1.0,
+          "o11": 1.0000000000000002,
+          "o01": -3.0947872335816814e-16,
+          "err": 3.0947872335816814e-16,
+          "tol": 1e-08,
+          "status": "pass"
+        },
+        {
+          "name": "C2_fd_gradient_vs_analytic",
+          "components": {
+            "state0": {
+              "g_analytic": -0.10738915130740179,
+              "g_fd": -0.10738942052768152,
+              "abs_err": 2.692202797360821e-07
+            },
+            "state1": {
+              "g_analytic": -0.5029748676167143,
+              "g_fd": -0.5023540568629414,
+              "abs_err": 0.0006208107537728491
+            }
+          },
+          "tol": 5e-05,
+          "status": "fail"
+        },
+        {
+          "name": "C3_fd_nac_vs_analytic",
+          "nac_analytic": -4.322735033954078e-08,
+          "tau_fd": 3.838783258369823e-07,
+          "abs_err_phaseaware": 3.406509754974415e-07,
+          "tol": 0.0001,
+          "status": "pass"
+        }
+      ]
+    },
+    {
+      "system": "LiF_CAS66_631G",
+      "results": [
+        {
+          "name": "C1_overlap_canary",
+          "o00": 0.9999999999999704,
+          "o11": 0.9999999999999798,
+          "o01": 2.2608834021522334e-16,
+          "err": 2.964295475749168e-14,
+          "tol": 1e-08,
+          "status": "pass"
+        },
+        {
+          "name": "C2_fd_gradient_vs_analytic",
+          "components": {
+            "state0": {
+              "g_analytic": -0.008564630148430629,
+              "g_fd": -0.00857116977925898,
+              "abs_err": 6.539630828351212e-06
+            },
+            "state1": {
+              "g_analytic": -0.09733802529988417,
+              "g_fd": -0.08415391163651975,
+              "abs_err": 0.013184113663364416
+            }
+          },
+          "tol": 5e-05,
+          "status": "fail"
+        },
+        {
+          "name": "C3_fd_nac_vs_analytic",
+          "nac_analytic": 2.184383071116855e-06,
+          "tau_fd": -0.00100794308378982,
+          "abs_err_phaseaware": 0.0010057587007187032,
+          "tol": 0.0001,
+          "status": "fail"
+        }
+      ]
+    }
+  ]
+}

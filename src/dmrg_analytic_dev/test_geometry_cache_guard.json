@@ -1,0 +1,25 @@
+{
+  "milestone": "geometry_cache_guard",
+  "purpose": "Stale-cache safety for reused MPS-Krylov response objects.",
+  "results": [
+    {
+      "name": "G1_prepare_cache_matches_fresh",
+      "fingerprint_stamped": true,
+      "kappa_diff_prepared_vs_fresh": 0.0,
+      "tol": 1e-08,
+      "status": "pass"
+    },
+    {
+      "name": "G2_invalidate_clears_caches",
+      "cache_built_before": true,
+      "all_cleared_after": true,
+      "status": "pass"
+    },
+    {
+      "name": "G3_stale_cache_raises",
+      "raised_on_stale": true,
+      "recovered_after_invalidate": true,
+      "status": "pass"
+    }
+  ]
+}

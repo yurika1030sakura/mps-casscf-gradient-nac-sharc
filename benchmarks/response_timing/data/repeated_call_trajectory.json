@@ -1,0 +1,1568 @@
+{
+  "benchmark": "ethylene_cas22_torsion_repeated_call",
+  "basis": "6-31G",
+  "ncas": 2,
+  "nelecas": 2,
+  "bond_dim": 200,
+  "n_steps": 46,
+  "theta_max": 90.0,
+  "total_response_wall_zero_s": 5269.814965797974,
+  "total_response_wall_recycled_s": 4121.427849399006,
+  "recycled_speedup": 1.2786381706442898,
+  "steps": [
+    {
+      "theta_deg": 0.0,
+      "e_states": [
+        -78.02595280453797,
+        -77.63695588081673
+      ],
+      "gap_Eh": 0.38899692372123695,
+      "grad0_norm": 0.12074533642038206,
+      "nac01_certified_residual": 9.911170041661417e-08,
+      "all_converged": true,
+      "wall_zero_s": 34.203115805998095,
+      "wall_recycled_s": 45.89429917399684,
+      "iters_zero": {
+        "grad:0": 26,
+        "grad:1": 26,
+        "nac:(0, 1)": 30
+      },
+      "iters_recycled": {
+        "grad:0": 26,
+        "grad:1": 2,
+        "nac:(0, 1)": 34
+      },
+      "continuity": null
+    },
+    {
+      "theta_deg": 2.0,
+      "e_states": [
+        -78.02487197371914,
+        -77.63857060638693
+      ],
+      "gap_Eh": 0.38630136733220866,
+      "grad0_norm": 0.8380017738717459,
+      "nac01_certified_residual": 6.708028533540112e-08,
+      "all_converged": true,
+      "wall_zero_s": 79.34929577999719,
+      "wall_recycled_s": 61.905769901000895,
+      "iters_zero": {
+        "grad:0": 51,
+        "grad:1": 51,
+        "nac:(0, 1)": 51
+      },
+      "iters_recycled": {
+        "grad:0": 52,
+        "grad:1": 2,
+        "nac:(0, 1)": 59
+      },
+      "continuity": {
+        "active_subspace_sigma_min": 0.9882084281703764,
+        "root_overlap_diag": [
+          0.9777119510752952,
+          0.9876948063708763
+        ],
+        "root_overlap_offdiag": [
+          0.00045059908643442314,
+          0.003457307351359737
+        ]
+      }
+    },
+    {
+      "theta_deg": 4.0,
+      "e_states": [
+        -78.02202262397039,
+        -77.64292273279642
+      ],
+      "gap_Eh": 0.3790998911739649,
+      "grad0_norm": 1.6570342636961417,
+      "nac01_certified_residual": 8.79619819251003e-08,
+      "all_converged": true,
+      "wall_zero_s": 83.1337308229995,
+      "wall_recycled_s": 62.34160746700218,
+      "iters_zero": {
+        "grad:0": 52,
+        "grad:1": 52,
+        "nac:(0, 1)": 53
+      },
+      "iters_recycled": {
+        "grad:0": 51,
+        "grad:1": 3,
+        "nac:(0, 1)": 60
+      },
+      "continuity": {
+        "active_subspace_sigma_min": 0.9891655673700098,
+        "root_overlap_diag": [
+          0.9793988463909852,
+          0.9887634058947312
+        ],
+        "root_overlap_offdiag": [
+          0.004298004562174281,
+          0.007117509874667184
+        ]
+      }
+    },
+    {
+      "theta_deg": 6.0,
+      "e_states": [
+        -78.01839906715007,
+        -77.648762728393
+      ],
+      "gap_Eh": 0.3696363387570756,
+      "grad0_norm": 2.311536226812955,
+      "nac01_certified_residual": 5.8982577140514494e-08,
+      "all_converged": true,
+      "wall_zero_s": 86.24809018199448,
+      "wall_recycled_s": 76.0019602839966,
+      "iters_zero": {
+        "grad:0": 54,
+        "grad:1": 54,
+        "nac:(0, 1)": 53
+      },
+      "iters_recycled": {
+        "grad:0": 54,
+        "grad:1": 1,
+        "nac:(0, 1)": 59
+      },
+      "continuity": {
+        "active_subspace_sigma_min": 0.9913501906966328,
+        "root_overlap_diag": [
+          0.9834116267976136,
+          0.9910442459102419
+        ],
+        "root_overlap_offdiag": [
+          0.007774129554215467,
+          0.010210306757875126
+        ]
+      }
+    },
+    {
+      "theta_deg": 8.0,
+      "e_states": [
+        -78.01514905450964,
+        -77.6546258499849
+      ],
+      "gap_Eh": 0.36052320452473907,
+      "grad0_norm": 2.414025460886657,
+      "nac01_certified_residual": 3.183459048825007e-08,
+      "all_converged": true,
+      "wall_zero_s": 94.65413055200042,
+      "wall_recycled_s": 75.2072650379996,
+      "iters_zero": {
+        "grad:0": 54,
+        "grad:1": 54,
+        "nac:(0, 1)": 54
+      },
+      "iters_recycled": {
+        "grad:0": 54,
+        "grad:1": 1,
+        "nac:(0, 1)": 58
+      },
+      "continuity": {
+        "active_subspace_sigma_min": 0.9947862592015432,
+        "root_overlap_diag": [
+          0.9899757800950469,
+          0.9945012289922803
+        ],
+        "root_overlap_offdiag": [
+          0.010564233121745991,
+          0.012418652965320826
+        ]
+      }
+    },
+    {
+      "theta_deg": 10.0,
+      "e_states": [
+        -78.01275265659653,
+        -77.65976886746228
+      ],
+      "gap_Eh": 0.35298378913425665,
+      "grad0_norm": 2.056781327608978,
+      "nac01_certified_residual": 2.4971910893637315e-07,
+      "all_converged": true,
+      "wall_zero_s": 140.73803625000437,
+      "wall_recycled_s": 109.44098271799885,
+      "iters_zero": {
+        "grad:0": 54,
+        "grad:1": 55,
+        "nac:(0, 1)": 54
+      },
+      "iters_recycled": {
+        "grad:0": 54,
+        "grad:1": 2,
+        "nac:(0, 1)": 60
+      },
+      "continuity": {
+        "active_subspace_sigma_min": 0.9976166957080144,
+        "root_overlap_diag": [
+          0.9955190259464616,
+          0.9973075000760896
+        ],
+        "root_overlap_offdiag": [
+          0.012417657226800691,
+          0.013686871550089855
+        ]
+      }
+    },
+    {
+      "theta_deg": 12.0,
+      "e_states": [
+        -78.01092919634665,
+        -77.66432448175956
+      ],
+      "gap_Eh": 0.3466047145870874,
+      "grad0_norm": 1.653746004070285,
+      "nac01_certified_residual": 4.6176462921169325e-08,
+      "all_converged": true,
+      "wall_zero_s": 111.87263061400154,
+      "wall_recycled_s": 87.91276662600285,
+      "iters_zero": {
+        "grad:0": 54,
+        "grad:1": 54,
+        "nac:(0, 1)": 54
+      },
+      "iters_recycled": {
+        "grad:0": 54,
+        "grad:1": 2,
+        "nac:(0, 1)": 58
+      },
+      "continuity": {
+        "active_subspace_sigma_min": 0.9988541692325799,
+        "root_overlap_diag": [
+          0.9980136148008407,
+          0.9985382530410128
+        ],
+        "root_overlap_offdiag": [
+          0.013404410520138781,
+          0.014291223054468786
+        ]
+      }
+    },
+    {
+      "theta_deg": 14.0,
+      "e_states": [
+        -78.00933383493437,
+        -77.66856924634001
+      ],
+      "gap_Eh": 0.34076458859435377,
+      "grad0_norm": 1.3400343683489357,
+      "nac01_certified_residual": 8.680945770893423e-08,
+      "all_converged": true,
+      "wall_zero_s": 90.28314997800044,
+      "wall_recycled_s": 84.52462826899864,
+      "iters_zero": {
+        "grad:0": 53,
+        "grad:1": 53,
+        "nac:(0, 1)": 53
+      },
+      "iters_recycled": {
+        "grad:0": 53,
+        "grad:1": 1,
+        "nac:(0, 1)": 58
+      },
+      "continuity": {
+        "active_subspace_sigma_min": 0.9992652033310762,
+        "root_overlap_diag": [
+          0.998892360942486,
+          0.9989696612745699
+        ],
+        "root_overlap_offdiag": [
+          0.013853430374451178,
+          0.01453337583542351
+        ]
+      }
+    },
+    {
+      "theta_deg": 16.0,
+      "e_states": [
+        -78.00777247473755,
+        -77.67266255174579
+      ],
+      "gap_Eh": 0.33510992299176223,
+      "grad0_norm": 1.1091785566269727,
+      "nac01_certified_residual": 8.121864635098026e-08,
+      "all_converged": true,
+      "wall_zero_s": 108.48370829100168,
+      "wall_recycled_s": 82.48016230299982,
+      "iters_zero": {
+        "grad:0": 53,
+        "grad:1": 53,
+        "nac:(0, 1)": 53
+      },
+      "iters_recycled": {
+        "grad:0": 53,
+        "grad:1": 2,
+        "nac:(0, 1)": 58
+      },
+      "continuity": {
+        "active_subspace_sigma_min": 0.999411766155439,
+        "root_overlap_diag": [
+          0.9992141271954489,
+          0.9991365599986338
+        ],
+        "root_overlap_offdiag": [
+          0.014024178141219795,
+          0.014591589552505849
+        ]
+      }
+    },
+    {
+      "theta_deg": 18.0,
+      "e_states": [
+        -78.00614890046644,
+        -77.67667848333562
+      ],
+      "gap_Eh": 0.32947041713082115,
+      "grad0_norm": 0.9372352822546315,
+      "nac01_certified_residual": 1.836646692122636e-08,
+      "all_converged": true,
+      "wall_zero_s": 105.25355313900218,
+      "wall_recycled_s": 86.61011811500066,
+      "iters_zero": {
+        "grad:0": 51,
+        "grad:1": 51,
+        "nac:(0, 1)": 53
+      },
+      "iters_recycled": {
+        "grad:0": 51,
+        "grad:1": 2,
+        "nac:(0, 1)": 58
+      },
+      "continuity": {
+        "active_subspace_sigma_min": 0.9994802243528484,
+        "root_overlap_diag": [
+          0.9993465757542693,
+          0.9992173981565343
+        ],
+        "root_overlap_offdiag": [
+          0.01405334188575661,
+          0.014555102069543245
+        ]
+      }
+    },
+    {
+      "theta_deg": 20.0,
+      "e_states": [
+        -78.00441523634667,
+        -77.68064795036709
+      ],
+      "gap_Eh": 0.32376728597958504,
+      "grad0_norm": 0.8061933967161327,
+      "nac01_certified_residual": 8.615530078665548e-08,
+      "all_converged": true,
+      "wall_zero_s": 82.7225068159969,
+      "wall_recycled_s": 74.84009676000278,
+      "iters_zero": {
+        "grad:0": 52,
+        "grad:1": 52,
+        "nac:(0, 1)": 53
+      },
+      "iters_recycled": {
+        "grad:0": 52,
+        "grad:1": 4,
+        "nac:(0, 1)": 60
+      },
+      "continuity": {
+        "active_subspace_sigma_min": 0.9995217863631531,
+        "root_overlap_diag": [
+          0.9994075788613809,
+          0.9992665517924082
+        ],
+        "root_overlap_offdiag": [
+          0.014009489089117862,
+          0.01446961433578459
+        ]
+      }
+    },
+    {
+      "theta_deg": 22.0,
+      "e_states": [
+        -78.00254720720758,
+        -77.68458086241371
+      ],
+      "gap_Eh": 0.31796634479387365,
+      "grad0_norm": 0.7042700039848148,
+      "nac01_certified_residual": 8.781024837830821e-08,
+      "all_converged": true,
+      "wall_zero_s": 114.39245305899385,
+      "wall_recycled_s": 94.58203236199915,
+      "iters_zero": {
+        "grad:0": 52,
+        "grad:1": 52,
+        "nac:(0, 1)": 53
+      },
+      "iters_recycled": {
+        "grad:0": 52,
+        "grad:1": 1,
+        "nac:(0, 1)": 58
+      },
+      "continuity": {
+        "active_subspace_sigma_min": 0.9995514182175169,
+        "root_overlap_diag": [
+          0.9994381420597943,
+          0.9993015782369826
+        ],
+        "root_overlap_offdiag": [
+          0.013928599269213002,
+          0.01436006686690881
+        ]
+      }
+    },
+    {
+      "theta_deg": 24.0,
+      "e_states": [
+        -78.00053279634493,
+        -77.68847657292805
+      ],
+      "gap_Eh": 0.31205622341687445,
+      "grad0_norm": 0.6237637936852557,
+      "nac01_certified_residual": 6.6893449386495e-08,
+      "all_converged": true,
+      "wall_zero_s": 92.29360876000283,
+      "wall_recycled_s": 77.66182781800308,
+      "iters_zero": {
+        "grad:0": 52,
+        "grad:1": 52,
+        "nac:(0, 1)": 54
+      },
+      "iters_recycled": {
+        "grad:0": 52,
+        "grad:1": 1,
+        "nac:(0, 1)": 58
+      },
+      "continuity": {
+        "active_subspace_sigma_min": 0.9995743620022302,
+        "root_overlap_diag": [
+          0.9994543683852256,
+          0.9993288147943497
+        ],
+        "root_overlap_offdiag": [
+          0.013830595685340293,
+          0.01424073329114612
+        ]
+      }
+    },
+    {
+      "theta_deg": 26.0,
+      "e_states": [
+        -77.99836645450347,
+        -77.69232935455024
+      ],
+      "gap_Eh": 0.3060370999532296,
+      "grad0_norm": 0.5594677332929401,
+      "nac01_certified_residual": 5.8523206270021345e-08,
+      "all_converged": true,
+      "wall_zero_s": 93.79975519300206,
+      "wall_recycled_s": 87.37792519199866,
+      "iters_zero": {
+        "grad:0": 52,
+        "grad:1": 52,
+        "nac:(0, 1)": 53
+      },
+      "iters_recycled": {
+        "grad:0": 52,
+        "grad:1": 1,
+        "nac:(0, 1)": 57
+      },
+      "continuity": {
+        "active_subspace_sigma_min": 0.9995928037581634,
+        "root_overlap_diag": [
+          0.999463232239741,
+          0.9993507947118406
+        ],
+        "root_overlap_offdiag": [
+          0.013726846198748473,
+          0.014120034804144987
+        ]
+      }
+    },
+    {
+      "theta_deg": 28.0,
+      "e_states": [
+        -77.99604637623372,
+        -77.69613100811821
+      ],
+      "gap_Eh": 0.29991536811550645,
+      "grad0_norm": 0.5077230287644864,
+      "nac01_certified_residual": 7.153440796386054e-08,
+      "all_converged": true,
+      "wall_zero_s": 114.86123072900227,
+      "wall_recycled_s": 83.14996097100084,
+      "iters_zero": {
+        "grad:0": 52,
+        "grad:1": 52,
+        "nac:(0, 1)": 53
+      },
+      "iters_recycled": {
+        "grad:0": 52,
+        "grad:1": 3,
+        "nac:(0, 1)": 60
+      },
+      "continuity": {
+        "active_subspace_sigma_min": 0.9996079514887845,
+        "root_overlap_diag": [
+          0.9994681532121698,
+          0.9993688143411009
+        ],
+        "root_overlap_offdiag": [
+          0.013623940782465347,
+          0.014002905186145399
+        ]
+      }
+    },
+    {
+      "theta_deg": 30.0,
+      "e_states": [
+        -77.99357284635488,
+        -77.69987246472559
+      ],
+      "gap_Eh": 0.2937003816292929,
+      "grad0_norm": 0.46586855050997306,
+      "nac01_certified_residual": 3.625553503281646e-08,
+      "all_converged": true,
+      "wall_zero_s": 117.03364094800054,
+      "wall_recycled_s": 75.83023296200554,
+      "iters_zero": {
+        "grad:0": 52,
+        "grad:1": 52,
+        "nac:(0, 1)": 53
+      },
+      "iters_recycled": {
+        "grad:0": 52,
+        "grad:1": 3,
+        "nac:(0, 1)": 57
+      },
+      "continuity": {
+        "active_subspace_sigma_min": 0.9996205565186348,
+        "root_overlap_diag": [
+          0.999470852938782,
+          0.9993836487343429
+        ],
+        "root_overlap_offdiag": [
+          0.013525591372047575,
+          0.013892168552075345
+        ]
+      }
+    },
+    {
+      "theta_deg": 32.0,
+      "e_states": [
+        -77.99094744966622,
+        -77.70354454035315
+      ],
+      "gap_Eh": 0.287402909313073,
+      "grad0_norm": 0.4319173992218432,
+      "nac01_certified_residual": 5.847751141609035e-08,
+      "all_converged": true,
+      "wall_zero_s": 100.78115369399893,
+      "wall_recycled_s": 78.55739857700246,
+      "iters_zero": {
+        "grad:0": 51,
+        "grad:1": 51,
+        "nac:(0, 1)": 53
+      },
+      "iters_recycled": {
+        "grad:0": 51,
+        "grad:1": 2,
+        "nac:(0, 1)": 57
+      },
+      "continuity": {
+        "active_subspace_sigma_min": 0.9996311742304475,
+        "root_overlap_diag": [
+          0.9994722690558686,
+          0.9993958854810143
+        ],
+        "root_overlap_offdiag": [
+          0.013433820876310475,
+          0.013789344848124748
+        ]
+      }
+    },
+    {
+      "theta_deg": 34.0,
+      "e_states": [
+        -77.98817266326482,
+        -77.70713831097291
+      ],
+      "gap_Eh": 0.2810343522919112,
+      "grad0_norm": 0.4043565189167987,
+      "nac01_certified_residual": 7.095960281459551e-08,
+      "all_converged": true,
+      "wall_zero_s": 97.92280459400354,
+      "wall_recycled_s": 72.70419418899837,
+      "iters_zero": {
+        "grad:0": 49,
+        "grad:1": 49,
+        "nac:(0, 1)": 53
+      },
+      "iters_recycled": {
+        "grad:0": 49,
+        "grad:1": 1,
+        "nac:(0, 1)": 58
+      },
+      "continuity": {
+        "active_subspace_sigma_min": 0.999640229803143,
+        "root_overlap_diag": [
+          0.9994729240174052,
+          0.9994060033651894
+        ],
+        "root_overlap_offdiag": [
+          0.01334961075566874,
+          0.013695129482182523
+        ]
+      }
+    },
+    {
+      "theta_deg": 36.0,
+      "e_states": [
+        -77.9852516380635,
+        -77.71064530157695
+      ],
+      "gap_Eh": 0.2746063364865563,
+      "grad0_norm": 0.3820174456124806,
+      "nac01_certified_residual": 8.189159486812278e-08,
+      "all_converged": true,
+      "wall_zero_s": 95.26415127499786,
+      "wall_recycled_s": 78.38552479400096,
+      "iters_zero": {
+        "grad:0": 49,
+        "grad:1": 49,
+        "nac:(0, 1)": 52
+      },
+      "iters_recycled": {
+        "grad:0": 49,
+        "grad:1": 3,
+        "nac:(0, 1)": 59
+      },
+      "continuity": {
+        "active_subspace_sigma_min": 0.9996480494308307,
+        "root_overlap_diag": [
+          0.9994730892056601,
+          0.9994144016818634
+        ],
+        "root_overlap_offdiag": [
+          0.013273304983865157,
+          0.013609709994991049
+        ]
+      }
+    },
+    {
+      "theta_deg": 38.0,
+      "e_states": [
+        -77.98218812203318,
+        -77.71405754074698
+      ],
+      "gap_Eh": 0.2681305812862007,
+      "grad0_norm": 0.36398801663918323,
+      "nac01_certified_residual": 7.528605941815282e-08,
+      "all_converged": true,
+      "wall_zero_s": 106.11190476299817,
+      "wall_recycled_s": 84.59671774099843,
+      "iters_zero": {
+        "grad:0": 51,
+        "grad:1": 51,
+        "nac:(0, 1)": 53
+      },
+      "iters_recycled": {
+        "grad:0": 51,
+        "grad:1": 4,
+        "nac:(0, 1)": 60
+      },
+      "continuity": {
+        "active_subspace_sigma_min": 0.9996548781486484,
+        "root_overlap_diag": [
+          0.9994728900483172,
+          0.9994214099613581
+        ],
+        "root_overlap_offdiag": [
+          0.013204863446384971,
+          0.01353296714881611
+        ]
+      }
+    },
+    {
+      "theta_deg": 40.0,
+      "e_states": [
+        -77.97898650812039,
+        -77.71736750282673
+      ],
+      "gap_Eh": 0.2616190052936531,
+      "grad0_norm": 0.3495536725095285,
+      "nac01_certified_residual": 7.522949977227091e-08,
+      "all_converged": true,
+      "wall_zero_s": 99.62009258400212,
+      "wall_recycled_s": 81.33945150599902,
+      "iters_zero": {
+        "grad:0": 49,
+        "grad:1": 49,
+        "nac:(0, 1)": 53
+      },
+      "iters_recycled": {
+        "grad:0": 49,
+        "grad:1": 2,
+        "nac:(0, 1)": 58
+      },
+      "continuity": {
+        "active_subspace_sigma_min": 0.9996609134898251,
+        "root_overlap_diag": [
+          0.9994723473765766,
+          0.9994273128723771
+        ],
+        "root_overlap_offdiag": [
+          0.01314403649921032,
+          0.013464604385758795
+        ]
+      }
+    },
+    {
+      "theta_deg": 42.0,
+      "e_states": [
+        -77.97565187166657,
+        -77.72056807775317
+      ],
+      "gap_Eh": 0.25508379391339986,
+      "grad0_norm": 0.3381480354141458,
+      "nac01_certified_residual": 6.966264068782855e-08,
+      "all_converged": true,
+      "wall_zero_s": 98.16579332099354,
+      "wall_recycled_s": 78.16986869899847,
+      "iters_zero": {
+        "grad:0": 49,
+        "grad:1": 49,
+        "nac:(0, 1)": 53
+      },
+      "iters_recycled": {
+        "grad:0": 49,
+        "grad:1": 2,
+        "nac:(0, 1)": 58
+      },
+      "continuity": {
+        "active_subspace_sigma_min": 0.9996663074774715,
+        "root_overlap_diag": [
+          0.9994714346365879,
+          0.9994323441075019
+        ],
+        "root_overlap_offdiag": [
+          0.013090457198527552,
+          0.013404224618577217
+        ]
+      }
+    },
+    {
+      "theta_deg": 44.0,
+      "e_states": [
+        -77.97219009338723,
+        -77.72365247717332
+      ],
+      "gap_Eh": 0.24853761621390902,
+      "grad0_norm": 0.32932101747271475,
+      "nac01_certified_residual": 1.3317303675664476e-07,
+      "all_converged": true,
+      "wall_zero_s": 101.0838053280022,
+      "wall_recycled_s": 92.33251354599633,
+      "iters_zero": {
+        "grad:0": 49,
+        "grad:1": 49,
+        "nac:(0, 1)": 53
+      },
+      "iters_recycled": {
+        "grad:0": 49,
+        "grad:1": 2,
+        "nac:(0, 1)": 60
+      },
+      "continuity": {
+        "active_subspace_sigma_min": 0.9996711664771392,
+        "root_overlap_diag": [
+          0.999470039651617,
+          0.9994366876921321
+        ],
+        "root_overlap_offdiag": [
+          0.013043690939895169,
+          0.01335139197238759
+        ]
+      }
+    },
+    {
+      "theta_deg": 46.0,
+      "e_states": [
+        -77.96860801007085,
+        -77.72661413944438
+      ],
+      "gap_Eh": 0.24199387062647304,
+      "grad0_norm": 0.3227106436531102,
+      "nac01_certified_residual": 4.6543509688380555e-08,
+      "all_converged": true,
+      "wall_zero_s": 116.53306771299685,
+      "wall_recycled_s": 111.28658497000288,
+      "iters_zero": {
+        "grad:0": 51,
+        "grad:1": 51,
+        "nac:(0, 1)": 53
+      },
+      "iters_recycled": {
+        "grad:0": 51,
+        "grad:1": 1,
+        "nac:(0, 1)": 58
+      },
+      "continuity": {
+        "active_subspace_sigma_min": 0.9996755767153856,
+        "root_overlap_diag": [
+          0.9994680097656209,
+          0.999440497517265
+        ],
+        "root_overlap_offdiag": [
+          0.013003296379309526,
+          0.01330566067484211
+        ]
+      }
+    },
+    {
+      "theta_deg": 48.0,
+      "e_states": [
+        -77.96491358567478,
+        -77.72944664608242
+      ],
+      "gap_Eh": 0.23546693959235654,
+      "grad0_norm": 0.318020951634032,
+      "nac01_certified_residual": 3.850508300159439e-08,
+      "all_converged": true,
+      "wall_zero_s": 108.93492395400244,
+      "wall_recycled_s": 89.37816227899748,
+      "iters_zero": {
+        "grad:0": 49,
+        "grad:1": 49,
+        "nac:(0, 1)": 53
+      },
+      "iters_recycled": {
+        "grad:0": 49,
+        "grad:1": 1,
+        "nac:(0, 1)": 57
+      },
+      "continuity": {
+        "active_subspace_sigma_min": 0.9996795983600208,
+        "root_overlap_diag": [
+          0.9994651265733381,
+          0.9994438933677146
+        ],
+        "root_overlap_offdiag": [
+          0.012968832334427647,
+          0.013266592742758758
+        ]
+      }
+    },
+    {
+      "theta_deg": 50.0,
+      "e_states": [
+        -77.96111613178262,
+        -77.73214362673973
+      ],
+      "gap_Eh": 0.2289725050428899,
+      "grad0_norm": 0.315003317904236,
+      "nac01_certified_residual": 7.941984102375726e-08,
+      "all_converged": true,
+      "wall_zero_s": 104.81857212100294,
+      "wall_recycled_s": 79.89943765200587,
+      "iters_zero": {
+        "grad:0": 48,
+        "grad:1": 48,
+        "nac:(0, 1)": 53
+      },
+      "iters_recycled": {
+        "grad:0": 48,
+        "grad:1": 2,
+        "nac:(0, 1)": 59
+      },
+      "continuity": {
+        "active_subspace_sigma_min": 0.9996832714402818,
+        "root_overlap_diag": [
+          0.9994610968773258,
+          0.9994469674453517
+        ],
+        "root_overlap_offdiag": [
+          0.012939873806384781,
+          0.013233769904602979
+        ]
+      }
+    },
+    {
+      "theta_deg": 52.0,
+      "e_states": [
+        -77.95722656472158,
+        -77.7346986726093
+      ],
+      "gap_Eh": 0.2225278921122822,
+      "grad0_norm": 0.3134399726959526,
+      "nac01_certified_residual": 8.184849275163287e-08,
+      "all_converged": true,
+      "wall_zero_s": 110.34266136200313,
+      "wall_recycled_s": 87.22314777399879,
+      "iters_zero": {
+        "grad:0": 48,
+        "grad:1": 48,
+        "nac:(0, 1)": 53
+      },
+      "iters_recycled": {
+        "grad:0": 48,
+        "grad:1": 4,
+        "nac:(0, 1)": 60
+      },
+      "continuity": {
+        "active_subspace_sigma_min": 0.9996866216579383,
+        "root_overlap_diag": [
+          0.9994555348039762,
+          0.9994497892971783
+        ],
+        "root_overlap_offdiag": [
+          0.012916025157552559,
+          0.013206798243243547
+        ]
+      }
+    },
+    {
+      "theta_deg": 54.0,
+      "e_states": [
+        -77.95325768715345,
+        -77.73710527892382
+      ],
+      "gap_Eh": 0.21615240822963244,
+      "grad0_norm": 0.31312697449013377,
+      "nac01_certified_residual": 7.003572552891126e-08,
+      "all_converged": true,
+      "wall_zero_s": 116.49776043499878,
+      "wall_recycled_s": 101.6125848169977,
+      "iters_zero": {
+        "grad:0": 48,
+        "grad:1": 49,
+        "nac:(0, 1)": 56
+      },
+      "iters_recycled": {
+        "grad:0": 49,
+        "grad:1": 1,
+        "nac:(0, 1)": 60
+      },
+      "continuity": {
+        "active_subspace_sigma_min": 0.9996896485004964,
+        "root_overlap_diag": [
+          0.999447937781954,
+          0.9994524016240938
+        ],
+        "root_overlap_offdiag": [
+          0.0128969091339422,
+          0.013185312815274785
+        ]
+      }
+    },
+    {
+      "theta_deg": 56.0,
+      "e_states": [
+        -77.94922453829906,
+        -77.739356782065
+      ],
+      "gap_Eh": 0.20986775623406118,
+      "grad0_norm": 0.31385899047958354,
+      "nac01_certified_residual": 5.756415483359093e-08,
+      "all_converged": true,
+      "wall_zero_s": 96.73251459999301,
+      "wall_recycled_s": 75.71089926900459,
+      "iters_zero": {
+        "grad:0": 48,
+        "grad:1": 48,
+        "nac:(0, 1)": 54
+      },
+      "iters_recycled": {
+        "grad:0": 48,
+        "grad:1": 3,
+        "nac:(0, 1)": 59
+      },
+      "continuity": {
+        "active_subspace_sigma_min": 0.9996923453183527,
+        "root_overlap_diag": [
+          0.9994376603226696,
+          0.9994548326471557
+        ],
+        "root_overlap_offdiag": [
+          0.012882175057519759,
+          0.013168951771927132
+        ]
+      }
+    },
+    {
+      "theta_deg": 58.0,
+      "e_states": [
+        -77.94514484615566,
+        -77.7414462682367
+      ],
+      "gap_Eh": 0.2036985779189564,
+      "grad0_norm": 0.31541291392231896,
+      "nac01_certified_residual": 1.5493486320235412e-07,
+      "all_converged": true,
+      "wall_zero_s": 127.85697066699504,
+      "wall_recycled_s": 97.04795639200165,
+      "iters_zero": {
+        "grad:0": 48,
+        "grad:1": 48,
+        "nac:(0, 1)": 53
+      },
+      "iters_recycled": {
+        "grad:0": 48,
+        "grad:1": 5,
+        "nac:(0, 1)": 60
+      },
+      "continuity": {
+        "active_subspace_sigma_min": 0.9996946870876067,
+        "root_overlap_diag": [
+          0.9994238744641264,
+          0.9994570916554905
+        ],
+        "root_overlap_offdiag": [
+          0.012871482761026093,
+          0.013157352209136037
+        ]
+      }
+    },
+    {
+      "theta_deg": 60.0,
+      "e_states": [
+        -77.94103877073363,
+        -77.74336727430843
+      ],
+      "gap_Eh": 0.1976714964252011,
+      "grad0_norm": 0.3175346511559219,
+      "nac01_certified_residual": 3.686143309596017e-08,
+      "all_converged": true,
+      "wall_zero_s": 116.23679428600008,
+      "wall_recycled_s": 86.25694026199926,
+      "iters_zero": {
+        "grad:0": 48,
+        "grad:1": 48,
+        "nac:(0, 1)": 54
+      },
+      "iters_recycled": {
+        "grad:0": 48,
+        "grad:1": 7,
+        "nac:(0, 1)": 59
+      },
+      "continuity": {
+        "active_subspace_sigma_min": 0.9996965426292989,
+        "root_overlap_diag": [
+          0.9994054608730939,
+          0.9994591085982328
+        ],
+        "root_overlap_offdiag": [
+          0.012864542045366974,
+          0.013150275672974969
+        ]
+      }
+    },
+    {
+      "theta_deg": 62.0,
+      "e_states": [
+        -77.93693052139564,
+        -77.74511270413278
+      ],
+      "gap_Eh": 0.19181781726285863,
+      "grad0_norm": 0.31991916988420094,
+      "nac01_certified_residual": 1.2411078201964563e-07,
+      "all_converged": true,
+      "wall_zero_s": 106.85120598100184,
+      "wall_recycled_s": 79.19107422699744,
+      "iters_zero": {
+        "grad:0": 48,
+        "grad:1": 48,
+        "nac:(0, 1)": 53
+      },
+      "iters_recycled": {
+        "grad:0": 48,
+        "grad:1": 7,
+        "nac:(0, 1)": 60
+      },
+      "continuity": {
+        "active_subspace_sigma_min": 0.9996979618058421,
+        "root_overlap_diag": [
+          0.9993812244545704,
+          0.9994609334760987
+        ],
+        "root_overlap_offdiag": [
+          0.01286117086834929,
+          0.013147315810020677
+        ]
+      }
+    },
+    {
+      "theta_deg": 64.0,
+      "e_states": [
+        -77.93284731873558,
+        -77.7466764888934
+      ],
+      "gap_Eh": 0.18617082984218314,
+      "grad0_norm": 0.32220982284767896,
+      "nac01_certified_residual": 7.354032168718718e-08,
+      "all_converged": true,
+      "wall_zero_s": 108.97055418799573,
+      "wall_recycled_s": 87.61889833900204,
+      "iters_zero": {
+        "grad:0": 48,
+        "grad:1": 48,
+        "nac:(0, 1)": 52
+      },
+      "iters_recycled": {
+        "grad:0": 48,
+        "grad:1": 6,
+        "nac:(0, 1)": 60
+      },
+      "continuity": {
+        "active_subspace_sigma_min": 0.9996987299784035,
+        "root_overlap_diag": [
+          0.9993495241817579,
+          0.9994624393984682
+        ],
+        "root_overlap_offdiag": [
+          0.012861039407059868,
+          0.013148143077306952
+        ]
+      }
+    },
+    {
+      "theta_deg": 66.0,
+      "e_states": [
+        -77.92882014273738,
+        -77.74805353499002
+      ],
+      "gap_Eh": 0.18076660774735842,
+      "grad0_norm": 0.3239987710000752,
+      "nac01_certified_residual": 7.79230974134434e-08,
+      "all_converged": true,
+      "wall_zero_s": 103.67964946400025,
+      "wall_recycled_s": 97.16396496699599,
+      "iters_zero": {
+        "grad:0": 48,
+        "grad:1": 48,
+        "nac:(0, 1)": 51
+      },
+      "iters_recycled": {
+        "grad:0": 48,
+        "grad:1": 7,
+        "nac:(0, 1)": 60
+      },
+      "continuity": {
+        "active_subspace_sigma_min": 0.9996987581693126,
+        "root_overlap_diag": [
+          0.9993085946679162,
+          0.9994635778764028
+        ],
+        "root_overlap_offdiag": [
+          0.012864046473565234,
+          0.013152388103924514
+        ]
+      }
+    },
+    {
+      "theta_deg": 68.0,
+      "e_states": [
+        -77.9248834140879,
+        -77.74924077614888
+      ],
+      "gap_Eh": 0.17564263793902057,
+      "grad0_norm": 0.32485047614621687,
+      "nac01_certified_residual": 6.67052315262986e-08,
+      "all_converged": true,
+      "wall_zero_s": 115.5229736830006,
+      "wall_recycled_s": 80.18427868800063,
+      "iters_zero": {
+        "grad:0": 48,
+        "grad:1": 48,
+        "nac:(0, 1)": 51
+      },
+      "iters_recycled": {
+        "grad:0": 48,
+        "grad:1": 6,
+        "nac:(0, 1)": 55
+      },
+      "continuity": {
+        "active_subspace_sigma_min": 0.9996978797248492,
+        "root_overlap_diag": [
+          0.9992565136745705,
+          0.9994642534622655
+        ],
+        "root_overlap_offdiag": [
+          0.012870128449334644,
+          0.013159663444515269
+        ]
+      }
+    },
+    {
+      "theta_deg": 70.0,
+      "e_states": [
+        -77.92107480985675,
+        -77.75023806170502
+      ],
+      "gap_Eh": 0.17083674815172856,
+      "grad0_norm": 0.3243476867954469,
+      "nac01_certified_residual": 6.925738520863753e-08,
+      "all_converged": true,
+      "wall_zero_s": 98.56265155699657,
+      "wall_recycled_s": 94.62223537200043,
+      "iters_zero": {
+        "grad:0": 48,
+        "grad:1": 48,
+        "nac:(0, 1)": 51
+      },
+      "iters_recycled": {
+        "grad:0": 49,
+        "grad:1": 6,
+        "nac:(0, 1)": 55
+      },
+      "continuity": {
+        "active_subspace_sigma_min": 0.999695980972302,
+        "root_overlap_diag": [
+          0.9991914095785627,
+          0.9994644049672463
+        ],
+        "root_overlap_offdiag": [
+          0.012879362674880405,
+          0.0131694853262334
+        ]
+      }
+    },
+    {
+      "theta_deg": 72.0,
+      "e_states": [
+        -77.91743445408586,
+        -77.75104953663438
+      ],
+      "gap_Eh": 0.16638491745148087,
+      "grad0_norm": 0.32216048028084476,
+      "nac01_certified_residual": 5.250045561877632e-08,
+      "all_converged": true,
+      "wall_zero_s": 105.84663663600077,
+      "wall_recycled_s": 75.64986076300556,
+      "iters_zero": {
+        "grad:0": 49,
+        "grad:1": 49,
+        "nac:(0, 1)": 50
+      },
+      "iters_recycled": {
+        "grad:0": 49,
+        "grad:1": 7,
+        "nac:(0, 1)": 56
+      },
+      "continuity": {
+        "active_subspace_sigma_min": 0.9996929383883997,
+        "root_overlap_diag": [
+          0.999111740099912,
+          0.9994639616196023
+        ],
+        "root_overlap_offdiag": [
+          0.012891943904316996,
+          0.013181289646083014
+        ]
+      }
+    },
+    {
+      "theta_deg": 74.0,
+      "e_states": [
+        -77.91400444775705,
+        -77.75168440613312
+      ],
+      "gap_Eh": 0.16232004162392855,
+      "grad0_norm": 0.3181244542149772,
+      "nac01_certified_residual": 5.536739077189642e-08,
+      "all_converged": true,
+      "wall_zero_s": 111.21127602899651,
+      "wall_recycled_s": 88.96086754700082,
+      "iters_zero": {
+        "grad:0": 48,
+        "grad:1": 48,
+        "nac:(0, 1)": 51
+      },
+      "iters_recycled": {
+        "grad:0": 48,
+        "grad:1": 6,
+        "nac:(0, 1)": 56
+      },
+      "continuity": {
+        "active_subspace_sigma_min": 0.999688682199216,
+        "root_overlap_diag": [
+          0.9990166171987707,
+          0.9994628642554625
+        ],
+        "root_overlap_offdiag": [
+          0.01290819540224391,
+          0.013194363203555402
+        ]
+      }
+    },
+    {
+      "theta_deg": 76.0,
+      "e_states": [
+        -77.91082792922855,
+        -77.75215771705763
+      ],
+      "gap_Eh": 0.15867021217091803,
+      "grad0_norm": 0.3123095143203267,
+      "nac01_certified_residual": 5.777857511921177e-08,
+      "all_converged": true,
+      "wall_zero_s": 97.11263709299965,
+      "wall_recycled_s": 77.54698281700257,
+      "iters_zero": {
+        "grad:0": 48,
+        "grad:1": 48,
+        "nac:(0, 1)": 50
+      },
+      "iters_recycled": {
+        "grad:0": 47,
+        "grad:1": 7,
+        "nac:(0, 1)": 59
+      },
+      "continuity": {
+        "active_subspace_sigma_min": 0.9996832124124497,
+        "root_overlap_diag": [
+          0.9989062670348975,
+          0.9994610704965856
+        ],
+        "root_overlap_offdiag": [
+          0.012928509634491157,
+          0.013207800342745194
+        ]
+      }
+    },
+    {
+      "theta_deg": 78.0,
+      "e_states": [
+        -77.90794852465702,
+        -77.75249009764472
+      ],
+      "gap_Eh": 0.15545842701229162,
+      "grad0_norm": 0.3050495164332804,
+      "nac01_certified_residual": 5.3041238904222714e-08,
+      "all_converged": true,
+      "wall_zero_s": 109.33184010799596,
+      "wall_recycled_s": 85.51778077799827,
+      "iters_zero": {
+        "grad:0": 48,
+        "grad:1": 48,
+        "nac:(0, 1)": 50
+      },
+      "iters_recycled": {
+        "grad:0": 48,
+        "grad:1": 4,
+        "nac:(0, 1)": 54
+      },
+      "continuity": {
+        "active_subspace_sigma_min": 0.9996766358053615,
+        "root_overlap_diag": [
+          0.9987824712108712,
+          0.9994585654490085
+        ],
+        "root_overlap_offdiag": [
+          0.01295326189394938,
+          0.013220473108463046
+        ]
+      }
+    },
+    {
+      "theta_deg": 80.0,
+      "e_states": [
+        -77.90541006214701,
+        -77.75270637837572
+      ],
+      "gap_Eh": 0.15270368377129273,
+      "grad0_norm": 0.29691815586848713,
+      "nac01_certified_residual": 5.682506349843582e-08,
+      "all_converged": true,
+      "wall_zero_s": 112.99591418299678,
+      "wall_recycled_s": 81.22584275400004,
+      "iters_zero": {
+        "grad:0": 48,
+        "grad:1": 48,
+        "nac:(0, 1)": 49
+      },
+      "iters_recycled": {
+        "grad:0": 48,
+        "grad:1": 4,
+        "nac:(0, 1)": 54
+      },
+      "continuity": {
+        "active_subspace_sigma_min": 0.9996692065591187,
+        "root_overlap_diag": [
+          0.9986490372198604,
+          0.9994553959954896
+        ],
+        "root_overlap_offdiag": [
+          0.012982611900945651,
+          0.013230976383178685
+        ]
+      }
+    },
+    {
+      "theta_deg": 82.0,
+      "e_states": [
+        -77.90325572482121,
+        -77.75283374415417
+      ],
+      "gap_Eh": 0.1504219806670335,
+      "grad0_norm": 0.28866212933478186,
+      "nac01_certified_residual": 3.769450225122496e-08,
+      "all_converged": true,
+      "wall_zero_s": 203.55079961999581,
+      "wall_recycled_s": 162.25548251999862,
+      "iters_zero": {
+        "grad:0": 47,
+        "grad:1": 47,
+        "nac:(0, 1)": 50
+      },
+      "iters_recycled": {
+        "grad:0": 47,
+        "grad:1": 4,
+        "nac:(0, 1)": 54
+      },
+      "continuity": {
+        "active_subspace_sigma_min": 0.9996613320017314,
+        "root_overlap_diag": [
+          0.9985122555867207,
+          0.9994516990219025
+        ],
+        "root_overlap_offdiag": [
+          0.01301628028519744,
+          0.013237666936043342
+        ]
+      }
+    },
+    {
+      "theta_deg": 84.0,
+      "e_states": [
+        -77.90152685371412,
+        -77.75289912662389
+      ],
+      "gap_Eh": 0.1486277270902292,
+      "grad0_norm": 0.281102359020589,
+      "nac01_certified_residual": 4.030894987976507e-08,
+      "all_converged": true,
+      "wall_zero_s": 216.32218174000445,
+      "wall_recycled_s": 142.569602440999,
+      "iters_zero": {
+        "grad:0": 48,
+        "grad:1": 48,
+        "nac:(0, 1)": 49
+      },
+      "iters_recycled": {
+        "grad:0": 48,
+        "grad:1": 3,
+        "nac:(0, 1)": 53
+      },
+      "continuity": {
+        "active_subspace_sigma_min": 0.9996536065979627,
+        "root_overlap_diag": [
+          0.9983810931975301,
+          0.999447765505582
+        ],
+        "root_overlap_offdiag": [
+          0.013053378962725692,
+          0.01323880663177747
+        ]
+      }
+    },
+    {
+      "theta_deg": 86.0,
+      "e_states": [
+        -77.9002607637686,
+        -77.75292659784411
+      ],
+      "gap_Eh": 0.1473341659244909,
+      "grad0_norm": 0.27502741758138416,
+      "nac01_certified_residual": 4.496747021103611e-08,
+      "all_converged": true,
+      "wall_zero_s": 197.256142197999,
+      "wall_recycled_s": 153.66636888899666,
+      "iters_zero": {
+        "grad:0": 47,
+        "grad:1": 47,
+        "nac:(0, 1)": 49
+      },
+      "iters_recycled": {
+        "grad:0": 47,
+        "grad:1": 4,
+        "nac:(0, 1)": 53
+      },
+      "continuity": {
+        "active_subspace_sigma_min": 0.9996467740839159,
+        "root_overlap_diag": [
+          0.9982667893430177,
+          0.9994440501972969
+        ],
+        "root_overlap_offdiag": [
+          0.013092301689716614,
+          0.013232821717665082
+        ]
+      }
+    },
+    {
+      "theta_deg": 88.0,
+      "e_states": [
+        -77.8994877464162,
+        -77.7529350475146
+      ],
+      "gap_Eh": 0.14655269890160127,
+      "grad0_norm": 0.27109183095794837,
+      "nac01_certified_residual": 5.463798071230128e-08,
+      "all_converged": true,
+      "wall_zero_s": 199.18495080299908,
+      "wall_recycled_s": 148.63614411399612,
+      "iters_zero": {
+        "grad:0": 46,
+        "grad:1": 46,
+        "nac:(0, 1)": 48
+      },
+      "iters_recycled": {
+        "grad:0": 46,
+        "grad:1": 3,
+        "nac:(0, 1)": 52
+      },
+      "continuity": {
+        "active_subspace_sigma_min": 0.9996416281434015,
+        "root_overlap_diag": [
+          0.9981814599439325,
+          0.9994411127984456
+        ],
+        "root_overlap_offdiag": [
+          0.013130796986035507,
+          0.013218666027701923
+        ]
+      }
+    },
+    {
+      "theta_deg": 90.0,
+      "e_states": [
+        -77.89511986471979,
+        -77.77693040168688
+      ],
+      "gap_Eh": 0.11818946303290545,
+      "grad0_norm": 0.149777711027855,
+      "nac01_certified_residual": 9.773568612819891e-08,
+      "all_converged": true,
+      "wall_zero_s": 237.1899448980039,
+      "wall_recycled_s": 106.3554467560025,
+      "iters_zero": {
+        "grad:0": 54,
+        "grad:1": 54,
+        "nac:(0, 1)": 39
+      },
+      "iters_recycled": {
+        "grad:0": 54,
+        "grad:1": 5,
+        "nac:(0, 1)": 45
+      },
+      "continuity": {
+        "active_subspace_sigma_min": 0.9971622016942162,
+        "root_overlap_diag": [
+          0.9946655087509267,
+          0.716071496788803
+        ],
+        "root_overlap_offdiag": [
+          0.04436340568600391,
+          0.013044044696069072
+        ]
+      }
+    }
+  ]
+}

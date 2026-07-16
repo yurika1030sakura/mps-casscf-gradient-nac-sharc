@@ -1,0 +1,7 @@
+{
+  "system": "polyene C20",
+  "status": "error",
+  "exception": "ValueError",
+  "message": "orbital-rotation log has imaginary part 1.54e+00; det=-1.000 (det -1 reflection needs discrete sign surgery)",
+  "traceback_tail": "Traceback (most recent call last):\n  File \"<repo>\", line 199, in main\n    r = run(args.ncarbon, basis=args.basis, bond_dim=args.bond_dim,\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"<repo>\", line 127, in run\n    Op, s_p = cross_geometry_overlap_matrix(\n              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"<repo>\", line 213, in cross_geometry_overlap_matrix\n    rot = rotate_mps_orbitals(host_drv, loaded, s.T, ncas=ncas,\n          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"<repo>\", line 169, in rotate_mps_orbitals\n    Xg = _real_log(U)                            # antisymmetric -> anti-Hermitian\n         ^^^^^^^^^^^^\n  File \"<repo>\", line 130, in _real_log\n    raise ValueError(f\"orbital-rotation log has imaginary part \"\nValueError: orbital-rotation log has imaginary part 1.54e+00; det=-1.000 (det -1 reflection needs discrete sign surgery)\n"
+}

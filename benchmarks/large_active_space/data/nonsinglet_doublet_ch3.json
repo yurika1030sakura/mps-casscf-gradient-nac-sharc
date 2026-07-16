@@ -1,0 +1,9 @@
+{
+  "system": "CH3_doublet",
+  "ncas": 7,
+  "nelecas": 7,
+  "spin": 1,
+  "g_fci_norm": 0.020196893555257386,
+  "g_dmrg_norm": 0.020068332340398815,
+  "max_abs_grad_err": 0.00016721873738567358
+}

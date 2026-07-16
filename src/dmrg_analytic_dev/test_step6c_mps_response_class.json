@@ -1,0 +1,39 @@
+{
+  "milestone": "Step6.3b_CPDMRGCASSCFResponseMPS_validation",
+  "purpose": "CPDMRGCASSCFResponseMPS reproduces CPCASSCFResponseFCI on CAS(2,2) HeH+ where DMRG = FCI.",
+  "results": [
+    {
+      "name": "M1_HCC_elementwise",
+      "diffs_per_root": [
+        1.041481514324134e-15,
+        0.0
+      ],
+      "tol": 1e-08,
+      "status": "pass"
+    },
+    {
+      "name": "M2_HOC_elementwise",
+      "diff": 1.318316798730503e-15,
+      "tol": 1e-08,
+      "status": "pass"
+    },
+    {
+      "name": "M3_HCO_elementwise",
+      "diffs_per_root": [
+        2.3551386880256624e-16,
+        2.7194799110210365e-16
+      ],
+      "tol": 1e-08,
+      "status": "pass"
+    },
+    {
+      "name": "M4_solve_state0",
+      "info_fci": 0,
+      "info_mps": 0,
+      "diff_kappa": 4.1051049941978724e-17,
+      "diff_v_max": 1.0629640242501509e-17,
+      "tol": 1e-07,
+      "status": "pass"
+    }
+  ]
+}

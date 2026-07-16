@@ -1,0 +1,24 @@
+{
+  "name": "batch_response_heh_cas22",
+  "rhs": [
+    {
+      "rhs": "grad:0",
+      "niter": 6,
+      "true_residual_relative": 2.34304920093238e-16,
+      "converged": true
+    },
+    {
+      "rhs": "grad:1",
+      "niter": 0,
+      "true_residual_relative": 5.8719427733874105e-15,
+      "converged": true
+    },
+    {
+      "rhs": "nac:(0, 1)",
+      "niter": 0,
+      "true_residual_relative": 2.880273736207432e-15,
+      "converged": true
+    }
+  ],
+  "status": "pass"
+}

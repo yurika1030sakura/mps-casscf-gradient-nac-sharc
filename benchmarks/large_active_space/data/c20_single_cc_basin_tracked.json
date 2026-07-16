@@ -1,0 +1,107 @@
+{
+  "system": "polyene_C20",
+  "direction": "single_cc",
+  "h_bohr": 0.001,
+  "seeds": [
+    1,
+    2,
+    3
+  ],
+  "m_schedule": [
+    [
+      256,
+      1e-08,
+      0.0001,
+      40
+    ],
+    [
+      512,
+      1e-10,
+      1e-05,
+      60
+    ],
+    [
+      800,
+      1e-12,
+      1e-06,
+      150
+    ]
+  ],
+  "analytic_single_cc_lowbasin": -0.164581744417198,
+  "e_ref_lowbasin": -755.2814945331057,
+  "ref_per_seed": [
+    {
+      "seed": 1,
+      "e0": -755.2783775160268,
+      "converged": true,
+      "wall_s": 680.7332773139933
+    },
+    {
+      "seed": 2,
+      "e0": -755.2814945331057,
+      "converged": true,
+      "wall_s": 679.2429638860049
+    },
+    {
+      "seed": 3,
+      "e0": -755.2799477395671,
+      "converged": true,
+      "wall_s": 769.0299529299955
+    }
+  ],
+  "disp_plus": {
+    "e0": -755.2816610460511,
+    "e0_minus_eref": -0.00016651294538405637,
+    "active_overlap": 0.9999998510323874,
+    "per_seed": [
+      {
+        "seed": 1,
+        "e0": -755.2816610460511,
+        "converged": true,
+        "wall_s": 764.8333161129849
+      },
+      {
+        "seed": 2,
+        "e0": -755.2801517372636,
+        "converged": true,
+        "wall_s": 975.5206642820267
+      },
+      {
+        "seed": 3,
+        "e0": -755.2801517365715,
+        "converged": true,
+        "wall_s": 948.5143595950212
+      }
+    ],
+    "in_basin_A": true
+  },
+  "disp_minus": {
+    "e0": -755.2797922267595,
+    "e0_minus_eref": 0.0017023063462602295,
+    "active_overlap": 0.999999851072352,
+    "per_seed": [
+      {
+        "seed": 1,
+        "e0": -755.2784725326464,
+        "converged": true,
+        "wall_s": 1022.3264906360419
+      },
+      {
+        "seed": 2,
+        "e0": -755.2797897681762,
+        "converged": true,
+        "wall_s": 1082.479176482011
+      },
+      {
+        "seed": 3,
+        "e0": -755.2797922267595,
+        "converged": true,
+        "wall_s": 953.4599187970161
+      }
+    ],
+    "in_basin_A": false
+  },
+  "g_fd_dir_basin_tracked": -0.9344096458221429,
+  "abs_err_vs_analytic": 0.769827901404945,
+  "verdict": "STILL MISMATCHED -- single_cc may be a true stationary-point fold"
+}

@@ -1,0 +1,24 @@
+{
+  "milestone": "Step6.3_MPS_primitives_integration",
+  "purpose": "Validate that single_site_sigma_mps_native + T_matrix_site_replacement_mps reproduce their FCI counterparts on the call shapes used by the freitag_reiher backend (HeH+ CAS(2,2) DMRG=FCI).",
+  "results": [
+    {
+      "name": "K1_sigma_primitive_integration",
+      "diffs_per_root": [
+        8.899655553049515e-16,
+        6.473657049138938e-16
+      ],
+      "tol": 1e-09,
+      "status": "pass"
+    },
+    {
+      "name": "K2_T_matrix_integration_random_trial",
+      "diffs_per_root": [
+        7.850462293418876e-17,
+        2.5121479338940403e-15
+      ],
+      "tol": 1e-09,
+      "status": "pass"
+    }
+  ]
+}

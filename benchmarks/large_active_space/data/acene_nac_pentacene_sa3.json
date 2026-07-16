@@ -1,0 +1,24 @@
+{
+  "system": "pentacene",
+  "n_rings": 5,
+  "ncas": 22,
+  "nelecas": 22,
+  "det_dim": 497634306624,
+  "beyond_fci": true,
+  "h_bohr": 0.001,
+  "disp_atom": 16,
+  "disp_comp": 0,
+  "e_states_R": [
+    -831.3319911374034,
+    -831.178877248607,
+    -831.145043277958
+  ],
+  "gap_Eh": 0.15311388879638343,
+  "nac_analytic_full_atom_comp": -1.0766398750704261e-05,
+  "nac_analytic_wall_s": 7582.422873480013,
+  "nac_fd_overlap_01": -0.47828685376997826,
+  "nac_fd_wall_s": 72.64824213006068,
+  "active_sigma_min": 0.999999711064236,
+  "nac_analytic_vs_fd_abserr": 0.47827608737122757,
+  "status": "ok"
+}

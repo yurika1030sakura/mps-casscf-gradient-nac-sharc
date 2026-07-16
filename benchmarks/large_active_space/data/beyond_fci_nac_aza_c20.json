@@ -1,0 +1,22 @@
+{
+  "system": "azapolyene_C20",
+  "basis": "sto-3g",
+  "aza": true,
+  "ncas": 20,
+  "nelecas": 20,
+  "det_dim": 34134779536,
+  "fci_feasible": false,
+  "bond_dim": 800,
+  "h_bohr": 0.001,
+  "displaced_atom": 10,
+  "component": 1,
+  "d_nac_mps_native_01": 0.025364992487203475,
+  "d_nac_analytic_01": 0.020851795783129116,
+  "abs_err_analytic_vs_fd": 0.004513196704074358,
+  "nac_analytic_wall_s": 7857.43747841008,
+  "active_subspace_sigma_min_plus": 0.9999996878374052,
+  "active_subspace_sigma_min_minus": 0.9999996878707585,
+  "gap_Eh": 0.24068289605156679,
+  "nac_mps_wall_s": 75.56277715507895,
+  "fci_conversion": false
+}

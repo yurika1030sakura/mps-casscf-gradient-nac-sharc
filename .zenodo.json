@@ -1,0 +1,10 @@
+{
+  "title": "MPS-Native Analytic State-Averaged DMRG-CASSCF Gradients and Nonadiabatic Couplings beyond the Dense-FCI Limit: code and benchmark data",
+  "description": "PySCF/pyblock2 implementation of analytic state-averaged DMRG-CASSCF nuclear gradients and nonadiabatic couplings with MPS-native response, together with the benchmark records supporting the accompanying methods manuscript: exact FCI controls, beyond-FCI finite-difference ledgers through CAS(24,24), LiF avoided-crossing tracking records, and the archived 178 fs ethylene SHARC trajectory.",
+  "creators": [
+    {"name": "Li, Yuli", "affiliation": "Department of Chemistry and Chemical Biology, Harvard University"}
+  ],
+  "license": "MIT",
+  "upload_type": "software",
+  "keywords": ["DMRG-CASSCF", "analytic gradients", "nonadiabatic couplings", "matrix product states", "PySCF", "SHARC"]
+}

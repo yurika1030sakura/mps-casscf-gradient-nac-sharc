@@ -1,0 +1,32 @@
+# Tight-tolerance photochemistry demo: 200 fs S1/S0 ethylene, CAS(6,6)/6-31G*
+# response-tol 5e-4 (10x tighter than the 60 fs preliminary), maxm 200 (2.5x),
+# analytic gradients + analytic NAC via MPS-Krylov (no determinant conversion).
+basis 6-31G*
+charge 0
+
+method dmrg-casscf
+ncas 6
+nelecas 6
+roots 2
+
+verbose 0
+conv-tol 1e-9
+conv-tol-grad 1e-6
+max-cycle-macro 300
+max-cycle-micro 8
+ah-max-cycle 40
+ah-start-cycle 2
+ah-level-shift 0.5
+grad-max-cycle 60
+
+dmrg-maxm 200
+dmrg-nsteps 15
+dmrg-sweep-tol 1e-10
+dmrg-max-fci-dets 100000
+dmrg-symm-su2 1
+dmrg-skip-fci-conversion 1
+dmrg-mps-native-rdms 1
+analytic-nac 1
+dmrg-response-mode mps-krylov
+dmrg-response-tol 5e-4
+dmrg-response-max-iter 60

@@ -1,0 +1,10 @@
+{
+ "description": "Absolute SA-DMRG-CASSCF build and analytic-response wall times for the linear-polyene series (state-0 FCI-free gradient). Values match the Supporting Information wall-time table. Build/Response are wall seconds; det_dim is the M_S=0 determinant-space dimension of the active space.",
+ "settings": "native MPS-Krylov analytic gradient, no determinant conversion; per-system bond dimension, sweep schedule, and response tolerance as tabulated in the SI",
+ "rows": [
+  {"system": "C16", "cas": "(16,16)", "det_dim": 1.66e8,  "build_s": 471,  "response_s": 2359},
+  {"system": "C20", "cas": "(20,20)", "det_dim": 3.41e10, "build_s": 974,  "response_s": 2696},
+  {"system": "C22", "cas": "(22,22)", "det_dim": 4.98e11, "build_s": 2534, "response_s": 7236},
+  {"system": "C24", "cas": "(24,24)", "det_dim": 7.31e12, "build_s": 3015, "response_s": 7721}
+ ]
+}

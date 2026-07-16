@@ -1,0 +1,127 @@
+{
+  "system": "polyene_C16",
+  "ncas": 16,
+  "nelecas": 16,
+  "det_dim": 165636900,
+  "build_bond_dim": 512,
+  "ci_schedule": [
+    512,
+    512,
+    768,
+    768,
+    1152,
+    1152,
+    1600,
+    1600
+  ],
+  "ci_noises": [
+    0.0001,
+    0.0001,
+    0.0001,
+    0.0001,
+    1e-05,
+    1e-05,
+    0.0,
+    0.0
+  ],
+  "build": {
+    "det_dim": 165636900.0,
+    "beyond_fci": true,
+    "ncas": 16,
+    "nelecas": 16,
+    "spin": 0,
+    "orbital_source": "dmrg-casscf",
+    "fci_certified": false,
+    "stages": [
+      {
+        "M": 256,
+        "converged": true,
+        "wall_s": 370.9946264930186,
+        "e_states": [
+          -604.4590379191791,
+          -604.2445800042913
+        ]
+      },
+      {
+        "M": 512,
+        "converged": true,
+        "wall_s": 99.88263223797549,
+        "e_states": [
+          -604.459037900387,
+          -604.2445799615967
+        ]
+      }
+    ],
+    "converged": true,
+    "escalated": false,
+    "level_shift_used": 0.0,
+    "level_shift_warning": false,
+    "s2_per_state": null,
+    "e_states": [
+      -604.459037900387,
+      -604.2445799615967
+    ],
+    "wall_s": 470.9343048700248,
+    "active_space_selection": null,
+    "build_health": {
+      "overall": "PASS",
+      "trustworthy": true,
+      "checks": [
+        {
+          "name": "scf_converged",
+          "status": "PASS",
+          "value": true,
+          "message": "converged"
+        },
+        {
+          "name": "casscf_converged",
+          "status": "PASS",
+          "value": true,
+          "message": "converged"
+        },
+        {
+          "name": "near_degeneracy",
+          "status": "PASS",
+          "value": 0.21445793879024677,
+          "message": "gap 2.14e-01 Eh"
+        },
+        {
+          "name": "fci_free_integrity",
+          "status": "PASS",
+          "value": false,
+          "message": "det_dim 1.66e+08 beyond FCI; no dense bridge used"
+        }
+      ]
+    }
+  },
+  "ci_m_loop": 256,
+  "status": "ok",
+  "schur_info": 1,
+  "true_residual_relative": 0.09032652369155827,
+  "converged": false,
+  "kappa_norm": 0.010101015787225118,
+  "schur_wall_s": 2359.320913017029,
+  "analytic_gradient_norm": 1.1286080655051423,
+  "analytic_dir": {
+    "bla": -0.07838941176691452,
+    "central_cc": -0.15153800560649852,
+    "single_cc": -0.17212740076404828
+  },
+  "g_dot_q_vs_fd": {
+    "bla": {
+      "analytic": -0.07838941176691452,
+      "fd": -0.07930496371955087,
+      "abs_err": 0.0009155519526363454
+    },
+    "central_cc": {
+      "analytic": -0.15153800560649852,
+      "fd": -0.15104979149782594,
+      "abs_err": 0.0004882141086725855
+    },
+    "single_cc": {
+      "analytic": -0.17212740076404828,
+      "fd": -0.172685742484191,
+      "abs_err": 0.0005583417201427132
+    }
+  }
+}

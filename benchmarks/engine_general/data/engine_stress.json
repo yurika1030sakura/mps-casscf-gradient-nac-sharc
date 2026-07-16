@@ -1,0 +1,56 @@
+{
+  "records": [
+    {
+      "label": "HeH+_s",
+      "spin": 0,
+      "ncas": 2,
+      "nelecas": 2,
+      "overall_health": "PASS",
+      "build_converged": true,
+      "build_health": "PASS",
+      "s2_per_state": [
+        0.0,
+        0.0
+      ],
+      "escalated": false,
+      "level_shift_warning": false,
+      "grad_certs": {
+        "0": 6.087632022281883e-15
+      },
+      "grad_health": {
+        "0": "PASS"
+      },
+      "nac_certs": {
+        "(0, 1)": 2.9975339219705912e-15
+      },
+      "fci_free_ok": true,
+      "wall_s": 6.66716062501655
+    },
+    {
+      "label": "LiH_s",
+      "spin": 0,
+      "ncas": 2,
+      "nelecas": 2,
+      "overall_health": "PASS",
+      "build_converged": true,
+      "build_health": "PASS",
+      "s2_per_state": [
+        0.0,
+        0.0
+      ],
+      "escalated": false,
+      "level_shift_warning": false,
+      "grad_certs": {
+        "0": 2.924654301352731e-09
+      },
+      "grad_health": {
+        "0": "PASS"
+      },
+      "nac_certs": {
+        "(0, 1)": 1.2257918522805723e-10
+      },
+      "fci_free_ok": true,
+      "wall_s": 16.957633382990025
+    }
+  ]
+}

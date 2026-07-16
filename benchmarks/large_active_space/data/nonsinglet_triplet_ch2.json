@@ -1,0 +1,21 @@
+{
+  "system": "CH2_triplet_CAS6",
+  "ncas": 6,
+  "nelecas": 6,
+  "spin": 2,
+  "basis": "6-31G*",
+  "method": "SU2 DMRG fix_spin_(ss=2.0) vs FCI direct_spin1",
+  "e_states_fci": [
+    -38.942862,
+    -38.64474
+  ],
+  "e_states_dmrg": [
+    -38.942862,
+    -38.64474
+  ],
+  "grad_norm_dmrg": 0.030345,
+  "grad_norm_fci": 0.030319,
+  "max_abs_grad_diff_vs_fci": 1.71e-05,
+  "verdict": "SU2 triplet gradient = exact FCI -> non-singlet (triplet) gradient validated",
+  "source_log": "nsgrad_24893733.out"
+}

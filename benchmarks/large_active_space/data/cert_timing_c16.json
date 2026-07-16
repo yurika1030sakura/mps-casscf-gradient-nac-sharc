@@ -1,0 +1,32 @@
+{
+  "system": "C16_CAS16",
+  "det_dim": 165636900,
+  "method": "sweep_schur",
+  "orb_dim": 2929.0,
+  "orb_gmres_info": 1.0,
+  "schur_applies": 5.0,
+  "true_residual_rel": 0.146713303156824,
+  "residual_tol_used": 0.0001,
+  "HOO_eig_min_abs": 0.01650868480317097,
+  "HOO_eig_max_abs": 48.390288756662,
+  "HOO_rank_eff": 2929.0,
+  "HOO_cond_eff": 2931.2019299906465,
+  "build_stages": [
+    {
+      "stage": 0,
+      "m": null,
+      "wall_s": null
+    },
+    {
+      "stage": 1,
+      "m": null,
+      "wall_s": null
+    },
+    {
+      "stage": 2,
+      "m": null,
+      "wall_s": null
+    }
+  ],
+  "build_wall_total_s": 0
+}

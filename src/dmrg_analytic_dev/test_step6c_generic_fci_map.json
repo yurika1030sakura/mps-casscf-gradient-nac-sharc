@@ -1,0 +1,36 @@
+{
+  "milestone": "Step6.3a_generic_FCI_to_MPS_converter",
+  "purpose": "Validate SZ-mode determinant route as the generic CSF\u2194FCI replacement, applicable to arbitrary CAS(n,m) and any spin sector.",
+  "results": [
+    {
+      "name": "G1_cas22_singlet_roundtrip",
+      "diffs_per_root": [
+        0.0,
+        2.0237829130423627e-16
+      ],
+      "tol": 1e-12,
+      "status": "pass"
+    },
+    {
+      "name": "G2_cas44_h4_roundtrip",
+      "diff": 4.308517848507153e-16,
+      "bond_dim": 20,
+      "tol": 1e-12,
+      "status": "pass"
+    },
+    {
+      "name": "G3_cas88_lih_roundtrip",
+      "diff": 1.566952669073138e-16,
+      "bond_dim": 394,
+      "tol": 1e-10,
+      "status": "pass"
+    },
+    {
+      "name": "G4_cas44_random_roundtrip",
+      "diff": 0.0,
+      "bond_dim": 36,
+      "tol": 1e-12,
+      "status": "pass"
+    }
+  ]
+}

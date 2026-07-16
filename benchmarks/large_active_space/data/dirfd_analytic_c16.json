@@ -1,0 +1,175 @@
+{
+  "system": "polyene_C16",
+  "basis": "sto-3g",
+  "ncas": 16,
+  "nelecas": 16,
+  "det_dim": 165636900,
+  "beyond_fci": true,
+  "h_bohr": 0.001,
+  "m_schedule": [
+    [
+      256,
+      1e-07,
+      0.0001,
+      30
+    ],
+    [
+      512,
+      1e-08,
+      3e-05,
+      40
+    ]
+  ],
+  "reference_build": {
+    "stages": [
+      {
+        "M": 256,
+        "converged": true,
+        "wall_s": 345.774009293993,
+        "e_states": [
+          -604.4590328956855,
+          -604.2446280780418
+        ]
+      },
+      {
+        "M": 512,
+        "converged": true,
+        "wall_s": 108.16674641001737,
+        "e_states": [
+          -604.4590328956584,
+          -604.244628077805
+        ]
+      }
+    ],
+    "det_dim": 165636900,
+    "ncas": 16,
+    "nelecas": 16
+  },
+  "reference_wall_s": 457.81623879098333,
+  "reference_converged": true,
+  "directions": {
+    "bla": {
+      "h_bohr": 0.001,
+      "e_plus": -604.4591146754736,
+      "e_minus": -604.4589560655462,
+      "g_fd_dir": -0.07930496371955087,
+      "active_subspace_sigma_min": 0.9999999805802576,
+      "g_fd_dir_vs_M": [
+        {
+          "M": 256,
+          "g_fd_dir": -0.07931397692573228
+        },
+        {
+          "M": 512,
+          "g_fd_dir": -0.07930496371955087
+        }
+      ],
+      "health": {
+        "overall": "PASS",
+        "trustworthy": true,
+        "checks": [
+          {
+            "name": "casscf_converged",
+            "status": "PASS",
+            "value": true,
+            "message": "converged"
+          },
+          {
+            "name": "subspace_continuity",
+            "status": "PASS",
+            "value": 0.9999999805802576,
+            "message": "sigma_min 1.000"
+          },
+          {
+            "name": "fci_free_integrity",
+            "status": "PASS",
+            "value": false,
+            "message": "det_dim 1.66e+08 beyond FCI; no dense bridge used"
+          }
+        ]
+      }
+    },
+    "central_cc": {
+      "h_bohr": 0.001,
+      "e_plus": -604.4591849407282,
+      "e_minus": -604.4588828411452,
+      "g_fd_dir": -0.15104979149782594,
+      "active_subspace_sigma_min": 0.9999998443302011,
+      "g_fd_dir_vs_M": [
+        {
+          "M": 256,
+          "g_fd_dir": -0.15103042426289903
+        },
+        {
+          "M": 512,
+          "g_fd_dir": -0.15104979149782594
+        }
+      ],
+      "health": {
+        "overall": "PASS",
+        "trustworthy": true,
+        "checks": [
+          {
+            "name": "casscf_converged",
+            "status": "PASS",
+            "value": true,
+            "message": "converged"
+          },
+          {
+            "name": "subspace_continuity",
+            "status": "PASS",
+            "value": 0.9999998443302011,
+            "message": "sigma_min 1.000"
+          },
+          {
+            "name": "fci_free_integrity",
+            "status": "PASS",
+            "value": false,
+            "message": "det_dim 1.66e+08 beyond FCI; no dense bridge used"
+          }
+        ]
+      }
+    },
+    "single_cc": {
+      "h_bohr": 0.001,
+      "e_plus": -604.4592058547521,
+      "e_minus": -604.4588604832671,
+      "g_fd_dir": -0.172685742484191,
+      "active_subspace_sigma_min": 0.9999998510323894,
+      "g_fd_dir_vs_M": [
+        {
+          "M": 256,
+          "g_fd_dir": -0.17266314017660989
+        },
+        {
+          "M": 512,
+          "g_fd_dir": -0.172685742484191
+        }
+      ],
+      "health": {
+        "overall": "PASS",
+        "trustworthy": true,
+        "checks": [
+          {
+            "name": "casscf_converged",
+            "status": "PASS",
+            "value": true,
+            "message": "converged"
+          },
+          {
+            "name": "subspace_continuity",
+            "status": "PASS",
+            "value": 0.9999998510323894,
+            "message": "sigma_min 1.000"
+          },
+          {
+            "name": "fci_free_integrity",
+            "status": "PASS",
+            "value": false,
+            "message": "det_dim 1.66e+08 beyond FCI; no dense bridge used"
+          }
+        ]
+      }
+    }
+  }
+}

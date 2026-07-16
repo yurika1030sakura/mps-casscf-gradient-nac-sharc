@@ -1,0 +1,23 @@
+{
+  "system": "tetracene",
+  "n_rings": 4,
+  "ncas": 18,
+  "nelecas": 18,
+  "det_dim": 2363904400,
+  "beyond_fci": true,
+  "h_bohr": 0.001,
+  "disp_atom": 4,
+  "disp_comp": 0,
+  "e_states_R": [
+    -680.5253246299856,
+    -680.3561714990942
+  ],
+  "gap_Eh": 0.16915313089134543,
+  "nac_analytic_full_atom_comp": -0.5124771825102725,
+  "nac_analytic_wall_s": 1713.9322423179983,
+  "nac_fd_overlap_01": -2.30178028337941,
+  "nac_fd_wall_s": 53.11934962600935,
+  "active_sigma_min": 0.9999996971220143,
+  "nac_analytic_vs_fd_abserr": 1.7893031008691376,
+  "status": "ok"
+}

@@ -1,0 +1,126 @@
+{
+  "system": "polyene_C20",
+  "ncas": 20,
+  "nelecas": 20,
+  "det_dim": 34134779536,
+  "build_bond_dim": 800,
+  "ci_schedule": [
+    800,
+    800
+  ],
+  "ci_noises": [
+    1e-05,
+    1e-05,
+    0.0,
+    0.0
+  ],
+  "build": {
+    "det_dim": 34134779536.0,
+    "beyond_fci": true,
+    "ncas": 20,
+    "nelecas": 20,
+    "spin": 0,
+    "orbital_source": "dmrg-casscf",
+    "fci_certified": false,
+    "stages": [
+      {
+        "M": 256,
+        "converged": true,
+        "wall_s": 590.0417427000357,
+        "e_states": [
+          -755.2814945129801,
+          -755.0421093633867
+        ]
+      },
+      {
+        "M": 512,
+        "converged": true,
+        "wall_s": 189.49367193196667,
+        "e_states": [
+          -755.2814945233711,
+          -755.0421093079149
+        ]
+      },
+      {
+        "M": 800,
+        "converged": true,
+        "wall_s": 192.73910662997514,
+        "e_states": [
+          -755.2814945237288,
+          -755.042109302172
+        ]
+      }
+    ],
+    "converged": true,
+    "escalated": false,
+    "level_shift_used": 0.0,
+    "level_shift_warning": false,
+    "s2_per_state": null,
+    "e_states": [
+      -755.2814945237288,
+      -755.042109302172
+    ],
+    "wall_s": 973.7373254469712,
+    "active_space_selection": null,
+    "build_health": {
+      "overall": "PASS",
+      "trustworthy": true,
+      "checks": [
+        {
+          "name": "scf_converged",
+          "status": "PASS",
+          "value": true,
+          "message": "converged"
+        },
+        {
+          "name": "casscf_converged",
+          "status": "PASS",
+          "value": true,
+          "message": "converged"
+        },
+        {
+          "name": "near_degeneracy",
+          "status": "PASS",
+          "value": 0.2393852215568586,
+          "message": "gap 2.39e-01 Eh"
+        },
+        {
+          "name": "fci_free_integrity",
+          "status": "PASS",
+          "value": false,
+          "message": "det_dim 3.41e+10 beyond FCI; no dense bridge used"
+        }
+      ]
+    }
+  },
+  "ci_m_loop": 256,
+  "status": "ok",
+  "schur_info": 1,
+  "true_residual_relative": 0.14302830139843017,
+  "converged": false,
+  "kappa_norm": 0.010000642138708804,
+  "schur_wall_s": 2695.6031360559864,
+  "analytic_gradient_norm": 1.2590415008293945,
+  "analytic_dir": {
+    "bla": -0.05797651207405828,
+    "central_cc": -0.1567636614676107,
+    "single_cc": -0.164581744417198
+  },
+  "g_dot_q_vs_fd": {
+    "bla": {
+      "analytic": -0.05797651207405828,
+      "fd": -0.057085576372628566,
+      "abs_err": 0.0008909357014297153
+    },
+    "central_cc": {
+      "analytic": -0.1567636614676107,
+      "fd": -0.15474462372822018,
+      "abs_err": 0.0020190377393905223
+    },
+    "single_cc": {
+      "analytic": -0.164581744417198,
+      "fd": 0.534711559794232,
+      "abs_err": 0.69929330421143
+    }
+  }
+}

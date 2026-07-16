@@ -1,0 +1,157 @@
+{
+  "milestone": "NAC_FD_high_accuracy",
+  "purpose": "Push determinant cross-geometry NAC finite difference from ~1e-4 toward <1e-5 via 5-point/Richardson FD + closed-shell core-overlap factor + gap-weighting, vs analytic CP-CASSCF derivative coupling.",
+  "systems": [
+    "HeH+ /3-21G/CAS(2,2)/SA(2)",
+    "ethylene /6-31G/CAS(2,2) pi-pi*/SA(2)"
+  ],
+  "target": "best-estimator |analytic-FD| < 1e-5  OR  gap-weighted < 1e-6",
+  "results": [
+    {
+      "label": "HeH+_CAS22_321G",
+      "bra": 0,
+      "ket": 1,
+      "atom": 0,
+      "axis": 2,
+      "h_bohr": 0.001,
+      "analytic_d": -0.516876407954098,
+      "gap_ref": 0.8189368639671204,
+      "analytic_gapweighted": -0.42328914458851896,
+      "estimators": {
+        "two_point": 0.5161653288951384,
+        "five_point": 0.5161658665551211,
+        "richardson": 0.5161658665551211,
+        "core_two_point": 0.5161653288951384,
+        "core_five_point": 0.5161658665551211,
+        "core_richardson": 0.5161658665551211
+      },
+      "errors": {
+        "two_point": 0.0007110790589595073,
+        "five_point": 0.0007105413989768605,
+        "richardson": 0.0007105413989768605,
+        "core_two_point": 0.0007110790589595073,
+        "core_five_point": 0.0007105413989768605,
+        "core_richardson": 0.0007105413989768605
+      },
+      "gap_weighted_errors": {
+        "two_point": 0.0005823288545769856,
+        "five_point": 0.0005818885449969668,
+        "richardson": 0.0005818885449969668,
+        "core_two_point": 0.0005823288545769856,
+        "core_five_point": 0.0005818885449969668,
+        "core_richardson": 0.0005818885449969668
+      },
+      "best_estimator": "five_point",
+      "best_error": 0.0007105413989768605,
+      "det_core": {
+        "+2h": 1.0,
+        "+h": 1.0,
+        "-h": 1.0,
+        "-2h": 1.0
+      },
+      "det_core_max_dev_from_1": 0.0,
+      "block_leakage": {
+        "+2h": {
+          "core_act": 0.0,
+          "act_virt": 0.0006845393966601616
+        },
+        "+h": {
+          "core_act": 0.0,
+          "act_virt": 0.0003416071307926663
+        },
+        "-h": {
+          "core_act": 0.0,
+          "act_virt": 0.00034029390228605856
+        },
+        "-2h": {
+          "core_act": 0.0,
+          "act_virt": 0.0006792670389024303
+        }
+      },
+      "block_leakage_max": 0.0006845393966601616,
+      "gaps_displaced": {
+        "+2h": 0.8200507121028409,
+        "+h": 0.8194935217824169,
+        "-h": 0.8183807368710223,
+        "-2h": 0.817825141887786
+      },
+      "ncore": 0,
+      "picked_d_magnitude": 0.5161675712982456,
+      "target_met": false,
+      "status": "fail"
+    },
+    {
+      "label": "ethylene_CAS22_631G",
+      "bra": 0,
+      "ket": 1,
+      "atom": 1,
+      "axis": 2,
+      "h_bohr": 0.001,
+      "analytic_d": 0.25858442369006995,
+      "gap_ref": 0.3868810006165404,
+      "analytic_gapweighted": 0.1000414005810657,
+      "estimators": {
+        "two_point": 0.25814531035647365,
+        "five_point": 0.25814473387438014,
+        "richardson": 0.25814473387438014,
+        "core_two_point": 0.25814232037073115,
+        "core_five_point": 0.25814473376652125,
+        "core_richardson": 0.2581447337665213
+      },
+      "errors": {
+        "two_point": 0.0004391133335963082,
+        "five_point": 0.00043968981568981436,
+        "richardson": 0.00043968981568981436,
+        "core_two_point": 0.00044210331933880465,
+        "core_five_point": 0.00043968992354870284,
+        "core_richardson": 0.00043968992354864733
+      },
+      "gap_weighted_errors": {
+        "two_point": 0.0001698846058858089,
+        "five_point": 0.00017010763585498245,
+        "richardson": 0.00017010763585498245,
+        "core_two_point": 0.000171041374561684,
+        "core_five_point": 0.00017010767758353362,
+        "core_richardson": 0.00017010767758350587
+      },
+      "best_estimator": "two_point",
+      "best_error": 0.0004391133335963082,
+      "det_core": {
+        "+2h": 0.9999768353093613,
+        "+h": 0.9999942086901064,
+        "-h": 0.99999420870784,
+        "-2h": 0.9999768354437661
+      },
+      "det_core_max_dev_from_1": 2.316469063867732e-05,
+      "block_leakage": {
+        "+2h": {
+          "core_act": 3.5105789578094336e-15,
+          "act_virt": 0.0003347372561806278
+        },
+        "+h": {
+          "core_act": 4.60058755329203e-15,
+          "act_virt": 0.00016716162967955777
+        },
+        "-h": {
+          "core_act": 1.0808557136039547e-14,
+          "act_virt": 0.00016675148038420917
+        },
+        "-2h": {
+          "core_act": 4.4929136720840656e-15,
+          "act_virt": 0.0003331061814750515
+        }
+      },
+      "block_leakage_max": 0.0003347372561806278,
+      "gaps_displaced": {
+        "+2h": 0.3871550942129147,
+        "+h": 0.3870179686971795,
+        "-h": 0.3867441894278727,
+        "-2h": 0.3866075372489206
+      },
+      "ncore": 7,
+      "picked_d_magnitude": 0.2581342624848005,
+      "target_met": false,
+      "status": "fail"
+    }
+  ]
+}

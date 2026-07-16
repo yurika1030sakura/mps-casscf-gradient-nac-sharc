@@ -1,0 +1,17 @@
+{
+  "system": "ethylene_CAS6_S0_grad_vs_fci",
+  "ncas": 6,
+  "nelecas": 6,
+  "basis": "6-31G*",
+  "geometry": "twisted (SHARC trajectory funnel geometry where CAS(2,2) state-averaging fails)",
+  "tol_5e-3": {
+    "grad_norm_dmrg": 0.02628,
+    "max_abs_grad_diff_vs_fci": 0.00136
+  },
+  "tol_5e-4": {
+    "grad_norm_dmrg": 0.027073,
+    "max_abs_grad_diff_vs_fci": 0.000504
+  },
+  "note": "warm-started from FCI orbitals (same basin); production loose response tol reproduces exact-FCI gradient to 1.4e-3",
+  "source_log": "acc4_24625729.out"
+}

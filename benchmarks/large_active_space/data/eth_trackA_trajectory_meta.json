@@ -1,0 +1,21 @@
+{
+ "system": "ethylene_S1S0_CAS6_SHARC_trajectory_trackA",
+ "ncas": 6,
+ "nelecas": 6,
+ "basis": "6-31G*",
+ "method": "SA(2)-DMRG-CASSCF(6,6), native MPS-Krylov analytic gradients + analytic NAC, dmrg-maxm 200, response-tol 5e-4, no determinant conversion",
+ "dmrg_maxm": 200,
+ "response_tol": 0.0005,
+ "dt_fs": 0.25,
+ "n_frames": 715,
+ "total_time_fs": 178.5,
+ "etot_first_eV": 9.288356,
+ "etot_last_eV": 9.278801,
+ "net_drift_eV": -0.009555000000000646,
+ "net_drift_frac_of_avg_KE": 0.006252280214302597,
+ "peak_to_peak_eV": 0.06611600000000095,
+ "rms_about_mean_eV": 0.013025418386468342,
+ "mch_state_hops": 0,
+ "note": "clean reported window; a diagnosed SA-CASSCF solution discontinuity (basin flip) occurs at the step immediately beyond this window (see manuscript/SI).",
+ "source": "sharc_interface/variants/ethylene_photochem_tight/ (QM.out, output.lis, output.xyz, output.dat)"
+}

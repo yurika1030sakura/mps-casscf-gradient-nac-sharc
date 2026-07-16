@@ -1,0 +1,202 @@
+{
+  "system": "polyene_C22",
+  "basis": "sto-3g",
+  "ncas": 22,
+  "nelecas": 22,
+  "det_dim": 497634306624,
+  "beyond_fci": true,
+  "h_bohr": 0.001,
+  "m_schedule": [
+    [
+      256,
+      1e-07,
+      0.0001,
+      30
+    ],
+    [
+      512,
+      1e-08,
+      3e-05,
+      40
+    ],
+    [
+      800,
+      1e-09,
+      1e-05,
+      60
+    ]
+  ],
+  "reference_build": {
+    "stages": [
+      {
+        "M": 256,
+        "converged": true,
+        "wall_s": 3752.9354316160025,
+        "e_states": [
+          -830.6790517955715,
+          -830.4348594435195
+        ]
+      },
+      {
+        "M": 512,
+        "converged": true,
+        "wall_s": 2835.8486632740096,
+        "e_states": [
+          -830.6790714583253,
+          -830.4348543809621
+        ]
+      },
+      {
+        "M": 800,
+        "converged": true,
+        "wall_s": 2222.163475948997,
+        "e_states": [
+          -830.679075249342,
+          -830.4348536073413
+        ]
+      }
+    ],
+    "det_dim": 497634306624,
+    "ncas": 22,
+    "nelecas": 22
+  },
+  "reference_wall_s": 8822.689045648003,
+  "reference_converged": true,
+  "directions": {
+    "bla": {
+      "h_bohr": 0.001,
+      "e_plus": -830.6797595454949,
+      "e_minus": -830.6787771303109,
+      "g_fd_dir": -0.4912075920060488,
+      "active_subspace_sigma_min": 0.999999986186298,
+      "g_fd_dir_vs_M": [
+        {
+          "M": 256,
+          "g_fd_dir": -0.49226015431713677
+        },
+        {
+          "M": 512,
+          "g_fd_dir": -0.4914662429200689
+        },
+        {
+          "M": 800,
+          "g_fd_dir": -0.4912075920060488
+        }
+      ],
+      "health": {
+        "overall": "PASS",
+        "trustworthy": true,
+        "checks": [
+          {
+            "name": "casscf_converged",
+            "status": "PASS",
+            "value": true,
+            "message": "converged"
+          },
+          {
+            "name": "subspace_continuity",
+            "status": "PASS",
+            "value": 0.999999986186298,
+            "message": "sigma_min 1.000"
+          },
+          {
+            "name": "fci_free_integrity",
+            "status": "PASS",
+            "value": false,
+            "message": "det_dim 4.98e+11 beyond FCI; no dense bridge used"
+          }
+        ]
+      }
+    },
+    "central_cc": {
+      "h_bohr": 0.001,
+      "e_plus": -830.6799283972007,
+      "e_minus": -830.6786536970923,
+      "g_fd_dir": -0.6373500542053989,
+      "active_subspace_sigma_min": 0.9999998510323868,
+      "g_fd_dir_vs_M": [
+        {
+          "M": 256,
+          "g_fd_dir": -0.6375198854584596
+        },
+        {
+          "M": 512,
+          "g_fd_dir": -0.637413402898801
+        },
+        {
+          "M": 800,
+          "g_fd_dir": -0.6373500542053989
+        }
+      ],
+      "health": {
+        "overall": "PASS",
+        "trustworthy": true,
+        "checks": [
+          {
+            "name": "casscf_converged",
+            "status": "PASS",
+            "value": true,
+            "message": "converged"
+          },
+          {
+            "name": "subspace_continuity",
+            "status": "PASS",
+            "value": 0.9999998510323868,
+            "message": "sigma_min 1.000"
+          },
+          {
+            "name": "fci_free_integrity",
+            "status": "PASS",
+            "value": false,
+            "message": "det_dim 4.98e+11 beyond FCI; no dense bridge used"
+          }
+        ]
+      }
+    },
+    "single_cc": {
+      "h_bohr": 0.001,
+      "e_plus": -830.6788215138898,
+      "e_minus": -830.6785964756867,
+      "g_fd_dir": -0.11251910154896905,
+      "active_subspace_sigma_min": 0.9999998443302016,
+      "g_fd_dir_vs_M": [
+        {
+          "M": 256,
+          "g_fd_dir": -0.11595732212299481
+        },
+        {
+          "M": 512,
+          "g_fd_dir": -0.1152563425534936
+        },
+        {
+          "M": 800,
+          "g_fd_dir": -0.11251910154896905
+        }
+      ],
+      "health": {
+        "overall": "PASS",
+        "trustworthy": true,
+        "checks": [
+          {
+            "name": "casscf_converged",
+            "status": "PASS",
+            "value": true,
+            "message": "converged"
+          },
+          {
+            "name": "subspace_continuity",
+            "status": "PASS",
+            "value": 0.9999998443302016,
+            "message": "sigma_min 1.000"
+          },
+          {
+            "name": "fci_free_integrity",
+            "status": "PASS",
+            "value": false,
+            "message": "det_dim 4.98e+11 beyond FCI; no dense bridge used"
+          }
+        ]
+      }
+    }
+  }
+}

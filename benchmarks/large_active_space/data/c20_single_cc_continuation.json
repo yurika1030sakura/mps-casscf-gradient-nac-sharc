@@ -1,0 +1,82 @@
+{
+  "system": "polyene_C20",
+  "direction": "single_cc",
+  "h_bohr": 0.001,
+  "K": 4,
+  "analytic_single_cc_lowbasin": -0.164581744417198,
+  "e_ref": -755.2814945248805,
+  "ladder_plus": [
+    {
+      "k": 1,
+      "frac_bohr": 0.00025,
+      "e0": -755.2815363505613,
+      "e_branch_pred": -755.2815356703165,
+      "dev_from_branch": -6.802447387599386e-07,
+      "on_branch": true
+    },
+    {
+      "k": 2,
+      "frac_bohr": 0.0005,
+      "e0": -755.27997950768,
+      "e_branch_pred": -755.2815768157527,
+      "dev_from_branch": 0.001597308072746273,
+      "on_branch": false
+    },
+    {
+      "k": 3,
+      "frac_bohr": 0.00075,
+      "e0": -755.2816197034907,
+      "e_branch_pred": -755.2816179611888,
+      "dev_from_branch": -1.7423019471607404e-06,
+      "on_branch": true
+    },
+    {
+      "k": 4,
+      "frac_bohr": 0.001,
+      "e0": -755.2800635679855,
+      "e_branch_pred": -755.2816591066249,
+      "dev_from_branch": 0.00159553863943529,
+      "on_branch": false
+    }
+  ],
+  "ladder_minus": [
+    {
+      "k": 1,
+      "frac_bohr": -0.00025,
+      "e0": -755.2814525991886,
+      "e_branch_pred": -755.2814533794444,
+      "dev_from_branch": 7.802558457115083e-07,
+      "on_branch": true
+    },
+    {
+      "k": 2,
+      "frac_bohr": -0.0005,
+      "e0": -755.2798252353606,
+      "e_branch_pred": -755.2814122340083,
+      "dev_from_branch": 0.0015869986476673148,
+      "on_branch": false
+    },
+    {
+      "k": 3,
+      "frac_bohr": -0.00075,
+      "e0": -755.281368449408,
+      "e_branch_pred": -755.2813710885722,
+      "dev_from_branch": 2.6391642222733935e-06,
+      "on_branch": true
+    },
+    {
+      "k": 4,
+      "frac_bohr": -0.001,
+      "e0": -755.2797286658458,
+      "e_branch_pred": -755.281329943136,
+      "dev_from_branch": 0.0016012772902058714,
+      "on_branch": false
+    }
+  ],
+  "e_plus": -755.2800635679855,
+  "e_minus": -755.2797286658458,
+  "g_fd_central_branch_followed": -0.16745106984217273,
+  "g_fd_forward": 1.430956894978408,
+  "abs_err_central_vs_analytic": 0.002869325424974728,
+  "verdict": "ANALYTIC CONFIRMED -- naive FD single_cc was a branch-jump artifact"
+}

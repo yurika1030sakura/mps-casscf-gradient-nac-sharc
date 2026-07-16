@@ -1,0 +1,70 @@
+{
+  "milestone": "M4_dmrg_fcisolver_validation",
+  "purpose": "Validate MPSAsFCISolver wrapper end-to-end with PySCF SA-CASSCF NAC.",
+  "results": [
+    {
+      "name": "E1_energies_match",
+      "fci": [
+        -2.8438350683375884,
+        -1.7626353792565415
+      ],
+      "dmrg": [
+        -2.84383506833759,
+        -1.7626353792565432
+      ],
+      "max_abs_diff": 1.7763568394002505e-15,
+      "tol": 1e-07,
+      "status": "pass"
+    },
+    {
+      "name": "E2_state_rdms_match",
+      "dm1_diff": 6.101123824894731e-16,
+      "dm2_diff": 8.915543684285073e-16,
+      "tol": 1e-07,
+      "status": "pass"
+    },
+    {
+      "name": "E3_trans_rdms_match",
+      "t1_diff": 8.77077287379437e-16,
+      "t1_diff_neg": 2.7497669074097644,
+      "t2_diff": 1.622305706061732e-15,
+      "t2_diff_neg": 4.000000000000001,
+      "sign_consistent": true,
+      "max_after_phase": 1.622305706061732e-15,
+      "tol": 1e-06,
+      "status": "pass"
+    },
+    {
+      "name": "E4_analytic_nac_pipeline",
+      "nac_fci": [
+        [
+          0.0,
+          0.0,
+          -0.5614479468415065
+        ],
+        [
+          0.0,
+          0.0,
+          -0.0992723482953074
+        ]
+      ],
+      "nac_dmrg": [
+        [
+          0.0,
+          0.0,
+          0.5614479468415065
+        ],
+        [
+          0.0,
+          0.0,
+          0.09927234829530739
+        ]
+      ],
+      "diff_pos": 1.1403136343105047,
+      "diff_neg": 1.3877787807814457e-17,
+      "min_diff_after_phase": 1.3877787807814457e-17,
+      "tol": 1e-05,
+      "status": "pass"
+    }
+  ]
+}

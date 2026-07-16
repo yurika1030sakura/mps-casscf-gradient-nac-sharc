@@ -1,0 +1,22 @@
+{
+  "system": "polyene_C16",
+  "basis": "sto-3g",
+  "aza": false,
+  "ncas": 16,
+  "nelecas": 16,
+  "det_dim": 165636900,
+  "fci_feasible": false,
+  "bond_dim": 800,
+  "h_bohr": 0.001,
+  "displaced_atom": 8,
+  "component": 1,
+  "d_nac_mps_native_01": -2.9134812098669527,
+  "d_nac_analytic_01": 0.02226808530730597,
+  "abs_err_analytic_vs_fd": 2.8912131245596466,
+  "nac_analytic_wall_s": 3130.124625619035,
+  "active_subspace_sigma_min_plus": 0.9999996878374047,
+  "active_subspace_sigma_min_minus": 0.9999996878707578,
+  "gap_Eh": 0.21445727017612626,
+  "nac_mps_wall_s": 26.963445328059606,
+  "fci_conversion": false
+}

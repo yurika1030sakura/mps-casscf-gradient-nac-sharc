@@ -1,0 +1,32 @@
+{
+  "milestone": "FreitagReiher_Step5c_larger_CAS_validation_H2O_sto3g_CAS44",
+  "results": [
+    {
+      "name": "L1_gradient_h2o_cas44_state0",
+      "info": 0,
+      "Lvec_pyscf_norm": 0.7038532841626616,
+      "Lvec_mine_norm": 0.7038532866833587,
+      "Lvec_diff": 6.821296648505025e-08,
+      "ncore": 3,
+      "ncas": 4,
+      "nrot": 12,
+      "ci_size": 36,
+      "max_abs_diff": 1.4188441394002993e-09,
+      "rel_diff": 1.3502596538935098e-08,
+      "tol_rel": 1e-06,
+      "status": "pass"
+    },
+    {
+      "name": "L2_nac_h2o_cas44_states_01",
+      "info": 0,
+      "Lvec_pyscf_norm": 0.3080725009370774,
+      "Lvec_mine_norm": 0.3080724591152379,
+      "Lvec_diff": 2.3739092099341707e-06,
+      "max_abs_diff": 4.834488753176367e-07,
+      "rel_diff": 1.5638696106987038e-06,
+      "tol_rel": 5e-06,
+      "tol_note": "NAC operator has SA-redundant nullspace; GMRES vs CG (pyscf default) converge to slightly different points in that subspace. 5e-6 reflects chemical accuracy, well below shooting-method NAC noise.",
+      "status": "pass"
+    }
+  ]
+}

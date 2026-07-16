@@ -1,0 +1,23 @@
+{
+  "system": "pentacene",
+  "n_rings": 5,
+  "ncas": 22,
+  "nelecas": 22,
+  "det_dim": 497634306624,
+  "beyond_fci": true,
+  "h_bohr": 0.001,
+  "disp_atom": 16,
+  "disp_comp": 0,
+  "e_states_R": [
+    -831.3232306027292,
+    -831.1724538558402,
+    -831.1513119549625,
+    -831.1363114866022,
+    -831.1284171048189
+  ],
+  "gap_Eh": 0.15077674688893694,
+  "nac_analytic_full_atom_comp": -0.0005400779388711624,
+  "nac_analytic_wall_s": 95754.08268280013,
+  "nac_fd_overlap_error": "'<scratch>' and '<scratch>' are the same file",
+  "status": "ok"
+}

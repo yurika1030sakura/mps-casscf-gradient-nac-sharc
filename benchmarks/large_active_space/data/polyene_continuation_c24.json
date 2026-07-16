@@ -1,0 +1,68 @@
+{
+  "system": "polyene_C24",
+  "ncas": 24,
+  "det_dim": 7312459672336,
+  "beyond_fci": true,
+  "h_bohr": 0.001,
+  "K": 3,
+  "directions": [
+    "central_cc"
+  ],
+  "e_ref": -906.0745846603185,
+  "analytic_dir": {
+    "central_cc": -0.15691377484395608
+  },
+  "fd": {
+    "central_cc": {
+      "ladder_p": [
+        {
+          "k": 1,
+          "frac": 0.0003333333333333333,
+          "e0": -906.0956775031949,
+          "dev_from_branch": -0.02104053828486485,
+          "on_branch": false
+        },
+        {
+          "k": 2,
+          "frac": 0.0006666666666666666,
+          "e0": -906.07170170636,
+          "dev_from_branch": 0.002987563141687133,
+          "on_branch": false
+        },
+        {
+          "k": 3,
+          "frac": 0.001,
+          "e0": -906.0743356461786,
+          "dev_from_branch": 0.00040592791469862277,
+          "on_branch": true
+        }
+      ],
+      "ladder_m": [
+        {
+          "k": 1,
+          "frac": -0.0003333333333333333,
+          "e0": -906.0720082951807,
+          "dev_from_branch": 0.002524060546193141,
+          "on_branch": false
+        },
+        {
+          "k": 2,
+          "frac": -0.0006666666666666666,
+          "e0": -906.0731892158595,
+          "dev_from_branch": 0.0012908352756539898,
+          "on_branch": false
+        },
+        {
+          "k": 3,
+          "frac": -0.001,
+          "e0": -906.0748876113623,
+          "dev_from_branch": -0.0004598648187084109,
+          "on_branch": true
+        }
+      ],
+      "g_fd_central": 0.27598259185879215,
+      "abs_err_vs_analytic": 0.4328963667027482
+    }
+  },
+  "status": "ok"
+}

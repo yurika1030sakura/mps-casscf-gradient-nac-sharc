@@ -1,0 +1,19 @@
+{
+  "system": "naphthalene_CAS10",
+  "ncas": 10,
+  "nelecas": 10,
+  "det_dim": 63504,
+  "basis": "sto-3g",
+  "nac_pair": [
+    0,
+    1
+  ],
+  "nac_disp_atom": 2,
+  "nac_disp_comp": 0,
+  "analytic_nac": 0.602429,
+  "fd_overlap_nac": 0.600878,
+  "abs_err_absvalue": 0.001551,
+  "nac_response_residual": 0.0027362169132019772,
+  "verdict": "clean: analytic derivative coupling reproduces cross-geometry overlap FD to 1.55e-3",
+  "source_log": "napnac_25118336.out"
+}

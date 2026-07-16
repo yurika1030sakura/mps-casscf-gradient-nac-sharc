@@ -1,0 +1,7 @@
+{
+  "system": "polyene C24 SA(3)",
+  "status": "error",
+  "exception": "SameFileError",
+  "message": "'<scratch>' and '<scratch>' are the same file",
+  "traceback_tail": "Traceback (most recent call last):\n  File \"<repo>\", line 230, in main\n    r = run(args.ncarbon, basis=args.basis, bond_dim=args.bond_dim,\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"<repo>\", line 153, in run\n    Op, s_p = cross_geometry_overlap_matrix(\n              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"<repo>\", line 209, in cross_geometry_overlap_matrix\n    loaded = load_foreign_mps(host_drv, host_frame, obj_disp._driver_su2,\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"<repo>\", line 313, in load_foreign_mps\n    shutil.copy(f, os.path.join(dst_dir, os.path.basename(f)))\n  File \"<lab>\", line 431, in copy\n    copyfile(src, dst, follow_symlinks=follow_symlinks)\n  File \"<lab>\", line 236, in copyfile\n    raise SameFileError(\"{!r} and {!r} are the same file\".format(src, dst))\nshutil.SameFileError: '<scratch>' and '<scratch>' are the same file\n"
+}

@@ -1,0 +1,7 @@
+{
+  "system": "azapolyene C10",
+  "status": "error",
+  "exception": "AttributeError",
+  "message": "'MPSAsFCISolver' object has no attribute 'e_states'",
+  "traceback_tail": "Traceback (most recent call last):\n  File \"<repo>\", line 199, in main\n    r = run(args.ncarbon, basis=args.basis, bond_dim=args.bond_dim,\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"<repo>\", line 138, in run\n    e = list(np.asarray(R[\"solver\"].e_states, dtype=float).ravel())\n                        ^^^^^^^^^^^^^^^^^^^^\nAttributeError: 'MPSAsFCISolver' object has no attribute 'e_states'\n"
+}

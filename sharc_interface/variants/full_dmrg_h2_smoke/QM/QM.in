@@ -1,0 +1,12 @@
+2
+Full DMRG-CASSCF SHARC H2 smoke
+H 0.0 0.0 -0.37
+H 0.0 0.0  0.37
+unit angstrom
+states 2
+init
+savedir sharc_interface/variants/full_dmrg_h2_smoke/QM/SAVEDIR
+H
+DM
+GRAD all
+NACDR

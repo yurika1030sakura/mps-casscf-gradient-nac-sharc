@@ -1,0 +1,80 @@
+[17s] FCI triplet CAS(6,6): e_states=[-38.942862, -38.64474] |g0|=0.030319
+[35s] DMRG triplet: e_states=[-38.942862, -38.64474] (FCI [-38.942862, -38.64474])
+[HANG-PROBE pid=3036991] _build_eris_cache START
+[HANG-PROBE pid=3036991]   mc.ao2mo done +0.00s
+[HANG-PROBE pid=3036991]   _state_rdm12_mps i=0 entering...
+[HANG-PROBE pid=3036991] _state_rdm12_mps START tag=STATE-RDM-0
+[HANG-PROBE pid=3036991]   inside _use_su2_frame
+[HANG-PROBE pid=3036991]   _prepare_trans_npdm done +0.09s
+[HANG-PROBE pid=3036991]   get_1pdm done +0.28s
+[HANG-PROBE pid=3036991]   get_2pdm done +0.64s
+[HANG-PROBE pid=3036991] _state_rdm12_mps END +0.64s
+[HANG-PROBE pid=3036991]   _state_rdm12_mps i=0 done +0.65s
+[HANG-PROBE pid=3036991]   _state_rdm12_mps i=1 entering...
+[HANG-PROBE pid=3036991] _state_rdm12_mps START tag=STATE-RDM-1
+[HANG-PROBE pid=3036991]   inside _use_su2_frame
+[HANG-PROBE pid=3036991]   _prepare_trans_npdm done +0.09s
+[HANG-PROBE pid=3036991]   get_1pdm done +0.85s
+[HANG-PROBE pid=3036991]   get_2pdm done +1.14s
+[HANG-PROBE pid=3036991] _state_rdm12_mps END +1.14s
+[HANG-PROBE pid=3036991]   _state_rdm12_mps i=1 done +1.79s
+  [pid=3036991] MPS-GMRES iter 1: residual=8.384e-02
+  [pid=3036991] MPS-GMRES iter 2: residual=5.423e-02
+  [pid=3036991] MPS-GMRES iter 3: residual=4.713e-02
+  [pid=3036991] MPS-GMRES iter 4: residual=3.942e-02
+  [pid=3036991] MPS-GMRES iter 5: residual=3.367e-02
+  [pid=3036991] MPS-GMRES iter 6: residual=2.216e-02
+  [pid=3036991] MPS-GMRES iter 7: residual=1.864e-02
+  [pid=3036991] MPS-GMRES iter 8: residual=1.617e-02
+  [pid=3036991] MPS-GMRES iter 9: residual=1.309e-02
+  [pid=3036991] MPS-GMRES iter 10: residual=1.082e-02
+  [pid=3036991] MPS-GMRES iter 11: residual=7.844e-03
+  [pid=3036991] MPS-GMRES iter 12: residual=5.651e-03
+  [pid=3036991] MPS-GMRES iter 13: residual=5.415e-03
+  [pid=3036991] MPS-GMRES iter 14: residual=4.581e-03
+  [pid=3036991] MPS-GMRES iter 15: residual=4.038e-03
+  [pid=3036991] MPS-GMRES iter 16: residual=3.450e-03
+  [pid=3036991] MPS-GMRES iter 17: residual=2.976e-03
+  [pid=3036991] MPS-GMRES iter 18: residual=2.846e-03
+  [pid=3036991] MPS-GMRES iter 19: residual=2.795e-03
+  [pid=3036991] MPS-GMRES iter 20: residual=2.571e-03
+  [pid=3036991] MPS-GMRES iter 21: residual=2.536e-03
+  [pid=3036991] MPS-GMRES iter 22: residual=2.202e-03
+  [pid=3036991] MPS-GMRES iter 23: residual=2.162e-03
+  [pid=3036991] MPS-GMRES iter 24: residual=1.920e-03
+  [pid=3036991] MPS-GMRES iter 25: residual=1.813e-03
+  [pid=3036991] MPS-GMRES iter 26: residual=1.468e-03
+  [pid=3036991] MPS-GMRES iter 27: residual=1.109e-03
+  [pid=3036991] MPS-GMRES iter 28: residual=1.016e-03
+  [pid=3036991] MPS-GMRES iter 29: residual=9.444e-04
+  [pid=3036991] MPS-GMRES iter 30: residual=9.014e-04
+  [pid=3036991] MPS-GMRES iter 31: residual=7.312e-04
+  [pid=3036991] MPS-GMRES iter 32: residual=7.073e-04
+  [pid=3036991] MPS-GMRES iter 33: residual=6.351e-04
+  [pid=3036991] MPS-GMRES iter 34: residual=5.336e-04
+  [pid=3036991] MPS-GMRES iter 35: residual=4.944e-04
+  [pid=3036991] MPS-GMRES iter 36: residual=4.175e-04
+  [pid=3036991] MPS-GMRES iter 37: residual=3.733e-04
+  [pid=3036991] MPS-GMRES iter 38: residual=3.368e-04
+  [pid=3036991] MPS-GMRES iter 39: residual=2.813e-04
+  [pid=3036991] MPS-GMRES iter 40: residual=2.322e-04
+  [pid=3036991] MPS-GMRES iter 41: residual=2.115e-04
+  [pid=3036991] MPS-GMRES iter 42: residual=1.582e-04
+  [pid=3036991] MPS-GMRES iter 43: residual=1.282e-04
+  [pid=3036991] MPS-GMRES iter 44: residual=9.139e-05
+[HANG-PROBE pid=3036991] LdotJnuc_mps START
+[HANG-PROBE pid=3036991]   calling Lci_dot_dgci_dx_mps...
+[HANG-PROBE pid=3036991] weighted_lci_transition_rdm_mps START n_states=2
+[HANG-PROBE pid=3036991]   state 0 entering transition_rdm_site_replacement_mps...
+[HANG-PROBE pid=3036991]   state 0 TDM done +1.24s
+[HANG-PROBE pid=3036991]   state 1 entering transition_rdm_site_replacement_mps...
+[HANG-PROBE pid=3036991]   state 1 TDM done +2.51s
+[HANG-PROBE pid=3036991] weighted_lci_transition_rdm_mps END +2.51s
+[HANG-PROBE pid=3036991]   Lci_dot_dgci_dx_mps done +2.54s
+[HANG-PROBE pid=3036991]   calling _build_eris_cache...
+[HANG-PROBE pid=3036991]   _build_eris_cache done +2.54s
+[HANG-PROBE pid=3036991]   calling Lorb_dot_dgorb_dx_from_rdms...
+[HANG-PROBE pid=3036991] LdotJnuc_mps END +2.58s
+[7086s] DMRG triplet analytic grad0: |g|=0.030345  vs FCI max|dg|=1.71e-05
+>>> VERDICT: SU2 triplet gradient = exact FCI -> non-singlet validated
+DONE

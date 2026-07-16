@@ -1,0 +1,33 @@
+{
+  "benchmark": "mps_krylov_response_timing",
+  "system": "HeH+",
+  "basis": "3-21G",
+  "active_space": "CAS(2,2)",
+  "purpose": "Compare SHARC-facing projected-CI and MPS-Krylov analytic CP response wall times on an exact small active-space reference.",
+  "rows": [
+    {
+      "label": "projected-ci:grad0+nac01",
+      "wall_time_s": 0.07004547596443444,
+      "grad0_norm": 0.044620493772208836,
+      "nac01_norm": 0.5376936823257431,
+      "grad0_diff_vs_projected": 0.0,
+      "nac01_diff_vs_projected": 0.0
+    },
+    {
+      "label": "mps-krylov:grad0+nac01",
+      "wall_time_s": 3.059925348032266,
+      "grad0_norm": 0.0446204937722111,
+      "nac01_norm": 0.5376936823257433,
+      "grad0_diff_vs_projected": 2.2619197699107944e-15,
+      "nac01_diff_vs_projected": 6.4796043696850615e-16
+    },
+    {
+      "label": "mps-krylov+hcc-inverse:grad0+nac01",
+      "wall_time_s": 3.2136444770148955,
+      "grad0_norm": 0.044620493772206664,
+      "nac01_norm": 0.5376936823257439,
+      "grad0_diff_vs_projected": 2.1687790128733094e-15,
+      "nac01_diff_vs_projected": 1.5700924586837751e-15
+    }
+  ]
+}

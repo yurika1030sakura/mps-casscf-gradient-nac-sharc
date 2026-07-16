@@ -1,0 +1,33 @@
+{
+  "name": "response_certificate_heh_cas22",
+  "tol": 1e-06,
+  "global": {
+    "state": 0,
+    "solver": "global_mps_krylov",
+    "converged": true,
+    "rhs_norm": 0.3032701458987911,
+    "true_residual_norm": 7.105768730148088e-17,
+    "true_residual_relative": 2.34304920093238e-16,
+    "residual_tol": 1e-06,
+    "orbital_dim": 4,
+    "response_bond_dim": 200,
+    "root_projector_leakage": 2.237793284010081e-16,
+    "wall_s": 1.2114902820030693,
+    "extra": {}
+  },
+  "schur": {
+    "state": 0,
+    "solver": "sweep_schur",
+    "converged": true,
+    "rhs_norm": 0.3032701458987911,
+    "true_residual_norm": 1.162362078306494e-16,
+    "true_residual_relative": 3.8327612988797243e-16,
+    "residual_tol": 1e-06,
+    "orbital_dim": 4,
+    "response_bond_dim": 200,
+    "root_projector_leakage": 1.8973538018496328e-18,
+    "wall_s": 0.4838275829970371,
+    "extra": {}
+  },
+  "status": "pass"
+}

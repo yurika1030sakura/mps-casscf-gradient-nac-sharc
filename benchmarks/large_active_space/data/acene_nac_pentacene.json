@@ -1,0 +1,20 @@
+{
+  "system": "pentacene",
+  "n_rings": 5,
+  "ncas": 22,
+  "nelecas": 22,
+  "det_dim": 497634306624,
+  "beyond_fci": true,
+  "h_bohr": 0.001,
+  "disp_atom": 16,
+  "disp_comp": 0,
+  "e_states_R": [
+    -831.3326937267445,
+    -831.1786438441343
+  ],
+  "gap_Eh": 0.1540498826102521,
+  "nac_analytic_full_atom_comp": -0.0013912849896848569,
+  "nac_analytic_wall_s": 2241.3871473260224,
+  "nac_fd_overlap_error": "orbital-rotation log has imaginary part 2.63e+00; det=-1.000 (det -1 reflection needs discrete sign surgery)",
+  "status": "ok"
+}

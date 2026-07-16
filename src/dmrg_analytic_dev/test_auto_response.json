@@ -1,0 +1,54 @@
+{
+  "name": "auto_response_heh_cas22",
+  "gradient": {
+    "state": 0,
+    "solver": "sweep_schur",
+    "converged": true,
+    "rhs_norm": 0.3032701458987911,
+    "true_residual_norm": 1.162362078306494e-16,
+    "true_residual_relative": 3.8327612988797243e-16,
+    "residual_tol": 1e-06,
+    "orbital_dim": 4,
+    "response_bond_dim": 200,
+    "root_projector_leakage": 1.8973538018496328e-18,
+    "wall_s": 0.548185049003223,
+    "extra": {
+      "attempts": [
+        {
+          "solver": "sweep_schur",
+          "true_residual_relative": 3.8327612988797243e-16,
+          "root_projector_leakage": 1.8973538018496328e-18,
+          "converged": true,
+          "wall_s": 0.548185049003223
+        }
+      ],
+      "accepted_solver": "sweep_schur"
+    }
+  },
+  "nac": {
+    "state": 0,
+    "solver": "global_mps_krylov",
+    "converged": true,
+    "rhs_norm": 0.3101371728023211,
+    "true_residual_norm": 9.469817014661952e-16,
+    "true_residual_relative": 3.053428561657114e-15,
+    "residual_tol": 1e-06,
+    "orbital_dim": 4,
+    "response_bond_dim": 200,
+    "root_projector_leakage": 1.0783474807540827e-15,
+    "wall_s": 1.272621716001595,
+    "extra": {
+      "attempts": [
+        {
+          "solver": "global_mps_krylov",
+          "true_residual_relative": 3.053428561657114e-15,
+          "root_projector_leakage": 1.0783474807540827e-15,
+          "converged": true,
+          "wall_s": 1.272621716001595
+        }
+      ],
+      "accepted_solver": "global_mps_krylov"
+    }
+  },
+  "status": "pass"
+}

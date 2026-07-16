@@ -1,0 +1,89 @@
+CH3 doublet SU2 gradient vs FCI start Fri Jul 10 22:07:31 EDT 2026
+[18s] FCI doublet CAS(7,7): e_states=[-39.611307, -39.312755] |g0|=0.020197
+[40s] DMRG doublet: e_states=[-39.611307, -39.312755] (FCI [-39.611307, -39.312755])
+[HANG-PROBE pid=3533688] _build_eris_cache START
+[HANG-PROBE pid=3533688]   mc.ao2mo done +0.00s
+[HANG-PROBE pid=3533688]   _state_rdm12_mps i=0 entering...
+[HANG-PROBE pid=3533688] _state_rdm12_mps START tag=STATE-RDM-0
+[HANG-PROBE pid=3533688]   inside _use_su2_frame
+[HANG-PROBE pid=3533688]   _prepare_trans_npdm done +0.10s
+[HANG-PROBE pid=3533688]   get_1pdm done +0.39s
+[HANG-PROBE pid=3533688]   get_2pdm done +0.76s
+[HANG-PROBE pid=3533688] _state_rdm12_mps END +0.76s
+[HANG-PROBE pid=3533688]   _state_rdm12_mps i=0 done +0.76s
+[HANG-PROBE pid=3533688]   _state_rdm12_mps i=1 entering...
+[HANG-PROBE pid=3533688] _state_rdm12_mps START tag=STATE-RDM-1
+[HANG-PROBE pid=3533688]   inside _use_su2_frame
+[HANG-PROBE pid=3533688]   _prepare_trans_npdm done +0.10s
+[HANG-PROBE pid=3533688]   get_1pdm done +0.42s
+[HANG-PROBE pid=3533688]   get_2pdm done +0.78s
+[HANG-PROBE pid=3533688] _state_rdm12_mps END +0.78s
+[HANG-PROBE pid=3533688]   _state_rdm12_mps i=1 done +1.55s
+  [pid=3533688] MPS-GMRES iter 1: residual=6.920e-02
+  [pid=3533688] MPS-GMRES iter 2: residual=4.139e-02
+  [pid=3533688] MPS-GMRES iter 3: residual=3.406e-02
+  [pid=3533688] MPS-GMRES iter 4: residual=2.023e-02
+  [pid=3533688] MPS-GMRES iter 5: residual=1.821e-02
+  [pid=3533688] MPS-GMRES iter 6: residual=1.433e-02
+  [pid=3533688] MPS-GMRES iter 7: residual=1.334e-02
+  [pid=3533688] MPS-GMRES iter 8: residual=1.287e-02
+  [pid=3533688] MPS-GMRES iter 9: residual=1.176e-02
+  [pid=3533688] MPS-GMRES iter 10: residual=1.149e-02
+  [pid=3533688] MPS-GMRES iter 11: residual=1.063e-02
+  [pid=3533688] MPS-GMRES iter 12: residual=1.047e-02
+  [pid=3533688] MPS-GMRES iter 13: residual=1.002e-02
+  [pid=3533688] MPS-GMRES iter 14: residual=9.908e-03
+  [pid=3533688] MPS-GMRES iter 15: residual=9.437e-03
+  [pid=3533688] MPS-GMRES iter 16: residual=8.896e-03
+  [pid=3533688] MPS-GMRES iter 17: residual=8.457e-03
+  [pid=3533688] MPS-GMRES iter 18: residual=7.683e-03
+  [pid=3533688] MPS-GMRES iter 19: residual=7.061e-03
+  [pid=3533688] MPS-GMRES iter 20: residual=6.606e-03
+  [pid=3533688] MPS-GMRES iter 21: residual=6.462e-03
+  [pid=3533688] MPS-GMRES iter 22: residual=6.287e-03
+  [pid=3533688] MPS-GMRES iter 23: residual=6.090e-03
+  [pid=3533688] MPS-GMRES iter 24: residual=5.910e-03
+  [pid=3533688] MPS-GMRES iter 25: residual=5.724e-03
+  [pid=3533688] MPS-GMRES iter 26: residual=5.441e-03
+  [pid=3533688] MPS-GMRES iter 27: residual=5.381e-03
+  [pid=3533688] MPS-GMRES iter 28: residual=4.877e-03
+  [pid=3533688] MPS-GMRES iter 29: residual=4.801e-03
+  [pid=3533688] MPS-GMRES iter 30: residual=4.443e-03
+  [pid=3533688] MPS-GMRES iter 31: residual=4.385e-03
+  [pid=3533688] MPS-GMRES iter 32: residual=3.956e-03
+  [pid=3533688] MPS-GMRES iter 33: residual=3.877e-03
+  [pid=3533688] MPS-GMRES iter 34: residual=3.437e-03
+  [pid=3533688] MPS-GMRES iter 35: residual=2.753e-03
+  [pid=3533688] MPS-GMRES iter 36: residual=2.678e-03
+  [pid=3533688] MPS-GMRES iter 37: residual=2.436e-03
+  [pid=3533688] MPS-GMRES iter 38: residual=2.195e-03
+  [pid=3533688] MPS-GMRES iter 39: residual=1.984e-03
+  [pid=3533688] MPS-GMRES iter 40: residual=1.884e-03
+  [pid=3533688] MPS-GMRES iter 41: residual=1.705e-03
+  [pid=3533688] MPS-GMRES iter 42: residual=1.404e-03
+  [pid=3533688] MPS-GMRES iter 43: residual=1.219e-03
+  [pid=3533688] MPS-GMRES iter 44: residual=1.067e-03
+  [pid=3533688] MPS-GMRES iter 45: residual=9.588e-04
+  [pid=3533688] MPS-GMRES iter 46: residual=8.839e-04
+  [pid=3533688] MPS-GMRES iter 47: residual=8.087e-04
+  [pid=3533688] MPS-GMRES iter 48: residual=7.246e-04
+  [pid=3533688] MPS-GMRES iter 49: residual=6.632e-04
+  [pid=3533688] MPS-GMRES iter 50: residual=5.472e-04
+[analytic_cp_sharc] WARNING: MPS-Krylov gradient response info=50, residual=0.0005472467100730407 for state 0
+[HANG-PROBE pid=3533688] LdotJnuc_mps START
+[HANG-PROBE pid=3533688]   calling Lci_dot_dgci_dx_mps...
+[HANG-PROBE pid=3533688] weighted_lci_transition_rdm_mps START n_states=2
+[HANG-PROBE pid=3533688]   state 0 entering transition_rdm_site_replacement_mps...
+[HANG-PROBE pid=3533688]   state 0 TDM done +2.12s
+[HANG-PROBE pid=3533688]   state 1 entering transition_rdm_site_replacement_mps...
+[HANG-PROBE pid=3533688]   state 1 TDM done +3.55s
+[HANG-PROBE pid=3533688] weighted_lci_transition_rdm_mps END +3.55s
+[HANG-PROBE pid=3533688]   Lci_dot_dgci_dx_mps done +3.59s
+[HANG-PROBE pid=3533688]   calling _build_eris_cache...
+[HANG-PROBE pid=3533688]   _build_eris_cache done +3.59s
+[HANG-PROBE pid=3533688]   calling Lorb_dot_dgorb_dx_from_rdms...
+[HANG-PROBE pid=3533688] LdotJnuc_mps END +3.65s
+[8161s] DMRG doublet analytic grad0: |g|=0.020068  vs FCI max|dg|=1.67e-04
+>>> VERDICT: SU2 doublet gradient = exact FCI -> doublet validated
+DONE
+done Sat Jul 11 00:23:38 EDT 2026

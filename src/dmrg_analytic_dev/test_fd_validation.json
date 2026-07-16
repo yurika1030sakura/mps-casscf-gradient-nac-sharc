@@ -1,0 +1,43 @@
+{
+  "milestone": "FD_validation_HeH_CAS22",
+  "purpose": "Finite-difference validation of analytic SA-DMRG-CASSCF gradients (vs central difference of DMRG state energies) and derivative couplings (vs cross-geometry wavefunction overlap finite differences) on HeH+ CAS(2,2).",
+  "system": "HeH+ / 3-21G / CAS(2,2) / SA(2)",
+  "results": [
+    {
+      "name": "C1_overlap_canary",
+      "o00": 0.9999999999999988,
+      "o11": 0.9999999999999992,
+      "o01": 7.112366251504909e-17,
+      "err_norm": 1.2212453270876722e-15,
+      "err_orth": 7.112366251504909e-17,
+      "tol": 1e-08,
+      "status": "pass"
+    },
+    {
+      "name": "C2_fd_gradient_vs_analytic",
+      "components": {
+        "state0": {
+          "g_analytic_z": -0.03155155023333348,
+          "g_fd_z": -0.03155187145731375,
+          "abs_err": 3.212239802694028e-07
+        },
+        "state1": {
+          "g_analytic_z": -0.7395324511114068,
+          "g_fd_z": -0.7395439089459277,
+          "abs_err": 1.1457834520944843e-05
+        }
+      },
+      "tol": 5e-05,
+      "status": "pass"
+    },
+    {
+      "name": "C3_fd_nac_vs_analytic",
+      "nac_analytic_z": -0.1288101475204386,
+      "tau_fd_z": -0.12881023409768486,
+      "abs_err_phaseaware": 8.657724626104368e-08,
+      "ratio_analytic_over_fd": 0.9999993278698166,
+      "tol": 0.0001,
+      "status": "pass"
+    }
+  ]
+}

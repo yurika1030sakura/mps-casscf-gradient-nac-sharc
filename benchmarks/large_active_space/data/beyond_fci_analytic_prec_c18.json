@@ -1,0 +1,174 @@
+{
+  "system": "polyene_C18",
+  "ncas": 18,
+  "nelecas": 18,
+  "det_dim": 2363904400,
+  "bond_dim": 512,
+  "build": {
+    "det_dim": 2363904400.0,
+    "beyond_fci": true,
+    "ncas": 18,
+    "nelecas": 18,
+    "spin": 0,
+    "orbital_source": "dmrg-casscf",
+    "fci_certified": false,
+    "stages": [
+      {
+        "M": 256,
+        "converged": true,
+        "wall_s": 662.4835294249933,
+        "e_states": [
+          -679.8716432960944,
+          -679.645942436497
+        ]
+      },
+      {
+        "M": 512,
+        "converged": true,
+        "wall_s": 206.13271578101558,
+        "e_states": [
+          -679.8716432960725,
+          -679.6459424364156
+        ]
+      }
+    ],
+    "converged": true,
+    "escalated": false,
+    "level_shift_used": 0.0,
+    "level_shift_warning": false,
+    "s2_per_state": null,
+    "e_states": [
+      -679.8716432960725,
+      -679.6459424364156
+    ],
+    "wall_s": 868.9172181629983,
+    "active_space_selection": null,
+    "build_health": {
+      "overall": "PASS",
+      "trustworthy": true,
+      "checks": [
+        {
+          "name": "scf_converged",
+          "status": "PASS",
+          "value": true,
+          "message": "converged"
+        },
+        {
+          "name": "casscf_converged",
+          "status": "PASS",
+          "value": true,
+          "message": "converged"
+        },
+        {
+          "name": "near_degeneracy",
+          "status": "PASS",
+          "value": 0.22570085965696762,
+          "message": "gap 2.26e-01 Eh"
+        },
+        {
+          "name": "fci_free_integrity",
+          "status": "PASS",
+          "value": false,
+          "message": "det_dim 2.36e+09 beyond FCI; no dense bridge used"
+        }
+      ]
+    }
+  },
+  "response_config": {
+    "linear_solver": "cr",
+    "initial_guess": "hcc-inverse",
+    "m_compress": 128,
+    "response_tol": 0.0001,
+    "fit_sweeps": 4,
+    "max_iter": 120
+  },
+  "certs": {
+    "('grad', 0)": {
+      "health": "FAIL",
+      "certificate": {
+        "state": 0,
+        "solver": "global_mps_krylov",
+        "converged": false,
+        "rhs_norm": 1.9510742196081765,
+        "true_residual_norm": 0.9084681000778768,
+        "true_residual_relative": 0.46562457283676245,
+        "residual_tol": 0.001,
+        "orbital_dim": 3691,
+        "response_bond_dim": 256,
+        "root_projector_leakage": 0.02512597745508458,
+        "wall_s": 3934.8185475990176,
+        "extra": {
+          "niter": 120
+        },
+        "health": {
+          "overall": "FAIL",
+          "trustworthy": false,
+          "checks": [
+            {
+              "name": "response_converged",
+              "status": "FAIL",
+              "value": false,
+              "message": "did NOT converge \u2014 result unreliable"
+            },
+            {
+              "name": "response_certificate",
+              "status": "FAIL",
+              "value": 0.46562457283676245,
+              "message": "true residual 4.66e-01 EXCEEDS tol 1.0e-03"
+            },
+            {
+              "name": "root_leakage",
+              "status": "FAIL",
+              "value": 0.02512597745508458,
+              "message": "root-projector leakage 2.51e-02 EXCEEDS tol 1.0e-06"
+            }
+          ]
+        }
+      }
+    },
+    "('nac', (0, 1))": {
+      "health": "FAIL",
+      "certificate": {
+        "state": 0,
+        "solver": "global_mps_krylov",
+        "converged": false,
+        "rhs_norm": 2.892642908045021,
+        "true_residual_norm": 0.6017728107122662,
+        "true_residual_relative": 0.20803563725014765,
+        "residual_tol": 0.001,
+        "orbital_dim": 3691,
+        "response_bond_dim": 256,
+        "root_projector_leakage": 0.09706153578867946,
+        "wall_s": 4364.3308285319945,
+        "extra": {
+          "niter": 120
+        },
+        "health": {
+          "overall": "FAIL",
+          "trustworthy": false,
+          "checks": [
+            {
+              "name": "response_converged",
+              "status": "FAIL",
+              "value": false,
+              "message": "did NOT converge \u2014 result unreliable"
+            },
+            {
+              "name": "response_certificate",
+              "status": "FAIL",
+              "value": 0.20803563725014765,
+              "message": "true residual 2.08e-01 EXCEEDS tol 1.0e-03"
+            },
+            {
+              "name": "root_leakage",
+              "status": "FAIL",
+              "value": 0.09706153578867946,
+              "message": "root-projector leakage 9.71e-02 EXCEEDS tol 1.0e-06"
+            }
+          ]
+        }
+      }
+    }
+  },
+  "status": "ok"
+}

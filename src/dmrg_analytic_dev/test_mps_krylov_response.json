@@ -1,0 +1,96 @@
+{
+  "milestone": "MPS_Krylov_response_backend",
+  "purpose": "Validate MPS-valued CI Krylov vectors against the FCI response backend on HeH+ CAS(2,2).",
+  "results": [
+    {
+      "name": "M1_mps_krylov_matvec_matches_fci",
+      "diff": 4.035955610588888e-15,
+      "norm_fci": 14.922569043090377,
+      "norm_mps": 14.922569043090379,
+      "tol": 1e-08,
+      "status": "pass"
+    },
+    {
+      "name": "M2_mps_gradient_rhs_matches_fci",
+      "diff": 4.2398004525191176e-15,
+      "norm_fci": 0.3031926469688357,
+      "norm_mps": 0.30319264696883624,
+      "tol": 1e-08,
+      "status": "pass"
+    },
+    {
+      "name": "M3_mps_nac_rhs_matches_fci",
+      "diff": 1.854683963746055e-15,
+      "norm_fci": 0.3101687876572825,
+      "norm_mps": 0.31016878765728245,
+      "tol": 1e-08,
+      "status": "pass"
+    },
+    {
+      "name": "M4_mps_krylov_solve_state0_matches_fci",
+      "info_fci": 0,
+      "info_mps": 0,
+      "mps_residual": 7.017035796333066e-16,
+      "mps_niter": 6,
+      "diff_kappa": 2.718151715625074e-16,
+      "diff_v_max": 2.305079015254748e-15,
+      "tol": 1e-08,
+      "status": "pass"
+    },
+    {
+      "name": "M5_mps_only_initializer_solves_without_dense_ci_roots",
+      "info_fci": 0,
+      "info_mps": 0,
+      "mps_residual": 1.7872283571352236e-15,
+      "density_cache_diff": 0.0,
+      "diff_kappa": 3.835347676986421e-16,
+      "tol": 1e-08,
+      "status": "pass"
+    },
+    {
+      "name": "M6_mps_bicgstab_solve_state0_matches_fci",
+      "info_fci": 0,
+      "info_mps": 0,
+      "mps_residual": 1.8811962599547357e-15,
+      "mps_niter": 6,
+      "diff_kappa": 6.549861934753534e-16,
+      "tol": 1e-08,
+      "status": "pass"
+    },
+    {
+      "name": "M7_mps_hcc_inverse_initial_guess_matches_fci",
+      "info_fci": 0,
+      "info_mps": 0,
+      "mps_residual": 1.8051365280723997e-15,
+      "mps_relative_residual": 5.953760904557643e-15,
+      "mps_niter": 6,
+      "initial_guess": "hcc-inverse",
+      "initial_guess_hcc_inverse_s": 0.007576751057058573,
+      "diff_kappa": 1.9459855480325137e-16,
+      "tol": 1e-08,
+      "status": "pass"
+    },
+    {
+      "name": "M8_mps_cr_solve_state0_matches_fci",
+      "info_fci": 0,
+      "info_mps": 0,
+      "mps_residual": 5.276567565082982e-15,
+      "mps_niter": 6,
+      "diff_kappa": 8.296005569898413e-16,
+      "tol": 1e-08,
+      "status": "pass"
+    },
+    {
+      "name": "M9_mps_gmres_recycle_solve_state1_matches_fci",
+      "info_fci": 0,
+      "info_mps": 0,
+      "mps_residual": 0.0,
+      "mps_niter": 0,
+      "diff_kappa": 1.6948878672865313e-16,
+      "recycle_project_s": 0.0,
+      "recycle_build_s": 0.0,
+      "tol": 1e-08,
+      "status": "pass"
+    }
+  ]
+}

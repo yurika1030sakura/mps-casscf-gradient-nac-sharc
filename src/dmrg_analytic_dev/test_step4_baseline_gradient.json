@@ -1,0 +1,56 @@
+{
+  "milestone": "FreitagReiher_Step4_baseline_gradient_validation",
+  "results": [
+    {
+      "name": "G1_rhs_is_nontrivial",
+      "rhs_O_norm": 0.42877626135140484,
+      "rhs_flat_norm": 0.30319060201343523,
+      "tol_min": 0.001,
+      "status": "pass"
+    },
+    {
+      "name": "G2_lvec_matches_pyscf",
+      "info": 0,
+      "Lvec_pyscf_norm": 0.05367510113627371,
+      "Lvec_mine_norm": 0.05367510113627373,
+      "diff_pos": 7.575665271414441e-16,
+      "diff_neg": 0.10735020227254746,
+      "matched_sign": "+",
+      "diff_min": 7.575665271414441e-16,
+      "tol": 1e-06,
+      "status": "pass"
+    },
+    {
+      "name": "G3_full_gradient_matches",
+      "de_ref": [
+        [
+          0.0,
+          0.0,
+          0.03155154842576941
+        ],
+        [
+          0.0,
+          0.0,
+          -0.031551548425769314
+        ]
+      ],
+      "de_mine": [
+        [
+          0.0,
+          0.0,
+          0.03155154842576942
+        ],
+        [
+          0.0,
+          0.0,
+          -0.031551548425769314
+        ]
+      ],
+      "Lvec_diff": 7.575665271414441e-16,
+      "max_abs_diff": 6.938893903907228e-18,
+      "rel_diff": 2.1992245230791768e-16,
+      "tol_rel": 1e-06,
+      "status": "pass"
+    }
+  ]
+}

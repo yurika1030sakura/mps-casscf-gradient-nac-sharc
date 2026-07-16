@@ -1,0 +1,57 @@
+{
+  "milestone": "FreitagReiher_Step3_cp_casscf_response_blocks",
+  "results": [
+    {
+      "name": "C1_HCC_linearity",
+      "abs_diff": 1.1060518526157679e-15,
+      "tol": 1e-10,
+      "status": "pass"
+    },
+    {
+      "name": "C2_HCC_hermiticity",
+      "lhs": -0.2603507695844336,
+      "rhs": -0.2603507695844336,
+      "abs_diff": 0.0,
+      "tol": 1e-10,
+      "status": "pass"
+    },
+    {
+      "name": "C3_HOC_linearity",
+      "abs_diff": 2.5405071205628425e-15,
+      "tol": 1e-10,
+      "status": "pass"
+    },
+    {
+      "name": "C4_HCO_linearity",
+      "abs_diff": 1.2759000985951131e-15,
+      "tol": 1e-10,
+      "status": "pass"
+    },
+    {
+      "name": "C5_matvec_linearity",
+      "n": 12,
+      "abs_diff": 4.0237104540531034e-15,
+      "tol": 1e-10,
+      "status": "pass"
+    },
+    {
+      "name": "C6_matvec_hermiticity",
+      "lhs_yAx": 2.1839394030292225,
+      "rhs_xAy": 2.183939403029223,
+      "abs_diff": 4.440892098500626e-16,
+      "rel_diff": 2.0334319223055858e-16,
+      "tol_rel": 1e-08,
+      "status": "pass"
+    },
+    {
+      "name": "C7_gmres_converges",
+      "info": 0,
+      "residual_norm": 1.166848920769596e-15,
+      "rhs_norm": 0.30319060201343523,
+      "rel_residual": 3.848565598738082e-15,
+      "kappa_norm": 0.0757027925248934,
+      "tol_rel": 1e-06,
+      "status": "pass"
+    }
+  ]
+}

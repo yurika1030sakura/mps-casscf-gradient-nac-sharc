@@ -1,0 +1,135 @@
+{
+  "system": "polyene_C24",
+  "ncas": 24,
+  "nelecas": 24,
+  "det_dim": 7312459672336,
+  "build_bond_dim": 1200,
+  "ci_schedule": [
+    800,
+    800
+  ],
+  "ci_noises": [
+    1e-05,
+    1e-05,
+    0.0,
+    0.0
+  ],
+  "build": {
+    "det_dim": 7312459672336.0,
+    "beyond_fci": true,
+    "ncas": 24,
+    "nelecas": 24,
+    "spin": 0,
+    "orbital_source": "dmrg-casscf",
+    "fci_certified": false,
+    "stages": [
+      {
+        "M": 256,
+        "converged": true,
+        "wall_s": 1857.6477333169896,
+        "e_states": [
+          -906.0736757527053,
+          -905.827552483658
+        ]
+      },
+      {
+        "M": 512,
+        "converged": true,
+        "wall_s": 602.4262903780327,
+        "e_states": [
+          -906.0736805865063,
+          -905.8275514383816
+        ]
+      },
+      {
+        "M": 800,
+        "converged": true,
+        "wall_s": 258.6783724760171,
+        "e_states": [
+          -906.073680844287,
+          -905.827551042335
+        ]
+      },
+      {
+        "M": 1200,
+        "converged": true,
+        "wall_s": 258.53160500800004,
+        "e_states": [
+          -906.0736809133266,
+          -905.8275509008519
+        ]
+      }
+    ],
+    "converged": true,
+    "escalated": false,
+    "level_shift_used": 0.0,
+    "level_shift_warning": false,
+    "s2_per_state": null,
+    "e_states": [
+      -906.0736809133266,
+      -905.8275509008519
+    ],
+    "wall_s": 3015.403664112964,
+    "active_space_selection": null,
+    "build_health": {
+      "overall": "PASS",
+      "trustworthy": true,
+      "checks": [
+        {
+          "name": "scf_converged",
+          "status": "PASS",
+          "value": true,
+          "message": "converged"
+        },
+        {
+          "name": "casscf_converged",
+          "status": "PASS",
+          "value": true,
+          "message": "converged"
+        },
+        {
+          "name": "near_degeneracy",
+          "status": "PASS",
+          "value": 0.24613001247473676,
+          "message": "gap 2.46e-01 Eh"
+        },
+        {
+          "name": "fci_free_integrity",
+          "status": "PASS",
+          "value": false,
+          "message": "det_dim 7.31e+12 beyond FCI; no dense bridge used"
+        }
+      ]
+    }
+  },
+  "ci_m_loop": 256,
+  "status": "ok",
+  "schur_info": 1,
+  "true_residual_relative": 0.17470286897306625,
+  "converged": false,
+  "kappa_norm": 0.009792943336485187,
+  "schur_wall_s": 7721.419419999002,
+  "analytic_gradient_norm": 1.3673509583054542,
+  "analytic_dir": {
+    "bla": -0.03880030363273842,
+    "central_cc": -0.15686421152006566,
+    "single_cc": -0.16138902095440588
+  },
+  "g_dot_q_vs_fd": {
+    "bla": {
+      "analytic": -0.03880030363273842,
+      "fd": 1.7062217183365647,
+      "abs_err": 1.7450220219693031
+    },
+    "central_cc": {
+      "analytic": -0.15686421152006566,
+      "fd": 1.4760944575868962,
+      "abs_err": 1.6329586691069617
+    },
+    "single_cc": {
+      "analytic": -0.16138902095440588,
+      "fd": -0.7842686162575774,
+      "abs_err": 0.6228795953031715
+    }
+  }
+}

@@ -1,0 +1,42 @@
+{
+  "milestone": "overlap_discrete_gauge_decomposition",
+  "identity": "overlap_fci(i,j,s) == overlap_fci(i, transform(j,G.T), s@G.T)",
+  "results": [
+    {
+      "gauge": "identity",
+      "detG": 1.0,
+      "G_recovered": true,
+      "err_discrete_gauge_fix": 0.0,
+      "max_abs_sGT_minus_I": 0.02253902194020005,
+      "err_naive_no_surgery": 0.0,
+      "status": "pass"
+    },
+    {
+      "gauge": "signflip",
+      "detG": -1.0,
+      "G_recovered": true,
+      "err_discrete_gauge_fix": 0.0,
+      "max_abs_sGT_minus_I": 0.02253902194020005,
+      "err_naive_no_surgery": 0.2217392299447569,
+      "status": "pass"
+    },
+    {
+      "gauge": "swap_1_2",
+      "detG": -1.0,
+      "G_recovered": true,
+      "err_discrete_gauge_fix": 0.0,
+      "max_abs_sGT_minus_I": 0.02253902194020005,
+      "err_naive_no_surgery": 0.3582426325993831,
+      "status": "pass"
+    },
+    {
+      "gauge": "signflip_plus_swap",
+      "detG": -1.0,
+      "G_recovered": true,
+      "err_discrete_gauge_fix": 4.163336342344337e-17,
+      "max_abs_sGT_minus_I": 0.02253902194020005,
+      "err_naive_no_surgery": 0.28284666737249453,
+      "status": "pass"
+    }
+  ]
+}
