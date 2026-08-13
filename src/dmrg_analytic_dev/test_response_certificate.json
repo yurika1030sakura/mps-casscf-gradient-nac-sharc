@@ -5,29 +5,77 @@
     "state": 0,
     "solver": "global_mps_krylov",
     "converged": true,
-    "rhs_norm": 0.3032701458987911,
-    "true_residual_norm": 7.105768730148088e-17,
-    "true_residual_relative": 2.34304920093238e-16,
+    "rhs_norm": 0.30327014589878953,
+    "true_residual_norm": 1.6785961212203423e-16,
+    "true_residual_relative": 5.534986360907878e-16,
     "residual_tol": 1e-06,
     "orbital_dim": 4,
     "response_bond_dim": 200,
-    "root_projector_leakage": 2.237793284010081e-16,
-    "wall_s": 1.2114902820030693,
-    "extra": {}
+    "root_projector_leakage": 2.1890041862482335e-15,
+    "wall_s": 11.39260221098084,
+    "extra": {},
+    "health": {
+      "overall": "PASS",
+      "trustworthy": true,
+      "checks": [
+        {
+          "name": "response_converged",
+          "status": "PASS",
+          "value": true,
+          "message": "converged"
+        },
+        {
+          "name": "response_certificate",
+          "status": "PASS",
+          "value": 5.534986360907878e-16,
+          "message": "true residual 5.53e-16 within tol 1.0e-06"
+        },
+        {
+          "name": "root_leakage",
+          "status": "PASS",
+          "value": 2.1890041862482335e-15,
+          "message": "root-projector leakage 2.19e-15 within tol 1.0e-06"
+        }
+      ]
+    }
   },
   "schur": {
     "state": 0,
     "solver": "sweep_schur",
     "converged": true,
-    "rhs_norm": 0.3032701458987911,
-    "true_residual_norm": 1.162362078306494e-16,
-    "true_residual_relative": 3.8327612988797243e-16,
+    "rhs_norm": 0.30327014589878953,
+    "true_residual_norm": 3.8660632334902975e-16,
+    "true_residual_relative": 1.2747918928955573e-15,
     "residual_tol": 1e-06,
     "orbital_dim": 4,
     "response_bond_dim": 200,
-    "root_projector_leakage": 1.8973538018496328e-18,
-    "wall_s": 0.4838275829970371,
-    "extra": {}
+    "root_projector_leakage": 4.092863201132779e-18,
+    "wall_s": 6.2033467529690824,
+    "extra": {},
+    "health": {
+      "overall": "PASS",
+      "trustworthy": true,
+      "checks": [
+        {
+          "name": "response_converged",
+          "status": "PASS",
+          "value": true,
+          "message": "converged"
+        },
+        {
+          "name": "response_certificate",
+          "status": "PASS",
+          "value": 1.2747918928955573e-15,
+          "message": "true residual 1.27e-15 within tol 1.0e-06"
+        },
+        {
+          "name": "root_leakage",
+          "status": "PASS",
+          "value": 4.092863201132779e-18,
+          "message": "root-projector leakage 4.09e-18 within tol 1.0e-06"
+        }
+      ]
+    }
   },
   "status": "pass"
 }

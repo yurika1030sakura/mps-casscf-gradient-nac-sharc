@@ -13,9 +13,11 @@ The load-bearing identity (verified here to machine precision) is
     overlap_fci(ci_i, ci_j, s) = overlap_fci(ci_i, transform_ci(ci_j, G.T), s @ G.T)
 
 i.e. the discrete gauge MUST be applied to the ket state (a naive "just rotate by
-s_res" is WRONG -- it leaves an O(1) error, also checked here).  This pins the MPS
-fix: apply the signed permutation G.T to the displaced MPS, then rotate by the
-near-identity s @ G.T.
+s_res" is WRONG -- it leaves an O(1) error, also checked here).  The production
+MPS path now implements the minimal disconnected component as an exact local
+orbital-parity MPO; the remaining determinant-positive factor is handled by the
+real orbital-rotation logarithm.  ``test_cross_geometry_overlap.py`` validates
+that MPS implementation directly against the determinant reference.
 """
 from __future__ import annotations
 

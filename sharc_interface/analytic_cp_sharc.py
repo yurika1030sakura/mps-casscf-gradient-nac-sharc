@@ -269,8 +269,14 @@ def _nac_one_pair_mps_krylov(
     state_pair: tuple,
     tol: float,
     max_iter: int,
+    precomputed_z=None,
 ) -> np.ndarray:
-    """Compute a NAC using MPS-Krylov response and MPS Lagrange assembly."""
+    """Compute a NAC using MPS-Krylov response and MPS Lagrange assembly.
+
+    ``precomputed_z=(kappa, lci_mps)`` has the same meaning as for the gradient
+    assembler: no second response solve is performed, so a caller can bind the
+    returned NAC value to the exact vector that passed its residual certificate.
+    """
     from pyscf.nac import sacasscf as nac_sacasscf
     from pyscf.grad import casscf as casscf_grad
     from pyscf import lib
@@ -278,9 +284,13 @@ def _nac_one_pair_mps_krylov(
     nac_obj = nac_sacasscf.NonAdiabaticCouplings(mc)
     ket, bra = int(state_pair[0]), int(state_pair[1])
     mf_grad = mc._scf.nuc_grad_method()
-    kappa, lci_mps, info, meta = cp.solve_nac_mps(
-        (ket, bra), tol=tol, max_iter=max_iter,
-    )
+    if precomputed_z is not None:
+        kappa, lci_mps = precomputed_z
+        info, meta = 0, {"source": "precomputed"}
+    else:
+        kappa, lci_mps, info, meta = cp.solve_nac_mps(
+            (ket, bra), tol=tol, max_iter=max_iter,
+        )
     if info != 0:
         print(
             "[analytic_cp_sharc] WARNING: MPS-Krylov NAC response "
@@ -332,6 +342,51 @@ def _nac_one_pair_mps_krylov(
         e_states = _state_energies(mc, cp, min_size=max(ket, bra) + 1)
         de = de / (e_states[bra] - e_states[ket])
     return de
+
+
+def assemble_grad_nac_from_mps_responses(
+    mc,
+    cp: CPDMRGCASSCFResponseMPSKrylov,
+    responses: dict,
+    *,
+    gradient_states=(),
+    nac_pairs=(),
+):
+    """Assemble derivatives from already solved MPS response vectors.
+
+    ``responses`` is keyed by ``("grad", state)`` and ``("nac", (I, J))``;
+    each value must be an :class:`MPSKrylovVector` owned by ``cp``.  This small
+    public bridge is deliberately separate from the solver so production code
+    can certify a response first and only then release a derivative assembled
+    from that same vector.
+    """
+    out = {"grad": {}, "nac": {},
+           "diagnostics": {"source": "precomputed_certified_responses"}}
+
+    def _get(key):
+        if key not in responses:
+            raise KeyError(f"missing precomputed response {key!r}")
+        z = responses[key]
+        if getattr(z, "owner", None) is not cp:
+            raise ValueError(f"response {key!r} belongs to a different operator")
+        return z
+
+    for state in gradient_states:
+        state = int(state)
+        z = _get(("grad", state))
+        out["grad"][state] = _gradient_one_state_mps_krylov(
+            mc, cp, state, tol=0.0, max_iter=0,
+            precomputed_z=(z.kappa, z.ci_mps),
+        )
+
+    for pair in nac_pairs:
+        pair = tuple(int(x) for x in pair)
+        z = _get(("nac", pair))
+        out["nac"][pair] = _nac_one_pair_mps_krylov(
+            mc, cp, pair, tol=0.0, max_iter=0,
+            precomputed_z=(z.kappa, z.ci_mps),
+        )
+    return out
 
 
 def compute_grad_nac_analytic_cp(mc, gradient_states=None, nac_pairs=None,

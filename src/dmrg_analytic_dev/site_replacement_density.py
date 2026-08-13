@@ -433,6 +433,12 @@ def mps_to_fci_generic(driver_sz, mps, ncas: int,
     -------
     ci : np.ndarray, shape (na_string, nb_string)
     """
+    # Mark at the primitive itself.  Marking only selected callers leaves an
+    # uninstrumented route through which a beyond-FCI job can silently form a
+    # determinant array while still reporting a clean sentinel.
+    from fci_free_guard import DenseBridgeSentinel
+    DenseBridgeSentinel.mark("site_replacement_density.mps_to_fci_generic")
+
     from pyscf.fci import cistring
 
     na_e, nb_e = int(nelec[0]), int(nelec[1])

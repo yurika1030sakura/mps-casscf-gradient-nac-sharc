@@ -279,6 +279,9 @@ class MPSAsFCISolver(lib.StreamObject):
                  refine_sweeps: int | None = None,
                  refine_sweep_tol: float | None = None,
                  refine_proj_weight: float = 5.0,
+                 dav_thrd: float = 1.0e-12,
+                 dav_max_iter: int = 4000,
+                 dav_def_max_size: int = 80,
                  stack_mem_mb: int = 200,
                  warm_start: bool = False,
                  first_iter_warmup: bool = False,
@@ -335,6 +338,13 @@ class MPSAsFCISolver(lib.StreamObject):
             None if refine_sweep_tol is None else float(refine_sweep_tol)
         )
         self.refine_proj_weight = float(refine_proj_weight)
+        self.dav_thrd = float(dav_thrd)
+        self.dav_max_iter = int(dav_max_iter)
+        self.dav_def_max_size = int(dav_def_max_size)
+        if not 0.0 < self.dav_thrd < 1.0:
+            raise ValueError("dav_thrd must lie strictly between 0 and 1")
+        if self.dav_max_iter < 1 or self.dav_def_max_size < 1:
+            raise ValueError("Davidson iteration/deflation limits must be positive")
         # 10x optimization knobs (backward-compatible: default-off keeps legacy
         # behaviour and validation-paper numbers; production fast path opt-in).
         self.stack_mem_mb = max(1, int(stack_mem_mb))
@@ -586,7 +596,10 @@ class MPSAsFCISolver(lib.StreamObject):
                 n_sweeps=ns,
                 bond_dims=[int(bond_dim)] * ns,
                 noises=[0.0] * ns,
+                thrds=[self.dav_thrd] * ns,
                 tol=tol,
+                dav_max_iter=self.dav_max_iter,
+                dav_def_max_size=self.dav_def_max_size,
                 iprint=0,
                 proj_mpss=refined or None,
                 proj_weights=(
@@ -812,6 +825,11 @@ class MPSAsFCISolver(lib.StreamObject):
             and self._warm_kets is not None
             and self._warm_norb == int(norb)
         )
+        # Preserve the *previous* accepted roots for continuity assignment.
+        # The old implementation overwrote ``_warm_kets`` with the current
+        # split roots before computing overlaps, so every root was compared to
+        # itself and the advertised cross-macro root tracking was a no-op.
+        previous_kets = list(self._warm_kets) if keep_driver else None
         if not keep_driver:
             self._cleanup()
             scratch = self._make_scratch()
@@ -958,12 +976,14 @@ class MPSAsFCISolver(lib.StreamObject):
         first_iter_active = bool(
             self.first_iter_warmup and self._first_macro_iter
         )
-        # Refine is per-root sweep cleanup after split — only matters for
-        # FCI-overlap root tracking. With skip_kernel_fci_conversion the
-        # downstream make_rdm12 / response uses the un-refined MPS directly
-        # via block2 NPDM, so the ~30-50% time the refine takes per macro
-        # iter is pure waste. Always skip when bypass is active.
-        skip_refine = first_iter_active or self.skip_kernel_fci_conversion
+        # Refine is per-root sweep cleanup after a multi-root solve.  It is
+        # load-bearing when dense conversion is bypassed: native RDMs and the
+        # analytic response consume these individual split roots directly.
+        # Skipping refinement in the old FCI-free path left triplet state and
+        # transition RDMs wrong by 1e-7--1e-6 even when Ritz energies matched
+        # FCI to machine precision.  Only the deliberately rough first macro
+        # iteration may skip it; all later/final roots are refined.
+        skip_refine = first_iter_active
         if first_iter_active:
             # HF singlet occupation pattern: lowest n_elec/2 orbitals doubly
             # occupied, the rest empty. Bias the random MPS toward it.
@@ -1057,7 +1077,10 @@ class MPSAsFCISolver(lib.StreamObject):
             n_sweeps=ns,
             bond_dims=bd,
             noises=noises[:ns],
+            thrds=[self.dav_thrd] * ns,
             tol=float(self.sweep_tol),
+            dav_max_iter=self.dav_max_iter,
+            dav_def_max_size=self.dav_def_max_size,
             iprint=0,
         )
         if self.timing_log:
@@ -1087,7 +1110,6 @@ class MPSAsFCISolver(lib.StreamObject):
         #     access (make_rdm12 / trans_rdm12 / overlap-tracking).
         if self.warm_start:
             self._warm_multiroot_ket = ket
-            self._warm_kets = list(self._kets)
             self._warm_norb = int(norb)
         # Cross-step MPS save: write the converged multi-root MPS to the
         # persistent tag so that the NEXT solver lifecycle (e.g. the next
@@ -1140,11 +1162,11 @@ class MPSAsFCISolver(lib.StreamObject):
             #       sort — pick the nroots lowest by energy. This is the
             #       standard adiabatic ordering.
             assignment = None
-            if (self._warm_kets is not None
-                    and len(self._warm_kets) >= nroots):
+            if (previous_kets is not None
+                    and len(previous_kets) >= nroots):
                 try:
                     assignment = self._mps_overlap_assignment(
-                        driver, self._kets, self._warm_kets, nroots,
+                        driver, self._kets, previous_kets, nroots,
                     )
                 except Exception as e:
                     if self.timing_log:
@@ -1159,6 +1181,8 @@ class MPSAsFCISolver(lib.StreamObject):
                 selected_indices = list(assignment)
             self._root_assignment = list(selected_indices)
             self._kets = [self._kets[i] for i in selected_indices]
+            if self.warm_start:
+                self._warm_kets = list(self._kets)
             # Placeholder ci: 1-element float ndarray with the (post-sort)
             # root index in [0]. Used by make_rdm12 to find self._kets[idx].
             # Indices are 0..nroots-1 after selection (we reindex).
@@ -1204,6 +1228,8 @@ class MPSAsFCISolver(lib.StreamObject):
         )
         selected_indices = self._root_assignment[:nroots]
         self._kets = [self._kets[i] for i in selected_indices]
+        if self.warm_start:
+            self._warm_kets = list(self._kets)
         e_sel = self._ci_energy_expectations(
             h1e, eri, norb, nelec_t, ecore, ci_list
         )
@@ -1260,7 +1286,10 @@ class MPSAsFCISolver(lib.StreamObject):
             n_sweeps=ns,
             bond_dims=bd,
             noises=noises[:ns],
+            thrds=[self.dav_thrd] * ns,
             tol=float(self.sweep_tol),
+            dav_max_iter=self.dav_max_iter,
+            dav_def_max_size=self.dav_def_max_size,
             iprint=0,
         )
         if n_solve_roots == 1:

@@ -59,6 +59,22 @@ class ResponseBudgetExceeded(RuntimeError):
         self.niter = int(niter)
 
 
+def relative_residual_target(rhs_norm: float, tol: float) -> float:
+    """Absolute residual target corresponding to ``||r||/||b|| <= tol``.
+
+    Keeping this conversion in one tested helper prevents an accidental
+    absolute-tolerance shortcut from making small physical right-hand sides
+    appear converged while their relative residual is still large.
+    """
+    rhs_norm = float(rhs_norm)
+    tol = float(tol)
+    if not np.isfinite(rhs_norm) or rhs_norm < 0.0:
+        raise ValueError("rhs_norm must be finite and non-negative")
+    if not np.isfinite(tol) or tol <= 0.0:
+        raise ValueError("tol must be finite and positive")
+    return tol * rhs_norm
+
+
 @dataclass
 class MPSKrylovVector:
     """Mixed orbital/MPS vector used by the Arnoldi solver."""
@@ -1310,6 +1326,20 @@ class CPDMRGCASSCFResponseMPSKrylov(CPDMRGCASSCFResponseMPS):
     ):
         """Solve ``A x = rhs`` with Arnoldi basis vectors stored as MPS."""
         self._reset_timing()
+        # Keep the norm of the *physical* RHS before applying a recycled or
+        # preconditioned initial guess.  Convergence is certified against this
+        # original equation, not against the (often orders-of-magnitude
+        # smaller) initial defect ``rhs - A*x0``.
+        rhs_norm_reference = rhs.norm()
+        if rhs_norm_reference < 1.0e-14:
+            sol = self.zero_vector_mps("SOL-ZERO")
+            return sol, 0, {
+                "residual": 0.0,
+                "relative_residual": 0.0,
+                "niter": 0,
+                "timings_s": {},
+                "initial_guess": self._initial_guess,
+            }
         x0 = self.initial_guess_vector_mps(rhs)
         if x0 is not None:
             t0 = time.perf_counter()
@@ -1322,12 +1352,20 @@ class CPDMRGCASSCFResponseMPSKrylov(CPDMRGCASSCFResponseMPS):
             sol = self.zero_vector_mps("SOL-ZERO") if x0 is None else x0
             return sol, 0, {
                 "residual": 0.0,
+                "relative_residual": 0.0,
                 "niter": 0,
                 "timings_s": {},
                 "initial_guess": self._initial_guess,
             }
-        conv_abs = float(tol)
-        conv_rel = float(tol) * beta
+        # ``tol`` is a relative-residual tolerance, matching
+        # :func:`certified_response.certify_response`.  The previous
+        # ``residual <= tol OR residual <= tol*||b||`` rule silently became an
+        # absolute tolerance whenever ``||b|| < 1``.  Small but non-zero CP
+        # right-hand sides could therefore be reported as converged with a
+        # percent-level relative residual and were then (correctly) rejected
+        # by the independent certificate.  Use one scale-consistent target in
+        # the solver and the certificate.
+        conv_target = relative_residual_target(rhs_norm_reference, tol)
 
         q = [rhs.scaled(1.0 / beta, label="Q0")]
         h = np.zeros((max_iter + 1, max_iter), dtype=float)
@@ -1375,7 +1413,7 @@ class CPDMRGCASSCFResponseMPSKrylov(CPDMRGCASSCFResponseMPS):
             n_best = j + 1
             self.timing.add("gmres_iter", 0.0, iter=j + 1, residual=residual)
 
-            projected_converged = (residual <= conv_abs or residual <= conv_rel)
+            projected_converged = residual <= conv_target
             lucky_breakdown = h[j + 1, j] <= 1.0e-13
             true_residual = None
             if projected_converged or lucky_breakdown:
@@ -1409,9 +1447,7 @@ class CPDMRGCASSCFResponseMPSKrylov(CPDMRGCASSCFResponseMPS):
                     flush=True,
                 )
 
-            if true_residual is not None and (
-                true_residual <= conv_abs or true_residual <= conv_rel
-            ):
+            if true_residual is not None and true_residual <= conv_target:
                 residual = true_residual
                 true_converged = True
                 break
@@ -1464,7 +1500,7 @@ class CPDMRGCASSCFResponseMPSKrylov(CPDMRGCASSCFResponseMPS):
             ).norm()
             self._add_timing("gmres_true_residual_check",
                              time.perf_counter() - t_res)
-        converged = residual <= conv_abs or residual <= conv_rel
+        converged = residual <= conv_target
         info = 0 if converged else max_iter
         if len(q) >= n_best + 1:
             self._gmres_recycle_cache = {
@@ -1473,7 +1509,9 @@ class CPDMRGCASSCFResponseMPSKrylov(CPDMRGCASSCFResponseMPS):
             }
         return solution, info, {
             "residual": residual,
-            "relative_residual": residual / beta,
+            "relative_residual": residual / rhs_norm_reference,
+            "rhs_norm": rhs_norm_reference,
+            "initial_defect_norm": beta,
             "niter": n_best,
             "linear_solver": "gmres",
             "initial_guess": self._initial_guess,
@@ -1523,9 +1561,8 @@ class CPDMRGCASSCFResponseMPSKrylov(CPDMRGCASSCFResponseMPS):
             self._add_timing("initial_guess_residual_build", time.perf_counter() - t0)
 
         residual = r.norm()
-        conv_abs = float(tol)
-        conv_rel = float(tol) * bnorm
-        if residual <= conv_abs or residual <= conv_rel:
+        conv_target = relative_residual_target(bnorm, tol)
+        if residual <= conv_target:
             return x, 0, {
                 "residual": residual,
                 "relative_residual": residual / bnorm,
@@ -1570,7 +1607,7 @@ class CPDMRGCASSCFResponseMPSKrylov(CPDMRGCASSCFResponseMPS):
             alpha = rho_new / denom
             s = r.add_scaled(v, -alpha, label=f"BICG-S{it}")
             s_norm = s.norm()
-            if s_norm <= conv_abs or s_norm <= conv_rel:
+            if s_norm <= conv_target:
                 x = x.add_scaled(p, alpha, label=f"BICG-X{it}")
                 residual = s_norm
                 n_done = it
@@ -1598,11 +1635,11 @@ class CPDMRGCASSCFResponseMPSKrylov(CPDMRGCASSCFResponseMPS):
                     f"  MPS-BiCGSTAB iter {it}: residual={residual:.3e}",
                     flush=True,
                 )
-            if residual <= conv_abs or residual <= conv_rel:
+            if residual <= conv_target:
                 break
             rho_old = rho_new
 
-        converged = residual <= conv_abs or residual <= conv_rel
+        converged = residual <= conv_target
         info = 0 if converged else max_iter
         return x, info, {
             "residual": residual,
@@ -1658,9 +1695,8 @@ class CPDMRGCASSCFResponseMPSKrylov(CPDMRGCASSCFResponseMPS):
             self._add_timing("initial_guess_residual_build", time.perf_counter() - t0)
 
         residual = r.norm()
-        conv_abs = float(tol)
-        conv_rel = float(tol) * bnorm
-        if residual <= conv_abs or residual <= conv_rel:
+        conv_target = relative_residual_target(bnorm, tol)
+        if residual <= conv_target:
             return x, 0, {
                 "residual": residual,
                 "relative_residual": residual / bnorm,
@@ -1699,7 +1735,7 @@ class CPDMRGCASSCFResponseMPSKrylov(CPDMRGCASSCFResponseMPS):
             n_done = it
             if verbose or self._verbose_solver:
                 print(f"  MPS-CR iter {it}: residual={residual:.3e}", flush=True)
-            if residual <= conv_abs or residual <= conv_rel:
+            if residual <= conv_target:
                 r = r_next
                 break
             # stagnation guard (see gmres_mps): break when a singular response
@@ -1734,7 +1770,7 @@ class CPDMRGCASSCFResponseMPSKrylov(CPDMRGCASSCFResponseMPS):
             ap_ap = ap.inner(ap)
             r = r_next
 
-        converged = residual <= conv_abs or residual <= conv_rel
+        converged = residual <= conv_target
         info = 0 if converged else max_iter
         return x, info, {
             "residual": residual,

@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 import sys
+from itertools import product
 from pathlib import Path
 
 import numpy as np
@@ -32,6 +33,20 @@ from overlap_fci_reference import overlap_fci
 from cross_geometry_overlap import rotate_mps_orbitals, ROTATION_CONVENTION
 
 ANG = 1.8897261246257702
+
+
+def _phase_gauge_error(actual, reference):
+    """Minimum error over independent real root phases at both endpoints."""
+    nr, nc = actual.shape
+    best = np.inf
+    # Fix the first bra phase to remove the redundant simultaneous global sign.
+    for ltail in product((-1.0, 1.0), repeat=max(nr - 1, 0)):
+        left = np.array((1.0,) + ltail)
+        for right_tuple in product((-1.0, 1.0), repeat=nc):
+            right = np.array(right_tuple)
+            candidate = left[:, None] * actual * right[None, :]
+            best = min(best, float(np.max(np.abs(candidate - reference))))
+    return best
 
 
 def _build():
@@ -64,30 +79,50 @@ def main():
     G = rng.standard_normal((ncas, ncas))
     M = expm(5.0e-3 * (G - G.T))                 # unitary, ~ identity
 
-    O_gt = np.array([[overlap_fci(ci[i], ci[j], M, ncas, nelec)
-                      for j in range(nst)] for i in range(nst)])
-
+    variants = []
     tag = {"n": 0}
-    rotated = []
-    for j in range(nst):
-        tag["n"] += 1
-        rotated.append(rotate_mps_orbitals(
-            obj._driver_su2, states[j], M, ncas=ncas, tag=f"XGEOM{tag['n']}",
-            n_steps=24, include_stretch=False,
-        ))
-    O = np.array([[obj._mps_overlap(states[i], rotated[j])
-                   for j in range(nst)] for i in range(nst)])
-    err = float(np.max(np.abs(O - O_gt)))
-    variants = [{"rotation": "U_only", "convention": ROTATION_CONVENTION,
-                 "max_err_vs_fci": err, "O_mps": O.tolist()}]
-    best = variants[0]
+    for name, matrix in [
+        ("proper_rotation", M),
+        ("det_minus_one_reflection", M @ np.diag([-1.0, 1.0])),
+    ]:
+        O_gt_case = np.array([
+            [overlap_fci(ci[i], ci[j], matrix, ncas, nelec)
+             for j in range(nst)] for i in range(nst)
+        ])
+        rotated = []
+        for j in range(nst):
+            tag["n"] += 1
+            rotated.append(rotate_mps_orbitals(
+                obj._driver_su2, states[j], matrix, ncas=ncas,
+                tag=f"XGEOM{tag['n']}", n_steps=24, include_stretch=False,
+            ))
+        O_case = np.array([
+            [obj._mps_overlap(states[i], rotated[j]) for j in range(nst)]
+            for i in range(nst)
+        ])
+        raw_err = float(np.max(np.abs(O_case - O_gt_case)))
+        # Cross-geometry states have independent +/- root phases at both
+        # endpoints.  An improper active-orbital gauge can choose a different
+        # lift of that phase; explicitly minimise over the factorised row/column
+        # phase gauges (an elementwise-absolute check alone would miss a bad
+        # non-factorisable sign loop for three or more states).
+        phase_gauge_err = _phase_gauge_error(O_case, O_gt_case)
+        variants.append({
+            "rotation": name,
+            "max_raw_err_vs_fci": raw_err,
+            "max_phase_gauge_invariant_err_vs_fci": phase_gauge_err,
+            "O_gt": O_gt_case.tolist(),
+            "O_mps": O_case.tolist(),
+        })
+
+    err = max(v["max_phase_gauge_invariant_err_vs_fci"] for v in variants)
 
     out = {
         "name": "cross_geometry_overlap_unitary_rotation_heh_cas22",
         "displacement_magnitude": 5.0e-3,
-        "O_gt": O_gt.tolist(),
         "max_err_vs_fci": err,
         "convention": ROTATION_CONVENTION,
+        "variants": variants,
         "status": "pass" if err < 1.0e-5 else "fail",
     }
     (_HERE / "test_cross_geometry_overlap.json").write_text(
