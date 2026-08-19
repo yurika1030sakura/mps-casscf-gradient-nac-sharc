@@ -47,7 +47,7 @@ def _proj_out_roots(obj, v, tag):
 
 
 def _ci_block_inverse(obj, w_list, *, n_sweeps, tol, solver_type, proj_weight,
-                      bra_schedule=None, noises=None):
+                      bra_schedule=None, noises=None, hcc_weight_scaling=True):
     """Apply H_CC^{-1} per state: solve (H_CC - E_i) v_i = w_i, v_i orthogonal
     to the roots.  Zero (or near-zero) slots map to the cached zero MPS.
 
@@ -61,6 +61,15 @@ def _ci_block_inverse(obj, w_list, *, n_sweeps, tol, solver_type, proj_weight,
     behaviour.  This is used to run the orbital-Schur loop at a CHEAP moderate m
     (the Schur complement is insensitive to the high-rank CI tail) while the final
     response vector z_C is solved once at a high adaptive schedule.
+
+    WEIGHT SCALING (the SA!=2 stagnation fix): the CI-CI block of the coupled
+    operator is H_CC[i] = 2*w_i*(H - E_i) (+ SA-gauge rank-2 corrections that
+    vanish on the root-orthogonal complement), but the block2 sweep solves
+    (H - E_i) v = w.  ``hcc_weight_scaling=True`` divides the returned solution
+    by 2*w_i so this routine applies the inverse of the SAME H_CC that
+    ``matvec_mps``/the dense reference use.  For SA-2 equal weights 2*w = 1 and
+    the scaling is a no-op, which is why every SA-2 validation was blind to the
+    missing factor while SA-3/SA-5 production runs stagnated at O(|1-2w|).
     """
     if bra_schedule is not None:
         schedule = list(bra_schedule)
@@ -87,7 +96,15 @@ def _ci_block_inverse(obj, w_list, *, n_sweeps, tol, solver_type, proj_weight,
             kw["noises"] = list(noises)
         with obj._use_su2_frame():
             obj._driver_su2.multiply(bra, obj._identity(), wp, **kw)
-        out.append(_proj_out_roots(obj, bra, f"CIINV-SOL{i}"))
+        sol = _proj_out_roots(obj, bra, f"CIINV-SOL{i}")
+        if hcc_weight_scaling:
+            w_i = float(np.asarray(obj.weights).ravel()[i])
+            if w_i > 0.0:
+                scale = 1.0 / (2.0 * w_i)
+                if abs(scale - 1.0) > 1.0e-14:
+                    sol = obj._scale_mps(
+                        sol, scale, tag=obj._new_tag(f"CIINV-WSC{i}"))
+        out.append(sol)
     return out
 
 
@@ -108,6 +125,7 @@ def solve_state_sweep_schur(
     ci_noises_final: list | None = None,
     verbose: bool = False,
     kappa_only: bool = False,
+    hcc_weight_scaling: bool = True,
 ):
     """Solve the CP response for ``state`` by the sweep-localized Schur method.
 
@@ -135,7 +153,7 @@ def solve_state_sweep_schur(
         return _ci_block_inverse(
             obj, w_list, n_sweeps=ci_sweeps, tol=ci_tol,
             solver_type=solver_type, proj_weight=proj_weight,
-            bra_schedule=_loop_sched,
+            bra_schedule=_loop_sched, hcc_weight_scaling=hcc_weight_scaling,
         )
 
     def Hcc_inv_final(w_list):
@@ -146,6 +164,7 @@ def solve_state_sweep_schur(
                                       len(ci_schedule_final) if ci_schedule_final else 1),
             tol=ci_tol, solver_type=solver_type, proj_weight=proj_weight,
             bra_schedule=ci_schedule_final, noises=ci_noises_final,
+            hcc_weight_scaling=hcc_weight_scaling,
         )
 
     # --- build dense H_OO once by probing (small relative to the determinant
@@ -274,6 +293,7 @@ def solve_state_sweep_schur(
     info = 0 if rel_res < resid_tol else 1
     meta = {
         "method": "sweep_schur",
+        "hcc_weight_scaling": bool(hcc_weight_scaling),
         "orb_dim": int(n_orb),
         "orb_gmres_info": int(orb_info),
         "schur_applies": int(n_schur_applies["count"]),
