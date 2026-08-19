@@ -59,12 +59,13 @@ def solve_response_auto(
     if nac_pair is not None:
         pair = tuple(int(s) for s in nac_pair)
         t0 = time.perf_counter()
-        kappa, ci, _info, _meta = obj.solve_nac_mps(pair, tol=tol, max_iter=max_iter)
+        kappa, ci, _info, meta = obj.solve_nac_mps(pair, tol=tol, max_iter=max_iter)
         wall = time.perf_counter() - t0
         z = MPSKrylovVector(obj, kappa, ci, label=f"AUTO-NAC{pair}")
         cert = certify_response(
             obj, z, state=pair[0], rhs_kind="nac", nac_pair=pair,
             tol=cert_tol, solver="global_mps_krylov", wall_s=wall,
+            extra={"solver_meta": meta},
         )
         attempts.append(_attempt_record("global_mps_krylov", cert))
         cert.extra["attempts"] = attempts
@@ -77,7 +78,7 @@ def solve_response_auto(
         from sweep_coupled_response import solve_state_sweep_schur
         try:
             t0 = time.perf_counter()
-            kappa, ci, _info, _meta = solve_state_sweep_schur(
+            kappa, ci, _info, meta = solve_state_sweep_schur(
                 obj, state, orb_tol=tol, ci_tol=max(1.0e-2 * tol, 1.0e-11),
             )
             wall = time.perf_counter() - t0
@@ -85,6 +86,7 @@ def solve_response_auto(
             cert = certify_response(
                 obj, z, state=state, rhs_kind="grad",
                 tol=cert_tol, solver="sweep_schur", wall_s=wall,
+                extra={"solver_meta": meta},
             )
             attempts.append(_attempt_record("sweep_schur", cert))
             if cert.converged:
@@ -95,12 +97,13 @@ def solve_response_auto(
             attempts.append({"solver": "sweep_schur", "error": repr(exc)})
 
     t0 = time.perf_counter()
-    kappa, ci, _info, _meta = obj.solve_mps(state, tol=tol, max_iter=max_iter)
+    kappa, ci, _info, meta = obj.solve_mps(state, tol=tol, max_iter=max_iter)
     wall = time.perf_counter() - t0
     z = MPSKrylovVector(obj, kappa, ci, label=f"AUTO-GLOBAL-G{state}")
     cert = certify_response(
         obj, z, state=state, rhs_kind="grad",
         tol=cert_tol, solver="global_mps_krylov", wall_s=wall,
+        extra={"solver_meta": meta},
     )
     attempts.append(_attempt_record("global_mps_krylov", cert))
     cert.extra["attempts"] = attempts
@@ -148,6 +151,7 @@ def compute_all_responses_certified(
                                 tol=cert_tol, solver="global_mps_krylov",
                                 wall_s=wall)
         cert.extra["niter"] = meta.get("niter")
+        cert.extra["solver_meta"] = meta
         results[("grad", s)] = (z, cert)
 
     for pair in nac_pairs:
@@ -161,6 +165,7 @@ def compute_all_responses_certified(
                                 tol=cert_tol, solver="global_mps_krylov",
                                 wall_s=wall)
         cert.extra["niter"] = meta.get("niter")
+        cert.extra["solver_meta"] = meta
         results[("nac", p)] = (z, cert)
 
     return results

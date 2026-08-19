@@ -1159,6 +1159,14 @@ class CPDMRGCASSCFResponseMPSKrylov(CPDMRGCASSCFResponseMPS):
         CI slots only.  The subsequent MPS-GMRES still solves the full coupled
         response equation and corrects this initial guess, so this optional
         path should only affect convergence speed.
+
+        Near-degeneracy hardening: the multiply penalty covers ALL reference
+        roots (a penalty of weight ``initial_guess_proj_weight`` is only a
+        soft level shift whose leakage scales like coupling/weight), and the
+        result is projected EXACTLY against all roots afterwards, so a
+        near-degenerate (E_j - E_i) direction can never dominate the guess.
+        The guess is also scaled by 1/(2*w_i): the coupled CI block is
+        2*w_i*P(H-E_i)P, while the multiply inverts the bare shift.
         """
         ci_guess = []
         t0 = time.perf_counter()
@@ -1179,16 +1187,24 @@ class CPDMRGCASSCFResponseMPSKrylov(CPDMRGCASSCFResponseMPS):
                     n_sweeps=max(self._initial_guess_sweeps, 1),
                     tol=self._initial_guess_tol,
                     bra_bond_dims=[self._m_compress],
-                    proj_mpss=[self._state_mps[i]],
-                    proj_weights=[self._initial_guess_proj_weight],
+                    proj_mpss=list(self._state_mps),
+                    proj_weights=[self._initial_guess_proj_weight]
+                    * len(self._state_mps),
                     linear_max_iter=4000,
                     iprint=0,
                 )
-            ovlp = self._mps_overlap(self._state_mps[i], bra)
-            if abs(ovlp) > 1.0e-14:
-                bra = self._combine_mps(
-                    [(1.0, bra), (-ovlp, self._state_mps[i])],
-                    tag=self._new_tag(f"X0-HCC-PROJ-{i}"),
+            for j, root in enumerate(self._state_mps):
+                ovlp = self._mps_overlap(root, bra)
+                if abs(ovlp) > 1.0e-14:
+                    bra = self._combine_mps(
+                        [(1.0, bra), (-ovlp, root)],
+                        tag=self._new_tag(f"X0-HCC-PROJ-{i}-{j}"),
+                    )
+            w_i = float(np.asarray(self.weights).ravel()[i])
+            if w_i > 0.0 and abs(2.0 * w_i - 1.0) > 1.0e-14:
+                bra = self._scale_mps(
+                    bra, 1.0 / (2.0 * w_i),
+                    tag=self._new_tag(f"X0-HCC-WSC-{i}"),
                 )
             ci_guess.append(bra)
         self._add_timing("initial_guess_hcc_inverse", time.perf_counter() - t0)
