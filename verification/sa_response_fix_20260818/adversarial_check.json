@@ -1,0 +1,44 @@
+{
+  "status": "fail",
+  "fails": [
+    "default_state2"
+  ],
+  "results": {
+    "default_state0": {
+      "cert": 4.386791286988708e-11,
+      "z_err_vs_dense": 1.6545499666644068e-11,
+      "z_dense_norm": 0.13126174481681036,
+      "dense_rel_resid": 7.640128902676523e-11,
+      "weight": 0.5,
+      "ok": true
+    },
+    "default_state1": {
+      "cert": 6.401612232749569e-11,
+      "z_err_vs_dense": 1.4248754506168096e-11,
+      "z_dense_norm": 0.10731131370012145,
+      "dense_rel_resid": 6.622649480035774e-11,
+      "weight": 0.3,
+      "ok": true
+    },
+    "default_state2": {
+      "cert": 6.314333149978613e-08,
+      "z_err_vs_dense": 7.51934026863067e-08,
+      "z_dense_norm": 0.07726015658024146,
+      "dense_rel_resid": 6.314332082697177e-08,
+      "weight": 0.2,
+      "ok": false
+    },
+    "M1_no_weight_scaling": {
+      "cert": 0.02590314078247834,
+      "caught": true
+    },
+    "M2_no_zero_safe": {
+      "cert": 0.02393187710342506,
+      "caught": true
+    },
+    "M3_multiply_only": {
+      "cert": 0.0075347008226389536,
+      "caught": true
+    }
+  }
+}
