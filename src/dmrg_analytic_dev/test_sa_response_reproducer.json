@@ -11,42 +11,60 @@
     "floor": 0.001,
     "dense_match": 1e-06
   },
-  "legacy_mode_available": false,
+  "legacy_mode_available": true,
   "counts": {
-    "pass": 1,
-    "fail": 4,
-    "skip": 2
+    "pass": 7,
+    "fail": 0,
+    "skip": 0
   },
   "results": {
     "h4_sa3_equal_default_certifies[0]": {
-      "status": "fail",
-      "assertion": "certificate 6.067e-02 > 1e-08"
+      "true_residual_relative": 5.268545073075981e-11,
+      "meta_residual": 5.76522687361115e-11,
+      "z_err_abs_vs_dense": 9.69344419426764e-12,
+      "z_dense_norm": 0.13971333227769675,
+      "dense_rel_residual": 4.8384129250225144e-11,
+      "wall_s": 24.863146859999688,
+      "status": "pass"
     },
     "h4_sa3_equal_default_certifies[1]": {
-      "status": "fail",
-      "assertion": "certificate 4.443e-02 > 1e-08"
+      "true_residual_relative": 2.2753416039497512e-11,
+      "meta_residual": 3.087151745265251e-11,
+      "z_err_abs_vs_dense": 8.44939147254282e-12,
+      "z_dense_norm": 0.075942787585437,
+      "dense_rel_residual": 2.0165717670137e-11,
+      "wall_s": 21.315958930998022,
+      "status": "pass"
     },
     "h4_sa3_equal_legacy_floor_pin": {
-      "status": "skip",
-      "reason": "legacy-mode flags not available"
+      "true_residual_relative": 0.060669539884152864,
+      "wall_s": 6.3574391809997906,
+      "status": "pass"
     },
     "lih_sa2_unequal_default_certifies[0]": {
-      "status": "fail",
-      "assertion": "certificate 4.062e-02 > 1e-08"
+      "true_residual_relative": 4.8879682138669425e-15,
+      "z_err_abs_vs_dense": 3.4171337280443492e-15,
+      "z_dense_norm": 0.11281695728653558,
+      "wall_s": 1.3708926180006529,
+      "status": "pass"
     },
     "lih_sa2_unequal_default_certifies[1]": {
-      "status": "fail",
-      "assertion": "certificate 4.062e-02 > 1e-08"
+      "true_residual_relative": 1.1665819531448784e-15,
+      "z_err_abs_vs_dense": 7.61813448791584e-15,
+      "z_dense_norm": 0.26323952356469066,
+      "wall_s": 2.271085921998747,
+      "status": "pass"
     },
     "lih_sa2_unequal_legacy_floor_pin": {
-      "status": "skip",
-      "reason": "legacy-mode flags not available"
+      "true_residual_relative": 0.04062188146292717,
+      "wall_s": 0.7915174059999117,
+      "status": "pass"
     },
     "heh_sa2_equal_control_certifies": {
-      "true_residual_relative": 1.3358164205306006e-15,
-      "wall_s": 2.2152721399979782,
+      "true_residual_relative": 1.0474516060328181e-14,
+      "wall_s": 1.1034039280020806,
       "status": "pass"
     }
   },
-  "status": "fail"
+  "status": "pass"
 }
