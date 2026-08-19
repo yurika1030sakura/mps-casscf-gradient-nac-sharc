@@ -1,10 +1,9 @@
 # MPS-level reproducer: SA-CASSCF response stagnation (sweep-Schur + global)
 
-Repo under test: /n/home04/yulili/daisuan/dmrg_sacasscf_response_public
-(commit 776c42c, branch production-hardening-20260813), imported READ-ONLY.
+Repo under test: this repository at commit 776c42c (pre-fix), imported READ-ONLY.
 All candidate fixes live in generated scratch copies
 (sweep_coupled_response_fixed.py / sweep_coupled_response_fixed_all.py).
-Env: /n/home04/yulili/.conda/envs/pyscf_dmrg/bin/python.
+Env: python with pyscf + pyblock2 (see requirements.txt).
 
 DELIVERABLE: test_sa_weight_ci_block_inverse.py  (pytest; see its docstring
 for the full defect list D1-D4).  Helpers: common.py, dense_ref.py.

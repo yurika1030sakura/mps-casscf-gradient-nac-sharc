@@ -13,7 +13,8 @@ branch response-exact-projection @d91109b. Full evidence chain in this directory
   M1 no-weight 2.59e-2, M2 no-zero-safe 2.39e-2, M3 multiply-only 7.54e-3.
   Every fix is individually load-bearing and the test suite detects its loss.
 
-## Production A/B in flight
-SLURM 40187146 (+hedge 40187151): 6m CAS(22,18)/SA-3-equal/def2-SVP, external solver
-settings identical to the NO-GO run (m=800/MinRes/proj_weight=1e3). Baseline to beat:
-S0 9.10e-2, S1 4.35e-2. Post-fix residual = the genuine m=800 truncation floor.
+## Production-scale A/B in flight
+A re-measurement on the production CAS(22,18)/SA-3-equal/def2-SVP case is running with
+external solver settings identical to the pre-fix run (m=800/MinRes/proj_weight=1e3).
+Baseline to beat: S0 9.10e-2, S1 4.35e-2. The post-fix residual measures the genuine
+m=800 truncation floor of the response vector.

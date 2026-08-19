@@ -25,7 +25,7 @@ from pathlib import Path
 
 import numpy as np
 
-WT = Path("/n/home04/yulili/daisuan/verify_new_wt")
+WT = Path(__file__).resolve().parents[2]   # repo root (script lives in verification/<record>/)
 for p in (WT / "src/dmrg_analytic_dev", WT / "sharc_interface"):
     sys.path.insert(0, str(p))
 

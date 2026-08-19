@@ -1,8 +1,8 @@
 """Reproducer + regression pin: SA!=2 stagnation of the sweep-Schur response.
 
 THE DISEASE (production, 2026-08): solve_state_sweep_schur stagnates at true
-relative residual ~1e-1..1e-2 on SA-3 equal-weight systems (6m dithiocarbonate
-CAS(22,18)/def2-SVP: S0 9.1e-2, S1 4.4e-2 after ~13 h; aza-acene SA-5: 0.023)
+relative residual ~1e-1..1e-2 on SA-3 equal-weight systems (a production
+CAS(22,18)/def2-SVP case: S0 9.1e-2, S1 4.4e-2 after ~13 h; aza-acene SA-5: 0.023)
 while every repo validation -- ALL of which is SA-2 equal-weight -- certifies
 to 1e-6..1e-16.  The certificate demands 1e-6.
 

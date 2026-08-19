@@ -26,6 +26,15 @@ benchmark:
    ethylene trajectory test repeated derivative evaluation and energy consistency
    for one initial condition.
 
+**v1.1.0 (2026-08):** three implementation defects in the sweep-Schur response path —
+each exactly invisible at SA-2 equal weights, the regime of every v1.0 benchmark — were
+found and fixed; SA-3 equal-weight and SA-2 unequal-weight responses are now validated
+against dense references to 1e-11..1e-15 (`test_sa_response_reproducer.py`). The
+true-residual certificate layer was honest throughout: affected solves were refused,
+never released with wrong values. See `CHANGELOG.md` and
+`verification/sa_response_fix_20260818/`. All v1.0 validation regressions reproduce
+reference-identical numbers on the fixed code.
+
 The excited-state derivative-coupling benchmarks reported in the manuscript use
 singlet state averaging. The analytic gradient is additionally validated in two
 non-singlet spin sectors against exact FCI (triplet CH2 CAS(6,6) to

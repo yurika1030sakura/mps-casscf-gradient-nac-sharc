@@ -17,8 +17,8 @@ For each SA setup (SA-2, SA-3, SA-4 on LiH CAS(2,2); SA-5 on LiH CAS(4,4)):
   7. test the 'absorb the scale downstream' alternative: is buggy z a
      constant multiple of exact z? (if not, no downstream convention can fix)
 """
-import sys, numpy as np
-sys.path.insert(0, "/n/home04/yulili/daisuan/dmrg_sacasscf_response_public/src/dmrg_analytic_dev")
+import sys, pathlib, numpy as np
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2] / "src" / "dmrg_analytic_dev"))
 from pyscf import gto, scf, mcscf
 from cp_casscf_response import CPCASSCFResponseFCI
 
