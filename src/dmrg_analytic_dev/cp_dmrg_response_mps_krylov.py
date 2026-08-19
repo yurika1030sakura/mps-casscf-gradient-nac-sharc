@@ -174,6 +174,12 @@ class CPDMRGCASSCFResponseMPSKrylov(CPDMRGCASSCFResponseMPS):
             )
         self._mps_fit_sweeps = int(mps_fit_sweeps)
         self._mps_fit_tol = float(mps_fit_tol)
+        # Zero-safe MPS additions (see _combine_mps): order terms largest
+        # first and drop negligible ones so a block2 addition fit is never
+        # initialized from a zero-norm MPS (an ALS fixed point for
+        # n_sites > 2 that silently annihilates the sum).  False restores the
+        # historic first-term initialization for regression pins.
+        self._mps_combine_zero_safe = True
         self._initial_guess = str(initial_guess).strip().lower()
         self._initial_guess_sweeps = int(initial_guess_sweeps)
         self._initial_guess_tol = float(initial_guess_tol)
@@ -271,11 +277,38 @@ class CPDMRGCASSCFResponseMPSKrylov(CPDMRGCASSCFResponseMPS):
         return self._scale_mps(ref_mps, 0.0, tag=tag)
 
     def _combine_mps(self, terms, tag: str):
-        """Fit a linear combination of MPS objects with block2 addition."""
+        """Fit a linear combination of MPS objects with block2 addition.
+
+        ZERO-SAFETY (load-bearing for correctness, not just cost): block2's
+        addition fit is initialized from the FIRST term's MPS, and a
+        zero-norm MPS is a fixed point of the ALS sweeps for n_sites > 2
+        (zero site tensors give zero environments), so
+        ``combine([(1, zero), (1, a)])`` silently returns ~0 while
+        ``combine([(1, a), (1, zero)])`` is exact.  Cached zero MPS slots are
+        first-class citizens in the response algebra (every non-target RHS
+        slot is one), so with ``self._mps_combine_zero_safe`` (default True)
+        the terms are ordered largest ``|coeff|*norm`` first and terms below
+        1e-12 of the largest are dropped (far below the 1e-10 fit tolerance),
+        at the cost of one extra overlap per term.  If every term has zero
+        norm the plain path is kept: a zero result is exact for a
+        zero-initialized fit.  Setting the attribute False restores the
+        historic behavior (used only by disease-pin regression tests).
+        """
         filtered = [(float(c), m) for c, m in terms if abs(float(c)) > 1.0e-15]
         if not filtered:
             ref = terms[0][1]
             filtered = [(0.0, ref)]
+        if getattr(self, "_mps_combine_zero_safe", True) and len(filtered) > 1:
+            weighted = []
+            for c, m in filtered:
+                n = float(np.sqrt(max(self._mps_overlap(m, m), 0.0)))
+                weighted.append((abs(c) * n, c, m))
+            wmax = max(w for w, _c, _m in weighted)
+            if wmax > 0.0:
+                kept = [(w, c, m) for w, c, m in weighted
+                        if w > 1.0e-12 * wmax]
+                kept.sort(key=lambda t: -t[0])
+                filtered = [(c, m) for _w, c, m in kept]
 
         def add_two(ca, ma, cb, mb, out_tag):
             bra = self._copy_mps(ma, out_tag)
