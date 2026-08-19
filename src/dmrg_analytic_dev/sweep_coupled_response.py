@@ -46,10 +46,78 @@ def _proj_out_roots(obj, v, tag):
     return out
 
 
+def _projected_cr_refine(obj, state, wp, nw, x0, *, rtol, max_iter):
+    """Root-projected conjugate-residual solve of ``P (H - E_state) P x = wp``.
+
+    On the complement of ALL reference roots, ``(H - E_state)`` is positive
+    definite for every averaged state (all non-root CI eigenvalues lie above
+    the highest averaged root), so CR converges unconditionally; every
+    iterate is re-projected so ``(E_j - E_state)``-amplified compression
+    leakage cannot accumulate inside the iteration.  This loop exists because
+    block2's ``DMRGDriver.multiply(left_mpo=...)`` declares convergence of
+    ITS OWN functional (DF ~ 1e-19, per-site Error = 0) at points whose TRUE
+    residual is 1e-2..5e-2 with the default local thresholds and still ~4e-5
+    at thrds=1e-12 (measured); the multiply result is therefore trusted only
+    as the initial guess ``x0``, never as the accept criterion.
+
+    ``nw`` is the norm of ``wp`` (the caller already has it).  Returns
+    ``(x, rel_residual, n_iter)``.
+    """
+    def apply_A(v, tag):
+        s = obj._sigma_mps(obj._hcc_shifted_mpo(state), v,
+                           tag=obj._new_tag(tag))
+        return _proj_out_roots(obj, s, tag + "P")
+
+    x = x0
+    if x is None:
+        r = wp
+    else:
+        ax = apply_A(x, f"CR{state}-AX0")
+        r = obj._combine_mps([(1.0, wp), (-1.0, ax)],
+                             tag=obj._new_tag(f"CR{state}-R0"))
+        r = _proj_out_roots(obj, r, f"CR{state}-R0P")
+    rel = _norm(obj, r) / nw
+    n_iter = 0
+    if rel >= rtol and int(max_iter) > 0:
+        p = r
+        Ap = apply_A(r, f"CR{state}-AR")
+        rAr = obj._mps_overlap(r, Ap)
+        for it in range(int(max_iter)):
+            n_iter = it + 1
+            nAp2 = max(obj._mps_overlap(Ap, Ap), 1.0e-300)
+            alpha = rAr / nAp2
+            x = (obj._combine_mps([(alpha, p)],
+                                  tag=obj._new_tag(f"CR{state}-X{it}"))
+                 if x is None else
+                 obj._combine_mps([(1.0, x), (alpha, p)],
+                                  tag=obj._new_tag(f"CR{state}-X{it}")))
+            r = obj._combine_mps([(1.0, r), (-alpha, Ap)],
+                                 tag=obj._new_tag(f"CR{state}-R{it}"))
+            r = _proj_out_roots(obj, r, f"CR{state}-RP{it}")
+            rel = _norm(obj, r) / nw
+            if rel < rtol:
+                break
+            Ar = apply_A(r, f"CR{state}-AR{it}")
+            rAr_new = obj._mps_overlap(r, Ar)
+            beta = rAr_new / (rAr if abs(rAr) > 1.0e-300 else 1.0e-300)
+            rAr = rAr_new
+            p = obj._combine_mps([(1.0, r), (beta, p)],
+                                 tag=obj._new_tag(f"CR{state}-P{it}"))
+            Ap = obj._combine_mps([(1.0, Ar), (beta, Ap)],
+                                  tag=obj._new_tag(f"CR{state}-AP{it}"))
+    if x is None:
+        x = obj._zero_state_mps(state)
+    return x, float(rel), int(n_iter)
+
+
 def _ci_block_inverse(obj, w_list, *, n_sweeps, tol, solver_type, proj_weight,
-                      bra_schedule=None, noises=None, hcc_weight_scaling=True):
-    """Apply H_CC^{-1} per state: solve (H_CC - E_i) v_i = w_i, v_i orthogonal
-    to the roots.  Zero (or near-zero) slots map to the cached zero MPS.
+                      bra_schedule=None, noises=None, hcc_weight_scaling=True,
+                      inner_solver="multiply_cr", thrds=None,
+                      cr_rtol=1.0e-9, cr_max_iter=200,
+                      proj_all_roots=True, stats=None):
+    """Apply H_CC^{-1} per state, where H_CC[i] = 2*w_i*P(H-E_i)P: solve the
+    root-projected shifted system and scale by 1/(2*w_i).  Zero (or
+    near-zero) slots map to the cached zero MPS.
 
     The true correction vector (H_CC-E)^{-1} w is intrinsically higher-rank than
     the wavefunction, so a single fixed ``bra_bond_dims=[m_compress]`` floors the
@@ -64,12 +132,35 @@ def _ci_block_inverse(obj, w_list, *, n_sweeps, tol, solver_type, proj_weight,
 
     WEIGHT SCALING (the SA!=2 stagnation fix): the CI-CI block of the coupled
     operator is H_CC[i] = 2*w_i*(H - E_i) (+ SA-gauge rank-2 corrections that
-    vanish on the root-orthogonal complement), but the block2 sweep solves
-    (H - E_i) v = w.  ``hcc_weight_scaling=True`` divides the returned solution
-    by 2*w_i so this routine applies the inverse of the SAME H_CC that
-    ``matvec_mps``/the dense reference use.  For SA-2 equal weights 2*w = 1 and
-    the scaling is a no-op, which is why every SA-2 validation was blind to the
-    missing factor while SA-3/SA-5 production runs stagnated at O(|1-2w|).
+    vanish on the root-orthogonal complement), but the shifted-MPO solve
+    inverts the bare (H - E_i).  ``hcc_weight_scaling=True`` divides the
+    returned solution by 2*w_i so this routine applies the inverse of the SAME
+    H_CC that ``matvec_mps``/the dense reference use.  For SA-2 equal weights
+    2*w = 1 and the scaling is a no-op, which is why every SA-2 validation was
+    blind to the missing factor while SA-3/SA-5 production runs stagnated at
+    O(|1-2w|).
+
+    INNER SOLVER (the silently-under-converged multiply fix):
+
+    * ``"multiply"``    -- historic behavior: block2 multiply(left_mpo) alone.
+      Its convergence report is not a true-residual statement: measured true
+      residuals were 1e-2..5e-2 at the default local thresholds while it
+      reported per-site Error = 0.
+    * ``"cr"``          -- root-projected conjugate residual on the repo's own
+      exact primitives (:func:`_projected_cr_refine`), accepted only when the
+      true slot residual is below ``cr_rtol``.
+    * ``"multiply_cr"`` -- default: multiply (with tight ``thrds``) supplies a
+      rank-adapted initial guess, so ``bra_schedule``/``noises`` keep their
+      meaning, and CR refinement is the accept criterion.
+
+    ``thrds`` overrides block2's local linear-solver thresholds (block2's own
+    default is [1e-6]*4+[1e-7]); when None and the inner solver is not plain
+    "multiply", a tight [1e-12]*n_sweeps is used.  ``proj_all_roots`` puts ALL
+    reference roots into the multiply penalty (not just the own root), so
+    near-degenerate (E_j - E_i) directions are not left unprotected inside
+    block2's sweeps; the CR loop projects every iterate against all roots
+    exactly.  ``stats`` (optional dict) accumulates inner-solve effort and
+    quality counters for the caller's certificate metadata.
     """
     if bra_schedule is not None:
         schedule = list(bra_schedule)
@@ -77,26 +168,51 @@ def _ci_block_inverse(obj, w_list, *, n_sweeps, tol, solver_type, proj_weight,
         schedule = list(getattr(obj, "_ci_bra_schedule", None) or [int(obj._m_compress)])
     if noises is None:
         noises = getattr(obj, "_ci_noises", None)
+    inner_solver = str(inner_solver).strip().lower()
+    if inner_solver not in ("multiply", "cr", "multiply_cr"):
+        raise ValueError(f"unknown inner_solver {inner_solver!r}")
+    if thrds is None and inner_solver != "multiply":
+        thrds = [1.0e-12] * max(int(n_sweeps), 1)
     out = []
     for i, w in enumerate(w_list):
         wp = _proj_out_roots(obj, w, f"CIINV-RHS{i}")
-        if _norm(obj, wp) < 1.0e-13:
+        nw = _norm(obj, wp)
+        if nw < 1.0e-13:
             out.append(obj._zero_state_mps(i))
             continue
-        sm = obj._state_mps[i]
-        bra = obj._copy_mps(wp, tag=obj._new_tag(f"CIINV-BRA{i}"))
-        kw = dict(
-            left_mpo=obj._hcc_shifted_mpo(i),
-            n_sweeps=int(n_sweeps), tol=float(tol),
-            bra_bond_dims=schedule,
-            proj_mpss=[sm], proj_weights=[float(proj_weight)],
-            linear_max_iter=4000, solver_type=solver_type, iprint=0,
-        )
-        if noises is not None:
-            kw["noises"] = list(noises)
-        with obj._use_su2_frame():
-            obj._driver_su2.multiply(bra, obj._identity(), wp, **kw)
-        sol = _proj_out_roots(obj, bra, f"CIINV-SOL{i}")
+        if stats is not None:
+            stats["n_slot_solves"] = stats.get("n_slot_solves", 0) + 1
+        sol = None
+        if inner_solver in ("multiply", "multiply_cr"):
+            proj_list = (list(obj._state_mps) if proj_all_roots
+                         else [obj._state_mps[i]])
+            bra = obj._copy_mps(wp, tag=obj._new_tag(f"CIINV-BRA{i}"))
+            kw = dict(
+                left_mpo=obj._hcc_shifted_mpo(i),
+                n_sweeps=int(n_sweeps), tol=float(tol),
+                bra_bond_dims=schedule,
+                proj_mpss=proj_list,
+                proj_weights=[float(proj_weight)] * len(proj_list),
+                linear_max_iter=4000, solver_type=solver_type, iprint=0,
+            )
+            if thrds is not None:
+                kw["thrds"] = [float(t) for t in thrds]
+            if noises is not None:
+                kw["noises"] = list(noises)
+            with obj._use_su2_frame():
+                obj._driver_su2.multiply(bra, obj._identity(), wp, **kw)
+            sol = _proj_out_roots(obj, bra, f"CIINV-SOL{i}")
+            if stats is not None:
+                stats["n_multiply"] = stats.get("n_multiply", 0) + 1
+        if inner_solver in ("cr", "multiply_cr"):
+            sol, rel, n_it = _projected_cr_refine(
+                obj, i, wp, nw, sol, rtol=float(cr_rtol),
+                max_iter=int(cr_max_iter))
+            if stats is not None:
+                stats["cr_iters_total"] = stats.get("cr_iters_total", 0) + n_it
+                stats["cr_iters_max"] = max(stats.get("cr_iters_max", 0), n_it)
+                stats["cr_rel_resid_worst"] = max(
+                    stats.get("cr_rel_resid_worst", 0.0), float(rel))
         if hcc_weight_scaling:
             w_i = float(np.asarray(obj.weights).ravel()[i])
             if w_i > 0.0:
@@ -126,10 +242,25 @@ def solve_state_sweep_schur(
     verbose: bool = False,
     kappa_only: bool = False,
     hcc_weight_scaling: bool = True,
+    ci_inner_solver: str = "multiply_cr",
+    ci_thrds: list | None = None,
+    ci_cr_rtol: float | None = None,
+    ci_cr_max_iter: int = 200,
+    ci_proj_all_roots: bool = True,
 ):
     """Solve the CP response for ``state`` by the sweep-localized Schur method.
 
     Returns ``(kappa, ci_mps_list, info, meta)`` matching ``obj.solve_mps``.
+
+    Inner CI-solve controls (see :func:`_ci_block_inverse` for semantics):
+    ``ci_inner_solver`` in {"multiply_cr" (default), "cr", "multiply"};
+    ``ci_thrds`` block2 local linear-solver thresholds (None -> tight
+    [1e-12]*ci_sweeps unless plain "multiply", which keeps block2 defaults);
+    ``ci_cr_rtol`` per-slot true-residual target of the CR refinement
+    (None -> max(1e2*ci_tol, 1e-11)); ``ci_proj_all_roots`` penalizes all
+    reference roots (not just the own root) inside block2 multiply sweeps.
+    All resolved settings and inner-solve effort counters are recorded in
+    the returned ``meta`` so certificates can carry them.
     """
     state = int(state)
     obj._build_eris_cache()
@@ -146,6 +277,19 @@ def solve_state_sweep_schur(
     import time as _time
     _loop_sched = [int(ci_m_loop)] if ci_m_loop is not None else None
 
+    # Resolve the inner-solve settings ONCE so the meta/certificate records
+    # exactly what was used.
+    ci_inner_solver = str(ci_inner_solver).strip().lower()
+    if ci_thrds is None and ci_inner_solver != "multiply":
+        ci_thrds_used = [1.0e-12] * max(int(ci_sweeps), 1)
+    elif ci_thrds is not None:
+        ci_thrds_used = [float(t) for t in ci_thrds]
+    else:
+        ci_thrds_used = None
+    ci_cr_rtol_used = (float(ci_cr_rtol) if ci_cr_rtol is not None
+                       else max(1.0e2 * float(ci_tol), 1.0e-11))
+    inner_stats: dict = {}
+
     def Hcc_inv(w_list):
         # Orbital-Schur loop: cheap moderate-m CI-solves (the Schur complement is
         # insensitive to the high-rank CI tail, so the orbital answer converges at
@@ -154,6 +298,9 @@ def solve_state_sweep_schur(
             obj, w_list, n_sweeps=ci_sweeps, tol=ci_tol,
             solver_type=solver_type, proj_weight=proj_weight,
             bra_schedule=_loop_sched, hcc_weight_scaling=hcc_weight_scaling,
+            inner_solver=ci_inner_solver, thrds=ci_thrds_used,
+            cr_rtol=ci_cr_rtol_used, cr_max_iter=ci_cr_max_iter,
+            proj_all_roots=ci_proj_all_roots, stats=inner_stats,
         )
 
     def Hcc_inv_final(w_list):
@@ -165,6 +312,9 @@ def solve_state_sweep_schur(
             tol=ci_tol, solver_type=solver_type, proj_weight=proj_weight,
             bra_schedule=ci_schedule_final, noises=ci_noises_final,
             hcc_weight_scaling=hcc_weight_scaling,
+            inner_solver=ci_inner_solver, thrds=ci_thrds_used,
+            cr_rtol=ci_cr_rtol_used, cr_max_iter=ci_cr_max_iter,
+            proj_all_roots=ci_proj_all_roots, stats=inner_stats,
         )
 
     # --- build dense H_OO once by probing (small relative to the determinant
@@ -251,7 +401,9 @@ def solve_state_sweep_schur(
         # rather than assuming a tuning calibrated on a smaller system.
         return z_kappa, None, int(orb_info), {
             "kappa_only": True, "orb_iters": int(_gm["it"]),
-            "n_schur_applies": int(n_schur_applies["count"]), **hoo_diag}
+            "n_schur_applies": int(n_schur_applies["count"]),
+            "ci_inner_solver": ci_inner_solver,
+            "ci_inner_stats": dict(inner_stats), **hoo_diag}
 
     if verbose:
         print("  [schur] now final z_C solve (adaptive high-m correction vector)",
@@ -293,12 +445,34 @@ def solve_state_sweep_schur(
     info = 0 if rel_res < resid_tol else 1
     meta = {
         "method": "sweep_schur",
-        "hcc_weight_scaling": bool(hcc_weight_scaling),
         "orb_dim": int(n_orb),
         "orb_gmres_info": int(orb_info),
         "schur_applies": int(n_schur_applies["count"]),
         "true_residual_rel": rel_res,
         "residual_tol_used": resid_tol,
+        # --- inner CI-solve settings as RESOLVED (certificate metadata) ---
+        "hcc_weight_scaling": bool(hcc_weight_scaling),
+        "ci_inner_solver": ci_inner_solver,
+        "ci_thrds": (list(ci_thrds_used) if ci_thrds_used is not None
+                     else "block2-default"),
+        "ci_cr_rtol": (float(ci_cr_rtol_used)
+                       if ci_inner_solver != "multiply" else None),
+        "ci_cr_max_iter": (int(ci_cr_max_iter)
+                           if ci_inner_solver != "multiply" else None),
+        "ci_proj_all_roots": bool(ci_proj_all_roots),
+        "proj_weight": float(proj_weight),
+        "ci_solver_type": str(solver_type),
+        "ci_sweeps": int(ci_sweeps),
+        "ci_tol": float(ci_tol),
+        "ci_m_loop": (int(ci_m_loop) if ci_m_loop is not None else None),
+        "ci_schedule_final": (list(ci_schedule_final)
+                              if ci_schedule_final is not None else None),
+        "m_compress": (int(obj._m_compress)
+                       if getattr(obj, "_m_compress", None) is not None
+                       else None),
+        "combine_zero_safe": bool(getattr(obj, "_mps_combine_zero_safe",
+                                          False)),
+        "ci_inner_stats": dict(inner_stats),
     }
     meta.update(hoo_diag)
     return z_kappa, z_C, info, meta
