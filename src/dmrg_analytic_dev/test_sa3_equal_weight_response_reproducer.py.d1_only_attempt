@@ -1,0 +1,437 @@
+"""Minimal reproducer: SA-3 equal-weight stagnation of the sweep-Schur CP response.
+
+THE PHENOMENON (production): solve_state_sweep_schur stagnates at true relative
+residual ~5e-2..1e-1 on SA-3 equal-weight systems (6m dithiocarbonate CAS(22,18),
+def2-SVP) while every repo validation -- ALL of which is SA-2 -- certifies to 1e-6+.
+
+THE HYPOTHESIS UNDER TEST (found by reading sweep_coupled_response.py):
+_ci_block_inverse solves (H - E_i) v = w  per state (left_mpo = _hcc_shifted_mpo),
+but the CI-CI block of the coupled operator (H_CC_apply_mps, and its dense twin
+CPCASSCFResponseFCI.H_CC_apply / pyscf newton_casscf) is
+
+        H_CC[i] = 2 * w_i * (H - E_i)   (+ SA-gauge rank-2 corrections).
+
+The Schur elimination therefore uses an H_CC^{-1} that is wrong by the factor
+1/(2 w_i).  For SA-2 equal weights 2*w = 1 exactly -- every existing test is
+blind to it.  For SA-3 equal weights the factor is 2/3; for SA-5 it is 2/5.
+The assembled solution then has an O(|1 - 2w|) *relative* true residual, which
+no amount of proj_weight (S1), m_compress (S2) or inner-solve effort (S3) can
+remove -- exactly the observed flat stagnation.
+
+THE EXPERIMENT (H4 near-square rectangle, 3-21G, CAS(4,4), engineered
+near-degeneracy; DMRG = FCI so the dense PySCF response is exactly solvable):
+
+  A. dense EXACT solve: probe the full projected coupled Hessian (newton_casscf
+     backend, pyscf project_Aop convention), solve exactly in the complement of
+     the SA root space.  This is the certified answer.
+  B. SA-2 control: sweep-Schur must certify (repo status quo).
+  C. SA-3 with the CURRENT algebra (hcc_weight_scaling=False): measure the floor.
+  D. SA-3 scans: proj_weight in {1e1,1e3,1e5,1e7}, m_compress/ci_m loop values,
+     ci_sweeps -- the floor must NOT move if the weight factor is the disease.
+  E. SA-3 with the FIX (hcc_weight_scaling=True, scale each block solve by
+     1/(2 w_i)): must certify to <=1e-8 in true residual and match the dense z.
+  F. dense REPLICA of the Schur algorithm (pure numpy, penalty + factor toggles):
+     predicts the floor for each configuration with zero MPS noise, closing the
+     mechanistic loop.
+
+Run:  python test_sa3_equal_weight_response_reproducer.py [--stage quick|scan|all]
+Writes JSON next to this file.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import sys
+import time
+import traceback
+from pathlib import Path
+
+import numpy as np
+
+_HERE = Path(__file__).resolve().parent
+for _p in (str(_HERE), str(_HERE.parents[1] / "sharc_interface")):
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
+
+ANG = 1.8897261246257702
+_T0 = time.perf_counter()
+
+
+def log(m):
+    print(f"[{time.perf_counter() - _T0:8.1f}s] {m}", flush=True)
+
+
+# ----------------------------------------------------------------- build
+def build_h4(nroots: int, *, rect_a=1.00, rect_b=1.10, basis="3-21g",
+             max_bond_dim=200, threads=4):
+    """H4 near-square rectangle SA-CASSCF(4,4) via the repo production path
+    (certified_engine.build_robust: force_dmrg, SU2, FCI-seeded orbitals)."""
+    import block2
+    import certified_engine as ce
+
+    symbols = ["H"] * 4
+    coords = np.array([[0, 0, 0], [rect_a, 0, 0], [0, rect_b, 0],
+                       [rect_a, rect_b, 0]], float) * ANG
+    weights = [1.0 / nroots] * nroots
+    mol, mc, solver, info = ce.build_robust(
+        symbols, coords, basis=basis, charge=0, spin=0, ncas=4, nelecas=4,
+        nroots=nroots, weights=weights, max_bond_dim=max_bond_dim,
+        threads=threads, stack_mem_mb=2000)
+    block2.Global.frame = mc.fcisolver._driver.frame
+    gaps = [float(mc.e_states[i + 1] - mc.e_states[i]) for i in range(nroots - 1)]
+    log(f"H4 SA-{nroots} built: converged={mc.converged} "
+        f"e={[f'{e:.8f}' for e in mc.e_states]} gaps={[f'{g:.5f}' for g in gaps]}")
+    return mc, np.asarray(weights), {"e_states": [float(e) for e in mc.e_states],
+                                     "gaps": gaps, "converged": bool(mc.converged)}
+
+
+# ----------------------------------------------------------------- dense side
+class DenseReference:
+    """Exact dense solution of the projected coupled CP-SA-CASSCF equations,
+    plus a pure-numpy replica of the sweep-Schur algorithm (penalty and
+    weight-factor toggles) for floor prediction."""
+
+    def __init__(self, mc, weights, state=0):
+        from cp_casscf_response import CPCASSCFResponseFCI
+        self.mc = mc
+        self.state = int(state)
+        self.weights = np.asarray(weights, float)
+        self.resp = CPCASSCFResponseFCI(mc, weights=self.weights,
+                                        backend="newton_casscf")
+        r = self.resp
+        self.nstates = r.nstates
+        self.nrot = mc.pack_uniq_var(np.zeros((r.nmo,) * 2)).size
+        self.ndet = r.ci_list[0].size
+        self.n = self.nrot + self.nstates * self.ndet
+        rhs_O, rhs_C = r.build_rhs(self.state)
+        self.b = r._flatten(rhs_O, rhs_C)
+        # probe the full projected operator (pyscf project_Aop convention)
+        A = np.zeros((self.n, self.n))
+        for k in range(self.n):
+            e = np.zeros(self.n)
+            e[k] = 1.0
+            A[:, k] = r._matvec(e)
+        self.A = A
+        # complement-of-root-space basis Q (all roots removed from every slot)
+        roots = np.stack([c.ravel() for c in r.ci_list])          # (ns, ndet)
+        Pc = np.eye(self.ndet) - roots.T @ roots
+        w_eig, V = np.linalg.eigh(0.5 * (Pc + Pc.T))
+        Qslot = V[:, w_eig > 0.5]                                  # (ndet, ndet-ns)
+        blocks = [np.eye(self.nrot)] + [Qslot] * self.nstates
+        nq = self.nrot + self.nstates * Qslot.shape[1]
+        Q = np.zeros((self.n, nq))
+        Q[:self.nrot, :self.nrot] = np.eye(self.nrot)
+        off_r, off_c = self.nrot, self.nrot
+        for _ in range(self.nstates):
+            Q[off_r:off_r + self.ndet, off_c:off_c + Qslot.shape[1]] = Qslot
+            off_r += self.ndet
+            off_c += Qslot.shape[1]
+        self.Q = Q
+        AQ = Q.T @ A @ Q
+        self.AQ = AQ
+        bQ = Q.T @ self.b
+        self.z = Q @ np.linalg.solve(AQ, bQ)
+        s = np.linalg.svd(AQ, compute_uv=False)
+        self.diag = {
+            "n_full": int(self.n), "n_projected": int(nq),
+            "AQ_cond": float(s[0] / s[-1]), "AQ_sigma_min": float(s[-1]),
+            "AQ_asym": float(np.linalg.norm(AQ - AQ.T) / np.linalg.norm(AQ)),
+            "b_norm": float(np.linalg.norm(self.b)),
+            "b_outside_Q": float(np.linalg.norm(self.b - Q @ bQ)),
+            "exact_rel_residual": float(
+                np.linalg.norm(A @ self.z - self.b) / np.linalg.norm(self.b)),
+        }
+        # per-slot (H - E_i) in det space for the Schur replica
+        from single_site_sigma import single_site_sigma_fci_fallback
+        cache = r._build_eris_cache()
+        h1, eri = cache["h1cas_0"], cache["eri_cas"]
+        eci0 = cache["eci0"]
+        shape = r.ci_list[0].shape
+        self.Hi = []
+        for i in range(self.nstates):
+            H = np.zeros((self.ndet, self.ndet))
+            for k in range(self.ndet):
+                v = np.zeros(self.ndet)
+                v[k] = 1.0
+                sig = single_site_sigma_fci_fallback(
+                    h1, eri, v.reshape(shape), r.ncas, r.nelec,
+                    fcisolver=mc.fcisolver)
+                H[:, k] = sig.ravel() - eci0[i] * v
+            self.Hi.append(H)
+        self.roots = roots
+        self.Pc = Pc
+
+    # -- metrics -----------------------------------------------------------
+    def unflatten(self, x):
+        return x[:self.nrot], [x[self.nrot + i * self.ndet:
+                                 self.nrot + (i + 1) * self.ndet]
+                               for i in range(self.nstates)]
+
+    def flatten(self, kappa_packed, ci_flat_list):
+        return np.concatenate([kappa_packed] + [c.ravel() for c in ci_flat_list])
+
+    def metrics(self, x):
+        """Dense-side certificate + error of a candidate solution x (flattened,
+        same layout as self.z)."""
+        rel_res = float(np.linalg.norm(self.A @ x - self.b)
+                        / np.linalg.norm(self.b))
+        # gauge-align: project candidate into Q space before comparing
+        xq = self.Q @ (self.Q.T @ x)
+        err = float(np.linalg.norm(xq - self.z))
+        rel_err = err / max(float(np.linalg.norm(self.z)), 1e-300)
+        k_c, _ = self.unflatten(x)
+        k_d, _ = self.unflatten(self.z)
+        kap_err = float(np.linalg.norm(k_c - k_d))
+        return {"dense_rel_residual": rel_res, "z_err_abs": err,
+                "z_err_rel": rel_err, "kappa_err_abs": kap_err,
+                "kappa_norm_dense": float(np.linalg.norm(k_d))}
+
+    # -- dense replica of the sweep-Schur algorithm -------------------------
+    def schur_replica(self, *, factor_scaling: bool, proj_weight: float):
+        """Pure-numpy replica of solve_state_sweep_schur: per-slot CI solves of
+        (H - E_i + lam |c_i><c_i|) v = P w with pre/post projection P (all
+        roots), optional 1/(2 w_i) scaling (the fix), exact orbital Schur.
+        Returns the flattened solution and its dense true relative residual."""
+        r = self.resp
+        b_k, b_ci = self.unflatten(self.b)
+        P = self.Pc
+
+        def hcc_inv(w_list):
+            out = []
+            for i, w in enumerate(w_list):
+                wp = P @ w
+                if np.linalg.norm(wp) < 1e-13:
+                    out.append(np.zeros_like(wp))
+                    continue
+                ci = self.roots[i]
+                M = self.Hi[i] + proj_weight * np.outer(ci, ci)
+                v, *_ = np.linalg.lstsq(M, wp, rcond=None)
+                v = P @ v
+                if factor_scaling:
+                    v = v / (2.0 * self.weights[i])
+                out.append(v)
+            return out
+
+        shape = r.ci_list[0].shape
+
+        def H_CO(kap_packed):
+            kappa = self.mc.unpack_uniq_var(kap_packed)
+            return [c.ravel() for c in r.H_CO_apply(kappa)]
+
+        def H_OC(ci_flat):
+            v_list = [c.reshape(shape) for c in ci_flat]
+            return self.mc.pack_uniq_var(r.H_OC_apply(v_list))
+
+        def H_OO(kap_packed):
+            return self.mc.pack_uniq_var(
+                r.H_OO_apply(self.mc.unpack_uniq_var(kap_packed)))
+
+        binv = hcc_inv(b_ci)
+        rhs_schur = b_k - H_OC(binv)
+        S = np.zeros((self.nrot, self.nrot))
+        for k in range(self.nrot):
+            e = np.zeros(self.nrot)
+            e[k] = 1.0
+            S[:, k] = H_OO(e) - H_OC(hcc_inv(H_CO(e)))
+        z_k = np.linalg.solve(S, rhs_schur)
+        hco_zk = H_CO(z_k)
+        z_C = hcc_inv([b_ci[i] - hco_zk[i] for i in range(self.nstates)])
+        x = self.flatten(z_k, z_C)
+        return x, self.metrics(x)
+
+
+# ----------------------------------------------------------------- MPS side
+def mps_solution_to_dense(obj, dense, kappa, ci_mps):
+    """Flatten an MPS-side solution into the dense layout (det basis)."""
+    from site_replacement_density import mps_to_fci_generic
+    kp = obj.mc.pack_uniq_var(obj._canonical_kappa(kappa))
+    ci_flat = []
+    for i, m in enumerate(ci_mps):
+        if obj._is_cached_zero_mps(i, m):
+            ci_flat.append(np.zeros(dense.ndet))
+            continue
+        ci_flat.append(mps_to_fci_generic(
+            obj._driver_su2, m, obj.ncas, obj.nelec).ravel())
+    return dense.flatten(kp, ci_flat)
+
+
+def run_schur_case(mc, dense, *, label, proj_weight, m_compress, ci_m_loop,
+                   ci_sweeps, ci_tol, orb_max_iter=40, orb_tol=1e-9,
+                   hcc_weight_scaling, state=0):
+    """One sweep-Schur solve with the given knobs; returns MPS certificate +
+    dense-side metrics."""
+    from analytic_cp_sharc import _make_mps_krylov_response
+    from sweep_coupled_response import solve_state_sweep_schur
+
+    obj = _make_mps_krylov_response(mc)
+    obj._m_compress = int(m_compress)
+    t0 = time.perf_counter()
+    kappa, ci, sinfo, meta = solve_state_sweep_schur(
+        obj, state, orb_tol=orb_tol, orb_max_iter=orb_max_iter,
+        ci_sweeps=ci_sweeps, ci_tol=ci_tol, solver_type="MinRes",
+        proj_weight=proj_weight, ci_m_loop=ci_m_loop,
+        ci_schedule_final=[int(m_compress)] * 2,
+        hcc_weight_scaling=hcc_weight_scaling)
+    wall = time.perf_counter() - t0
+    x = mps_solution_to_dense(obj, dense, kappa, ci)
+    out = {
+        "label": label, "proj_weight": proj_weight, "m_compress": m_compress,
+        "ci_m_loop": ci_m_loop, "ci_sweeps": ci_sweeps, "ci_tol": ci_tol,
+        "hcc_weight_scaling": bool(hcc_weight_scaling),
+        "info": int(sinfo), "wall_s": wall,
+        "mps_true_residual_rel": float(meta["true_residual_rel"]),
+        **dense.metrics(x),
+    }
+    log(f"  {label}: mps_resid={out['mps_true_residual_rel']:.3e} "
+        f"dense_resid={out['dense_rel_residual']:.3e} "
+        f"z_err_rel={out['z_err_rel']:.3e} ({wall:.0f}s)")
+    return out
+
+
+def run_global_case(mc, dense, *, label, m_compress, solver="gmres",
+                    max_iter=60, tol=1e-9, state=0):
+    """Global MPS-Krylov solve (consistent operator, no Schur elimination)."""
+    from analytic_cp_sharc import _make_mps_krylov_response
+    obj = _make_mps_krylov_response(mc)
+    obj._m_compress = int(m_compress)
+    obj._linear_solver = solver
+    t0 = time.perf_counter()
+    kappa, ci, info, meta = obj.solve_mps(state, tol=tol, max_iter=max_iter)
+    wall = time.perf_counter() - t0
+    x = mps_solution_to_dense(obj, dense, kappa, ci)
+    out = {"label": label, "solver": solver, "m_compress": m_compress,
+           "info": int(info), "wall_s": wall,
+           "mps_residual_meta": float(meta.get("residual", np.nan)),
+           **dense.metrics(x)}
+    log(f"  {label}: info={info} dense_resid={out['dense_rel_residual']:.3e} "
+        f"z_err_rel={out['z_err_rel']:.3e} ({wall:.0f}s)")
+    return out
+
+
+# ----------------------------------------------------------------- stages
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--stage", default="quick",
+                    choices=["quick", "scan", "replica", "all"])
+    ap.add_argument("--threads", type=int, default=4)
+    ap.add_argument("--rect-a", type=float, default=1.00)
+    ap.add_argument("--rect-b", type=float, default=1.10)
+    args = ap.parse_args()
+
+    results = {"geometry": {"rect_a": args.rect_a, "rect_b": args.rect_b,
+                            "basis": "3-21g", "cas": "(4,4)"},
+               "cases": []}
+    out_path = _HERE / "test_sa3_equal_weight_response_reproducer.json"
+
+    def save():
+        out_path.write_text(json.dumps(results, indent=2, default=str) + "\n")
+
+    fails = []
+
+    # ---------- SA-3 (the disease) ----------
+    mc3, w3, build3 = build_h4(3, rect_a=args.rect_a, rect_b=args.rect_b,
+                               threads=args.threads)
+    dense3 = DenseReference(mc3, w3, state=0)
+    results["sa3_build"] = build3
+    results["sa3_dense_diag"] = dense3.diag
+    log(f"dense SA-3 exact: {json.dumps(dense3.diag)}")
+
+    if args.stage in ("quick", "all"):
+        # C: current algebra, production-analog knobs (exact m at this size)
+        c_bug = run_schur_case(
+            mc3, dense3, label="SA3_schur_CURRENT_pw1e3_m200",
+            proj_weight=1e3, m_compress=200, ci_m_loop=200, ci_sweeps=16,
+            ci_tol=1e-10, hcc_weight_scaling=False)
+        results["cases"].append(c_bug)
+        # E: fixed algebra, identical knobs
+        c_fix = run_schur_case(
+            mc3, dense3, label="SA3_schur_FIXED_pw1e3_m200",
+            proj_weight=1e3, m_compress=200, ci_m_loop=200, ci_sweeps=16,
+            ci_tol=1e-10, hcc_weight_scaling=True)
+        results["cases"].append(c_fix)
+        # global solver on the same object (consistent operator -> no factor bug)
+        c_glob = run_global_case(mc3, dense3, label="SA3_global_gmres_m200",
+                                 m_compress=200)
+        results["cases"].append(c_glob)
+        save()
+        if c_bug["mps_true_residual_rel"] < 1e-2:
+            fails.append("SA-3 CURRENT did not stagnate (hypothesis wrong?)")
+        if c_fix["mps_true_residual_rel"] > 1e-8:
+            fails.append("SA-3 FIXED did not certify to 1e-8")
+        if c_fix["z_err_rel"] > 1e-6:
+            fails.append("SA-3 FIXED z does not match dense exact")
+
+        # B: SA-2 control
+        mc2, w2, build2 = build_h4(2, rect_a=args.rect_a, rect_b=args.rect_b,
+                                   threads=args.threads)
+        dense2 = DenseReference(mc2, w2, state=0)
+        results["sa2_build"] = build2
+        results["sa2_dense_diag"] = dense2.diag
+        c_ctrl = run_schur_case(
+            mc2, dense2, label="SA2_schur_CONTROL_pw1e3_m200",
+            proj_weight=1e3, m_compress=200, ci_m_loop=200, ci_sweeps=16,
+            ci_tol=1e-10, hcc_weight_scaling=False)
+        results["cases"].append(c_ctrl)
+        save()
+        if c_ctrl["mps_true_residual_rel"] > 1e-6:
+            fails.append("SA-2 control failed to certify (repo status quo broken)")
+
+    if args.stage in ("scan", "all"):
+        # D1: proj_weight scan, current algebra (S1 test)
+        for pw in (1e1, 1e3, 1e5, 1e7):
+            results["cases"].append(run_schur_case(
+                mc3, dense3, label=f"SA3_scan_pw{pw:.0e}_CURRENT",
+                proj_weight=pw, m_compress=200, ci_m_loop=200, ci_sweeps=16,
+                ci_tol=1e-10, hcc_weight_scaling=False))
+            save()
+        # D2: m scan, current algebra (S2 test)
+        for m in (2, 4, 8, 200):
+            results["cases"].append(run_schur_case(
+                mc3, dense3, label=f"SA3_scan_m{m}_CURRENT",
+                proj_weight=1e3, m_compress=m, ci_m_loop=m, ci_sweeps=16,
+                ci_tol=1e-10, hcc_weight_scaling=False))
+            save()
+        # D3: inner-solve scan (S3 test)
+        for sw, tol in ((8, 1e-6), (16, 1e-10), (50, 1e-12)):
+            results["cases"].append(run_schur_case(
+                mc3, dense3, label=f"SA3_scan_sw{sw}_tol{tol:.0e}_CURRENT",
+                proj_weight=1e3, m_compress=200, ci_m_loop=200, ci_sweeps=sw,
+                ci_tol=tol, hcc_weight_scaling=False))
+            save()
+        # D4: proj_weight scan with the FIX (residual S1 leakage after fix)
+        for pw in (1e1, 1e3, 1e5, 1e7):
+            results["cases"].append(run_schur_case(
+                mc3, dense3, label=f"SA3_scan_pw{pw:.0e}_FIXED",
+                proj_weight=pw, m_compress=200, ci_m_loop=200, ci_sweeps=16,
+                ci_tol=1e-10, hcc_weight_scaling=True))
+            save()
+        # D5: m scan with the FIX (S2 truncation floor isolated)
+        for m in (2, 4, 8):
+            results["cases"].append(run_schur_case(
+                mc3, dense3, label=f"SA3_scan_m{m}_FIXED",
+                proj_weight=1e3, m_compress=m, ci_m_loop=m, ci_sweeps=16,
+                ci_tol=1e-10, hcc_weight_scaling=True))
+            save()
+
+    if args.stage in ("replica", "all"):
+        rep = {}
+        for fs in (False, True):
+            for pw in (1e1, 1e3, 1e5, 1e7):
+                _, m = dense3.schur_replica(factor_scaling=fs, proj_weight=pw)
+                rep[f"factor={fs}_pw={pw:.0e}"] = m
+                log(f"  replica factor_scaling={fs} pw={pw:.0e}: "
+                    f"resid={m['dense_rel_residual']:.3e} "
+                    f"z_err_rel={m['z_err_rel']:.3e}")
+        results["dense_schur_replica"] = rep
+        save()
+
+    results["fails"] = fails
+    results["status"] = "pass" if not fails else "fail"
+    save()
+    log(f"STATUS: {results['status']}  fails={fails}")
+    return 0 if not fails else 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
