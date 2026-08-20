@@ -2,13 +2,39 @@
 
 ## v1.1.0 (2026-08-19)
 
-Correctness release: three implementation defects in the sweep-Schur response path are
-fixed. All three were **exactly invisible in the SA-2 equal-weight regime** — the regime
-of every v1.0 validation benchmark — and caused hard, bond-dimension-independent
-stagnation of the response solve for SA-3+ or unequal weights (true relative residual
-~1e-2..1e-1 against the 1e-6 certificate). The true-residual certificate layer
-(`certify_response`) was and remains honest: affected solves were **refused, not
-released** — no derivative was ever emitted with a passing certificate and a wrong value.
+Correctness release: three implementation defects in the response path are fixed. All three
+caused hard, bond-dimension-independent stagnation of the response solve (true relative
+residual ~1e-2..1e-1 against the 1e-6 certificate).
+
+**Correction (2026-08-20) to the containment statement first published with this entry.**
+The original wording said all three defects were "exactly invisible in the SA-2
+equal-weight regime — the regime of every v1.0 validation benchmark." That is true of F1
+only. The correct scope is:
+
+- **F1** (state-average weight) is an exact no-op at SA-2 equal weights (`2 w = 1`) and
+  affects only the sweep-Schur path.
+- **F2** (zero-initialized addition fixed point) is **independent of the state-average
+  weights, the penalty, `m_compress`, and inner-solve effort**. Its blind spot is
+  **two-site** active spaces: a zero-norm MPS is an ALS fixed point only for `n_sites > 2`,
+  so CAS(2,2) cannot exhibit it. The fix is inside `_combine_mps`, so the defect could
+  reach **every** call site, including the global MPS-Krylov solver's arithmetic — not the
+  Schur path alone.
+- **F3** (inner solve reporting convergence at true residual 1e-2..5e-2) is likewise
+  weight-independent, and affects the sweep-Schur path.
+
+Consequently F2 and F3 were **active in the beyond-FCI runs of v1.0**, whose active spaces
+have 16–24 sites, on both solver paths. What contained them is not the SA regime: it is
+that (i) `certify_response` recomputes the true residual through the audited global matvec
+and stayed honest — the affected large-CAS solves were published *with* their failed
+certificates (`true_residual_relative` 0.09–0.18, `converged=False`) rather than as
+converged results — and (ii) every v1.0 accuracy claim is a discrepancy measured against a
+reference outside the response path (analytic FCI, or a response-free finite difference),
+which a corrupted solve can inflate but cannot fake.
+
+Readers should therefore treat v1.0's residual floors and wall times as measurements of the
+v1.0 solver, not as properties of the method, and should not cite v1.0's Section 3.3
+attribution of those floors to response-vector entanglement: at small scale the equivalent
+floors collapse from ~5e-2 to ~1e-11 under these fixes at unchanged bond dimension.
 
 ### Fixed
 

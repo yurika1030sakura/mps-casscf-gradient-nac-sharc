@@ -26,14 +26,19 @@ benchmark:
    ethylene trajectory test repeated derivative evaluation and energy consistency
    for one initial condition.
 
-**v1.1.0 (2026-08):** three implementation defects in the sweep-Schur response path —
-each exactly invisible at SA-2 equal weights, the regime of every v1.0 benchmark — were
-found and fixed; SA-3 equal-weight and SA-2 unequal-weight responses are now validated
-against dense references to 1e-11..1e-15 (`test_sa_response_reproducer.py`). The
-true-residual certificate layer was honest throughout: affected solves were refused,
-never released with wrong values. See `CHANGELOG.md` and
-`verification/sa_response_fix_20260818/`. All v1.0 validation regressions reproduce
-reference-identical numbers on the fixed code.
+**v1.1.0 (2026-08):** three implementation defects in the response path were found and
+fixed; SA-3 equal-weight and SA-2 unequal-weight responses are now validated against dense
+references to 1e-11..1e-15 (`test_sa_response_reproducer.py`). Only one of the three (the
+state-average weight, F1) is confined to SA-2-equal invisibility; **F2 and F3 are
+weight-independent and were active in v1.0's beyond-FCI runs on both solver paths** — F2's
+blind spot is two-site active spaces, not the SA regime. The true-residual certificate
+layer stayed honest throughout: the affected large-CAS solves were published *with* their
+failed certificates (`true_residual_relative` 0.09–0.18, `converged=False`), and every
+accuracy claim is a discrepancy against a reference outside the response path, which a
+corrupted solve can inflate but cannot fake. v1.0's residual floors are measurements of
+the v1.0 solver, not properties of the method. See `CHANGELOG.md` for the full scope
+statement and `verification/sa_response_fix_20260818/` for the evidence. All v1.0
+validation regressions reproduce reference-identical numbers on the fixed code.
 
 The excited-state derivative-coupling benchmarks reported in the manuscript use
 singlet state averaging. The analytic gradient is additionally validated in two
